@@ -1,0 +1,14 @@
+### To-Do
+- [ ] make velocity PID for motor and motor group maybe make motor, make add a kf. 
+- [ ] resistance–temperature relationship/model max is 70C, use quadratic, and assume copper  
+- [ ] add telemetry for tracking error the difference between where it should be assuming perfect minus what odom says
+- [ ] standardize the code base
+- [ ] lvgl mayne later to make brain screen look not cancer
+- [ ] moter dynamic stuff from these equations, V = k_s \cdot \text{sgn}(v) + k_v \cdot v + k_a \cdot a, f_c = \frac{k_s \cdot k_t}{R}, J = \frac{k_a \cdot k_t}{R}
+- [ ] add unit literals
+- [ ] velocity pid characterization test 
+- [ ] figure out primitive pose error maybe 
+- [ ] add timing metrics for the movements
+- [ ] namespace the telemetry
+- [ ] update characterization to use logger 
+- [ ] add battery voltage compensation
