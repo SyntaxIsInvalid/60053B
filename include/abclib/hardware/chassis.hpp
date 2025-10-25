@@ -152,5 +152,15 @@ namespace abclib::hardware
         {
             path_follower_->follow_segment(segment, config);
         }
+
+        void move_to_pose_profiled(
+            units::Distance target_x,
+            units::Distance target_y,
+            units::Degrees target_heading,
+            units::BodyLinearVelocity max_velocity,
+            double max_acceleration,
+            units::Time timeout = units::Time::from_seconds(10),
+            const std::optional<Eigen::Matrix<double, 6, 1>> &custom_Q = std::nullopt,
+            const std::optional<Eigen::Matrix<double, 4, 1>> &custom_R = std::nullopt);
     };
 }

@@ -3,6 +3,9 @@
 #include "abclib/abclib.hpp"
 #include <numeric>
 #include <mutex>
+#include "abclib/builder/path_builder.hpp"
+#include "abclib/builder/path_logger.hpp"
+
 using namespace abclib;
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
@@ -59,7 +62,7 @@ void initialize()
     pros::lcd::initialize();
     leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-    chassis.calibrate();
+    chassis.calibrate();/*
     pros::Task screen_task([&]()
                            {
          while (1) {
@@ -120,7 +123,7 @@ void initialize()
                             local_telem.trajectory_total_time.seconds);
 
              pros::delay(100);
-         } });
+         } });*/
 }
 
 /**
@@ -141,9 +144,38 @@ void disabled() {}
  */
 void competition_initialize() {}
 
+void test_path_builder()
+{
+    using namespace abclib::path;
+    
+    PathBuilder builder;
+    
+    // Calculate the heading needed for the straight segment
+    double straight_heading = std::atan2(24 - 12, 48 - 24);  // ≈ 0.4636 rad ≈ 26.57°
+    
+    Path path = builder
+        .start(0, 0, 0)
+        
+        .begin_profile("approach", units::BodyLinearVelocity(40.0), 30.0)
+        .spline_to(24, 12, straight_heading)  // End spline at correct heading
+        .straight_to(48, 24)  // Now this works - heading matches!
+        
+        .begin_profile("precise", units::BodyLinearVelocity(20.0), 15.0)
+        .spline_to(60, 36, M_PI / 2)
+        
+        .build();
+    
+    PathLogger::log_path(path, "test_path", 2.0);
+    
+    pros::lcd::print(0, "Path logged!");
+    pros::lcd::print(1, "Groups: %d", path.num_groups());
+    pros::lcd::print(2, "Length: %.1f in", path.get_total_arc_length());
+}
+
+
 void autonomous()
 {
-
+    test_path_builder();
 }
 
 void opcontrol()
