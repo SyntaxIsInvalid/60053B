@@ -144,38 +144,97 @@ void disabled() {}
  */
 void competition_initialize() {}
 
-void test_path_builder()
-{
-    using namespace abclib::path;
+using namespace abclib::path;
+void autonomous() {
+    // Create path builder
+    PathBuilder builder(units::Distance::from_inches(14.0));
     
-    PathBuilder builder;
-    
-    // Calculate the heading needed for the straight segment
-    double straight_heading = std::atan2(24 - 12, 48 - 24);  // ≈ 0.4636 rad ≈ 26.57°
-    
-    Path path = builder
+    // Test 1: Basic spline with heuristic
+    Path test_basic = builder
         .start(0, 0, 0)
-        
-        .begin_profile("approach", units::BodyLinearVelocity(40.0), 30.0)
-        .spline_to(24, 12, straight_heading)  // End spline at correct heading
-        .straight_to(48, 24)  // Now this works - heading matches!
-        
-        .begin_profile("precise", units::BodyLinearVelocity(20.0), 15.0)
-        .spline_to(60, 36, M_PI / 2)
-        
+        .begin_profile("basic_spline", 
+                      units::BodyLinearVelocity(24.0), 
+                      2.0)
+        .spline_to(24, 24, M_PI/4)
         .build();
     
-    PathLogger::log_path(path, "test_path", 2.0);
+    PathLogger::log_path(test_basic, "test_basic_spline");
     
-    pros::lcd::print(0, "Path logged!");
-    pros::lcd::print(1, "Groups: %d", path.num_groups());
-    pros::lcd::print(2, "Length: %.1f in", path.get_total_arc_length());
-}
+    // Test 2: Spline with custom eta
+    Path test_custom_eta = builder
+        .start(0, 0, 0)
+        .begin_profile("custom_eta", 
+                      units::BodyLinearVelocity(24.0),
+                      2.0)
+        .spline_to(24, 24, M_PI/4, {{30.0, 30.0, 2.0, 2.0, 0.0, 0.0}})
+        .build();
+    
+    PathLogger::log_path(test_custom_eta, "test_custom_eta");
+    
+    // Test 3: Spline with custom eta and kappa
+    Path test_full_custom = builder
+        .start(0, 0, 0)
+        .begin_profile("full_custom", 
+                      units::BodyLinearVelocity(24.0),
+                      2.0)
+        .spline_to(24, 24, M_PI/4, 
+                   {{30.0, 30.0, 2.0, 2.0, 0.0, 0.0}},
+                   {{0.1, 0.0, -0.1, 0.0}})
+        .build();
+    
+    PathLogger::log_path(test_full_custom, "test_full_custom");
+        /*
+    // Test 4: Straight line
+    Path test_straight = builder
+        .start(0, 0, 0)
+        .begin_profile("straight", 
+                      units::BodyLinearVelocity(48.0),
+                      2.0)
+        .straight_to(48, 0)
+        .build();
 
+    PathLogger::log_path(test_straight, "test_straight");
+    
+    // Test 5: Turn in place
+    Path test_turn = builder
+        .start(0, 0, 0)
+        .begin_profile("before_turn", 
+                      units::BodyLinearVelocity(24.0),
+                      2.0)
+        .straight_to(24, 0)
+        .turn_in_place(M_PI/2)
+        .begin_profile("after_turn", 
+                      units::BodyLinearVelocity(24.0),
+                      2.0)
+        .straight_to(24, 24)
+        .build();
+    
+    PathLogger::log_path(test_turn, "test_turn_in_place");
 
-void autonomous()
-{
-    test_path_builder();
+    // Test 6: Complex path mixing everything
+    Path test_complex = builder
+        .start(0, 0, 0)
+        .begin_profile("approach", 
+                      units::BodyLinearVelocity(36.0),
+                      3.0)
+        .spline_to(24, 12, M_PI/6)
+        .straight_to(48, 24)
+        .turn_in_place(M_PI/2)
+        .begin_profile("pickup", 
+                      units::BodyLinearVelocity(12.0),
+                      1.0)
+        .spline_to(48, 48, M_PI, {{20.0, 20.0, 1.0, 1.0, 0.0, 0.0}})
+        .break_continuity()
+        .begin_profile("return", 
+                      units::BodyLinearVelocity(36.0),
+                      3.0)
+        .spline_to(24, 24, -M_PI/4)
+        .straight_to(0, 0, 0)
+        .build();
+    
+    PathLogger::log_path(test_complex, "test_complex_path");
+        */
+    pros::lcd::print(0, "All path tests logged!");
 }
 
 void opcontrol()
