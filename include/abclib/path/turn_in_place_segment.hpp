@@ -41,6 +41,11 @@ namespace abclib::path
         bool is_turn_in_place() const override { return true; }
         double get_turning_radius() const { return track_width_.inches / 2.0; }
 
+        double get_start_curvature() const override;
+        double get_end_curvature() const override;
+        double get_start_curvature_derivative() const override;
+        double get_end_curvature_derivative() const override;
+
     private:
         Pose start_pose_;
         Pose end_pose_;

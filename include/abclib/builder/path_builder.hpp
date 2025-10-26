@@ -139,6 +139,30 @@ namespace abclib::path
             return *this;
         }
 
+        PathBuilder &straight_forward(double distance)
+        {
+            ensure_current_group("straight_forward");
+
+            // Calculate end point by projecting forward along current heading
+            double end_x = current_pose_(0) + distance * std::cos(current_pose_(2));
+            double end_y = current_pose_(1) + distance * std::sin(current_pose_(2));
+
+            // End pose has same heading as current (pure translation)
+            Pose end_pose(end_x, end_y, current_pose_(2));
+
+            auto segment = std::make_unique<StraightSegment>(current_pose_, end_pose);
+
+            if (!current_group_->segments.empty())
+            {
+                validate_continuity(current_group_->segments.back().get(), segment.get());
+            }
+
+            current_group_->segments.push_back(std::move(segment));
+            current_pose_ = end_pose;
+
+            return *this;
+        }
+
         // Turn in place to absolute heading (implicitly breaks continuity)
         PathBuilder &turn_in_place(double heading)
         {
@@ -259,8 +283,7 @@ namespace abclib::path
             }
 
             // Check heading continuity (G1)
-            double heading_error = math::normalize_angle(
-                prev_end(2) - next_start(2));
+            double heading_error = math::normalize_angle(prev_end(2) - next_start(2));
             if (std::abs(heading_error) > 1e-6)
             {
                 throw std::runtime_error(
@@ -268,9 +291,33 @@ namespace abclib::path
                     "Use turn_in_place() or break_continuity() for sharp turns.");
             }
 
-            // G2 continuity check is harder - would need curvature methods
-            // Your segments don't expose curvature at endpoints yet
-            // Can add later if needed
+            // Check curvature continuity (G2)
+            double prev_end_curvature = prev->get_end_curvature();
+            double next_start_curvature = next->get_start_curvature();
+            double curvature_error = std::abs(prev_end_curvature - next_start_curvature);
+
+            if (curvature_error > 1e-6)
+            {
+                throw std::runtime_error(
+                    "PathBuilder: Curvature discontinuity detected (G2). "
+                    "End curvature: " +
+                    std::to_string(prev_end_curvature) +
+                    ", Start curvature: " + std::to_string(next_start_curvature));
+            }
+
+            // Check curvature derivative continuity (G3)
+            double prev_end_curvature_deriv = prev->get_end_curvature_derivative();
+            double next_start_curvature_deriv = next->get_start_curvature_derivative();
+            double curvature_deriv_error = std::abs(prev_end_curvature_deriv - next_start_curvature_deriv);
+
+            if (curvature_deriv_error > 1e-6)
+            {
+                throw std::runtime_error(
+                    "PathBuilder: Curvature derivative discontinuity detected (G3). "
+                    "End curvature derivative: " +
+                    std::to_string(prev_end_curvature_deriv) +
+                    ", Start curvature derivative: " + std::to_string(next_start_curvature_deriv));
+            }
         }
     };
 

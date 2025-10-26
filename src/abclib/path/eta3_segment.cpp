@@ -19,6 +19,7 @@ namespace abclib::path
 
         // 2. Resolve kappa: use the provided value, otherwise default to a zero vector.
         const KappaVec final_kappa = opt_kappa.value_or(KappaVec::Zero());
+        kappa_ = final_kappa;
 
         // 3. With the final parameters determined, compute the polynomial coefficients.
         calculate_coefficients(final_eta, final_kappa);
@@ -242,4 +243,9 @@ namespace abclib::path
         const double norm = calc_first_deriv(u).norm();
         return std::max(norm, 1e-6); });
     }
+
+    double Eta3PathSegment::get_start_curvature() const { return kappa_(0); }
+    double Eta3PathSegment::get_end_curvature() const { return kappa_(2); }
+    double Eta3PathSegment::get_start_curvature_derivative() const { return kappa_(1); }
+    double Eta3PathSegment::get_end_curvature_derivative() const { return kappa_(3); }
 }

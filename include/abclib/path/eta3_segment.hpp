@@ -40,11 +40,17 @@ namespace abclib::path
         const Pose &get_start_pose() const override;
         const Pose &get_end_pose() const override;
 
+        double get_start_curvature() const;
+        double get_end_curvature() const;
+        double get_start_curvature_derivative() const;
+        double get_end_curvature_derivative() const;
+
     private:
         static EtaVec calculate_heuristic_eta(const Pose &start_pose, const Pose &end_pose);
         void calculate_coefficients(const EtaVec &eta, const KappaVec &kappa);
         double s_dot(double u) const;
         double integrate_arc_length();
+        KappaVec kappa_;
 
         Pose start_pose_;
         Pose end_pose_;

@@ -22,6 +22,10 @@ namespace abclib::path
         virtual const Pose &get_start_pose() const = 0;
         virtual const Pose &get_end_pose() const = 0;
         virtual bool is_turn_in_place() const { return false; }
+        virtual double get_start_curvature() const = 0;
+        virtual double get_end_curvature() const = 0;
+        virtual double get_start_curvature_derivative() const = 0;
+        virtual double get_end_curvature_derivative() const = 0;
     };
     using Point = IPathSegment::Point;
     using Pose = IPathSegment::Pose;

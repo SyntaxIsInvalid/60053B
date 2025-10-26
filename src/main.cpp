@@ -183,7 +183,7 @@ void autonomous() {
         .build();
     
     PathLogger::log_path(test_full_custom, "test_full_custom");
-        /*
+        
     // Test 4: Straight line
     Path test_straight = builder
         .start(0, 0, 0)
@@ -210,7 +210,7 @@ void autonomous() {
         .build();
     
     PathLogger::log_path(test_turn, "test_turn_in_place");
-
+    
     // Test 6: Complex path mixing everything
     Path test_complex = builder
         .start(0, 0, 0)
@@ -218,7 +218,7 @@ void autonomous() {
                       units::BodyLinearVelocity(36.0),
                       3.0)
         .spline_to(24, 12, M_PI/6)
-        .straight_to(48, 24)
+        .straight_forward(20.0)
         .turn_in_place(M_PI/2)
         .begin_profile("pickup", 
                       units::BodyLinearVelocity(12.0),
@@ -229,11 +229,15 @@ void autonomous() {
                       units::BodyLinearVelocity(36.0),
                       3.0)
         .spline_to(24, 24, -M_PI/4)
-        .straight_to(0, 0, 0)
+        .turn_in_place(-3.0 * M_PI / 4.0)
+        .begin_profile("final_approach", 
+                    units::BodyLinearVelocity(36.0),
+                    3.0)
+        .straight_to(0, 0)
         .build();
     
     PathLogger::log_path(test_complex, "test_complex_path");
-        */
+        
     pros::lcd::print(0, "All path tests logged!");
 }
 
