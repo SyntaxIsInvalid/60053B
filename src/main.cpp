@@ -5,7 +5,7 @@
 #include <mutex>
 #include "abclib/builder/path_builder.hpp"
 #include "abclib/builder/path_logger.hpp"
-
+#include "abclib/trajectory/trajectory_logger.hpp"
 using namespace abclib;
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
@@ -184,7 +184,7 @@ void autonomous() {
 
     
     PathLogger::log_path(test_complex, "test_complex_path");
-        
+    trajectory::TrajectoryLogger::log_path_trajectories(test_complex, "test_complex_trajectories");
     pros::lcd::print(0, "All path tests logged!");
 }
 
