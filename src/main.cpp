@@ -28,6 +28,8 @@ hardware::motor_group_config right_config{
 hardware::AdvancedMotorGroup leftMotors({-10, 4}, pros::MotorGearset::blue, left_config);
 hardware::AdvancedMotorGroup rightMotors({6, -11}, pros::MotorGearset::blue, right_config);
 
+// subsystems::Intake intake({15}, pros::MotorGearset::blue);
+
 pros::IMU imu(9);
 pros::Rotation y_rotation(21);
 hardware::TrackingWheel y_tracker(&y_rotation, units::Distance::from_inches(2), units::Distance::from_inches(-0.25));
@@ -149,68 +151,6 @@ void autonomous() {
     // Create path builder
     PathBuilder builder(units::Distance::from_inches(14.0));
     
-    // Test 1: Basic spline with heuristic
-    Path test_basic = builder
-        .start(0, 0, 0)
-        .begin_profile("basic_spline", 
-                      units::BodyLinearVelocity(24.0), 
-                      2.0)
-        .spline_to(24, 24, M_PI/4)
-        .build();
-    
-    PathLogger::log_path(test_basic, "test_basic_spline");
-    
-    // Test 2: Spline with custom eta
-    Path test_custom_eta = builder
-        .start(0, 0, 0)
-        .begin_profile("custom_eta", 
-                      units::BodyLinearVelocity(24.0),
-                      2.0)
-        .spline_to(24, 24, M_PI/4, {{30.0, 30.0, 2.0, 2.0, 0.0, 0.0}})
-        .build();
-    
-    PathLogger::log_path(test_custom_eta, "test_custom_eta");
-    
-    // Test 3: Spline with custom eta and kappa
-    Path test_full_custom = builder
-        .start(0, 0, 0)
-        .begin_profile("full_custom", 
-                      units::BodyLinearVelocity(24.0),
-                      2.0)
-        .spline_to(24, 24, M_PI/4, 
-                   {{30.0, 30.0, 2.0, 2.0, 0.0, 0.0}},
-                   {{0.1, 0.0, -0.1, 0.0}})
-        .build();
-    
-    PathLogger::log_path(test_full_custom, "test_full_custom");
-        
-    // Test 4: Straight line
-    Path test_straight = builder
-        .start(0, 0, 0)
-        .begin_profile("straight", 
-                      units::BodyLinearVelocity(48.0),
-                      2.0)
-        .straight_to(48, 0)
-        .build();
-
-    PathLogger::log_path(test_straight, "test_straight");
-    
-    // Test 5: Turn in place
-    Path test_turn = builder
-        .start(0, 0, 0)
-        .begin_profile("before_turn", 
-                      units::BodyLinearVelocity(24.0),
-                      2.0)
-        .straight_to(24, 0)
-        .turn_in_place(M_PI/2)
-        .begin_profile("after_turn", 
-                      units::BodyLinearVelocity(24.0),
-                      2.0)
-        .straight_to(24, 24)
-        .build();
-    
-    PathLogger::log_path(test_turn, "test_turn_in_place");
-    
     // Test 6: Complex path mixing everything
     Path test_complex = builder
         .start(0, 0, 0)
@@ -219,6 +159,9 @@ void autonomous() {
                       3.0)
         .spline_to(24, 12, M_PI/6)
         .straight_forward(20.0)
+        .begin_profile("turn1",
+                      units::BodyLinearVelocity(24.0),
+                      2.0)
         .turn_in_place(M_PI/2)
         .begin_profile("pickup", 
                       units::BodyLinearVelocity(12.0),
@@ -229,12 +172,16 @@ void autonomous() {
                       units::BodyLinearVelocity(36.0),
                       3.0)
         .spline_to(24, 24, -M_PI/4)
+        .begin_profile("turn2",
+                      units::BodyLinearVelocity(20.0),
+                      2.5)
         .turn_in_place(-3.0 * M_PI / 4.0)
         .begin_profile("final_approach", 
                     units::BodyLinearVelocity(36.0),
                     3.0)
         .straight_to(0, 0)
         .build();
+
     
     PathLogger::log_path(test_complex, "test_complex_path");
         
@@ -248,6 +195,20 @@ void opcontrol()
         int turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
         int throttle = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         chassis.drive(throttle, turn, 1, .65);
+        /*
+        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
+        {
+            intake.set_intake();
+        }
+        else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
+        {
+            intake.set_outtake();
+        }
+        else
+        {
+            intake.set_idle();
+        }
+        */
         pros::delay(20);
     }
 }

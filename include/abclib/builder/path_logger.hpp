@@ -83,7 +83,17 @@ namespace abclib::path
                         segment->calc_point(u, x, y);
                         
                         auto deriv = segment->calc_first_deriv(u);
-                        double theta = std::atan2(deriv.y(), deriv.x());
+                        double theta;
+                        if (segment->is_turn_in_place()) {
+                            // Interpolate heading directly for turns
+                            double theta_start = segment->get_start_pose()(2);
+                            double theta_end = segment->get_end_pose()(2);
+                            theta = theta_start + u * (theta_end - theta_start);
+                        } else {
+                            // Normal geometric heading from derivatives
+                            auto deriv = segment->calc_first_deriv(u);
+                            theta = std::atan2(deriv.y(), deriv.x());
+                        }
                         double curvature = segment->calc_curvature(u);
                         
                         // Arc length along this segment

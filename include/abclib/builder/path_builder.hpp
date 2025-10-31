@@ -168,29 +168,20 @@ namespace abclib::path
         {
             ensure_current_group("turn_in_place");
 
-            // Finalize current profile group (turn breaks continuity)
-            finalize_current_group();
-
             // Create turn-in-place segment
             auto segment = std::make_unique<TurnInPlaceSegment>(
                 current_pose_,
                 heading,
                 track_width_);
 
-            // Create a single-segment profile group for the turn
-            // Use reasonable defaults for turning - user can override with beginProfile
-            ProfileGroup turn_group(
-                "turn_in_place",
-                units::BodyLinearVelocity(12.0), // moderate angular velocity
-                30.0                             // moderate angular acceleration
-            );
-
-            turn_group.segments.push_back(std::move(segment));
-            turn_group.compute_arc_length();
-            path_.add_profile_group(std::move(turn_group));
+            // Add segment to current group FIRST
+            current_group_->segments.push_back(std::move(segment));
 
             // Update current pose to new heading
             current_pose_(2) = heading;
+
+            // THEN finalize (turn breaks continuity for NEXT segment)
+            finalize_current_group();
 
             return *this;
         }

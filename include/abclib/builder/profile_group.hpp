@@ -12,7 +12,7 @@ namespace abclib::path
     {
         std::string name;
         units::BodyLinearVelocity max_velocity;
-        double max_acceleration; // inches/s²
+        double max_acceleration; // inches/s^2
         
         std::vector<std::unique_ptr<IPathSegment>> segments;
         
