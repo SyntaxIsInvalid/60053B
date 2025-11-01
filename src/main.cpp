@@ -28,6 +28,8 @@ hardware::motor_group_config right_config{
 hardware::AdvancedMotorGroup leftMotors({-10, 4}, pros::MotorGearset::blue, left_config);
 hardware::AdvancedMotorGroup rightMotors({6, -11}, pros::MotorGearset::blue, right_config);
 
+// hardware::Pneumatic match_load_ramp('D');
+
 // subsystems::Intake intake({15}, pros::MotorGearset::blue);
 
 pros::IMU imu(9);
@@ -64,6 +66,7 @@ void initialize()
     pros::lcd::initialize();
     leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    // match_load_ramp.retract();
     chassis.calibrate();/*
     pros::Task screen_task([&]()
                            {
@@ -208,6 +211,12 @@ void opcontrol()
         {
             intake.set_idle();
         }
+
+        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A))
+        {
+            match_load_ramp.toggle();
+        }
+
         */
         pros::delay(20);
     }

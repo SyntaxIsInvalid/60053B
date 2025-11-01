@@ -13,6 +13,7 @@
 #include "abclib/hardware/chassis.hpp"
 #include "abclib/hardware/motor_tracking_wheel.hpp"
 #include "abclib/hardware/tracking_wheel_interface.hpp"
+#include "abclib/hardware/pneumatic.hpp"
 
 // state estimation/localization
 #include "abclib/estimation/odometry.hpp"
