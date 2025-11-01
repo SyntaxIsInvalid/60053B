@@ -59,6 +59,10 @@ namespace abclib::hardware
             bool enable_feedforward = true);
         ~AdvancedMotorGroup();
 
+        double get_velocity_p_term() const { return velocity_pid.get_p_term(); }
+        double get_velocity_i_term() const { return velocity_pid.get_i_term(); }
+        double get_velocity_d_term() const { return velocity_pid.get_d_term(); }
+
         void reset_position();
         void move_voltage(units::Voltage voltage);
         void set_brake_mode(pros::motor_brake_mode_e_t brake_mode);

@@ -12,3 +12,4 @@
 - [ ] namespace the telemetry
 - [ ] update characterization to use logger 
 - [ ] add battery voltage compensation
+- [ ] update all the telemetry on what would be useful to log

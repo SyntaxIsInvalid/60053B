@@ -67,7 +67,7 @@ void initialize()
     leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // match_load_ramp.retract();
-    chassis.calibrate();/*
+    chassis.calibrate();
     pros::Task screen_task([&]()
                            {
          while (1) {
@@ -128,7 +128,7 @@ void initialize()
                             local_telem.trajectory_total_time.seconds);
 
              pros::delay(100);
-         } });*/
+         } });
 }
 
 /**
@@ -151,9 +151,48 @@ void competition_initialize() {}
 
 using namespace abclib::path;
 void autonomous() {
+    characterization::measure_velocity_pid(
+        chassis,
+        true,
+        "velocity_pid_test",
+        60.0,
+        9000
+    );
+    controller.print(0, 0, "done");
+
+
     // Create path builder
+    /*
     PathBuilder builder(units::Distance::from_inches(14.0));
+
+    Path test_path = builder
+        .start(0, 0, 0)  // Start at origin facing 0 radians
+        
+        .begin_profile("forward1", 
+                      units::BodyLinearVelocity(36.0),
+                      3.0)
+        .straight_forward(24.0)  // go forward 24 inches
+        
+        .begin_profile("turn1",
+                      units::BodyLinearVelocity(24.0),
+                      2.0)
+        .turn_in_place(M_PI)  // turn 180 degrees (turn gets added to turn1 profile)
+        
+        .begin_profile("forward2",
+                      units::BodyLinearVelocity(36.0),
+                      3.0)
+        .straight_to(0, 0)  // go back to origin using straight_to
+        
+        .begin_profile("turn2",
+                      units::BodyLinearVelocity(24.0),
+                      2.0)
+        .turn_in_place(0)  // turn back to 0 radians
+        
+        .build();
     
+    chassis.follow_path(test_path, units::Time::from_seconds(15));
+    */
+    /*
     // Test 6: Complex path mixing everything
     Path test_complex = builder
         .start(0, 0, 0)
@@ -189,6 +228,7 @@ void autonomous() {
     PathLogger::log_path(test_complex, "test_complex_path");
     trajectory::TrajectoryLogger::log_path_trajectories(test_complex, "test_complex_trajectories");
     pros::lcd::print(0, "All path tests logged!");
+    */
 }
 
 void opcontrol()

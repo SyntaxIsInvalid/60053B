@@ -204,6 +204,113 @@ namespace abclib::trajectory
         }
     }
 
+    void PathFollower::follow_path(const path::Path &path, units::Time timeout)
+    {
+        if (path.empty())
+        {
+            throw std::invalid_argument("PathFollower: cannot follow empty path");
+        }
+
+        const auto &groups = path.get_profile_groups();
+        const uint32_t start_time = pros::millis();
+
+        // Reset telemetry for entire path
+        {
+            std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
+            abclib::telemetry = TelemetryData{};
+            abclib::telemetry.max_cross_track_error = units::Distance::from_inches(0);
+            abclib::telemetry.cumulative_xte = units::Distance::from_inches(0);
+            abclib::telemetry.max_along_track_error = units::Distance::from_inches(0);
+            abclib::telemetry.cumulative_ate = units::Distance::from_inches(0);
+        }
+
+        // Follow each profile group sequentially
+        for (size_t i = 0; i < groups.size(); ++i)
+        {
+            const auto &group = groups[i];
+
+            // Check if we've exceeded total timeout
+            const uint32_t current_time = pros::millis();
+            const units::Time elapsed = units::Time::from_millis(current_time - start_time);
+
+            if (elapsed >= timeout)
+            {
+                std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
+                abclib::telemetry.settlement_reason = abclib::SettlementReason::TIMEOUT;
+                abclib::telemetry.time_to_settle = elapsed;
+                abclib::telemetry.path_status = abclib::PathFollowerStatus::COMPLETE;
+                return;
+            }
+
+            // Create trajectory for this profile group
+            Trajectory trajectory(&group);
+
+            // Calculate remaining time for this group
+            units::Time remaining_time = units::Time::from_seconds(
+                timeout.seconds - elapsed.seconds);
+
+            // Create config for this group
+            FollowerConfig config;
+            config.max_velocity = group.max_velocity;
+            config.max_acceleration = group.max_acceleration;
+            config.timeout = remaining_time;
+            config.ramsete_constants = {2.0, 0.7}; // Use defaults or expose as parameter
+
+            // Execute this profile group
+            execute_control_loop(nullptr, trajectory, config);
+        }
+
+        // Mark path as complete
+        {
+            std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
+            abclib::telemetry.path_status = abclib::PathFollowerStatus::COMPLETE;
+        }
+    }
+
+    TrajectoryState PathFollower::get_state_at(const path::Path &path, units::Time time) const
+    {
+        if (path.empty())
+        {
+            throw std::invalid_argument("PathFollower: cannot query empty path");
+        }
+
+        const auto &groups = path.get_profile_groups();
+
+        // Track cumulative time across profile groups
+        units::Time cumulative_time = units::Time::from_seconds(0);
+
+        for (const auto &group : groups)
+        {
+            // Create trajectory for this group to get timing info
+            Trajectory trajectory(&group);
+            units::Time group_duration = trajectory.get_total_time();
+
+            // Check if requested time falls within this group
+            if (time < cumulative_time + group_duration)
+            {
+                // Time is within this group - calculate relative time
+                units::Time relative_time = units::Time::from_seconds(
+                    time.seconds - cumulative_time.seconds);
+
+                // Return state from this group's trajectory
+                TrajectoryState state = trajectory.get_state(relative_time);
+                state.time = time; // Update to global time
+                return state;
+            }
+
+            // Move to next group
+            cumulative_time = units::Time::from_seconds(
+                cumulative_time.seconds + group_duration.seconds);
+        }
+
+        // Time is beyond path end - return final state
+        const auto &last_group = groups.back();
+        Trajectory last_trajectory(&last_group);
+        TrajectoryState final_state = last_trajectory.get_state(last_trajectory.get_total_time());
+        final_state.time = time; // Keep requested time
+        return final_state;
+    }
+
     bool PathFollower::check_settlement(
         const estimation::Pose &current_pose,
         const TrajectoryState &reference_state,

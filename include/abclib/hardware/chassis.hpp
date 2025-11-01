@@ -147,10 +147,16 @@ namespace abclib::hardware
 
         units::Distance get_track_width() const { return track_width; }
         void stop_motors();
-        void follow_path(const path::IPathSegment *segment,
-                         const trajectory::FollowerConfig &config)
+        void follow_segment(const path::IPathSegment *segment,
+                            const trajectory::FollowerConfig &config)
         {
             path_follower_->follow_segment(segment, config);
+        }
+
+        void follow_path(const path::Path &path,
+                         units::Time timeout = units::Time::from_seconds(15))
+        {
+            path_follower_->follow_path(path, timeout);
         }
 
         void move_to_pose_profiled(

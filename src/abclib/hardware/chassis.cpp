@@ -522,6 +522,31 @@ namespace abclib::hardware
 
         left_motors->move_velocity_continuous(left_motor_vel);
         right_motors->move_velocity_continuous(right_motor_vel);
+
+        // Update telemetry
+        {
+            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+
+            // Left motor
+            telemetry.left_motor_target_velocity = left_motor_vel;
+            telemetry.left_motor_actual_velocity = left_motors->get_raw_velocity();
+            telemetry.left_motor_velocity_error_rpm =
+                units::RPM::from_rad_per_sec(left_motor_vel.rad_per_sec).value -
+                units::RPM::from_rad_per_sec(telemetry.left_motor_actual_velocity.rad_per_sec).value;
+            telemetry.left_motor_velocity_p_term = left_motors->get_velocity_p_term();
+            telemetry.left_motor_velocity_i_term = left_motors->get_velocity_i_term();
+            telemetry.left_motor_velocity_d_term = left_motors->get_velocity_d_term();
+
+            // Right motor
+            telemetry.right_motor_target_velocity = right_motor_vel;
+            telemetry.right_motor_actual_velocity = right_motors->get_raw_velocity();
+            telemetry.right_motor_velocity_error_rpm =
+                units::RPM::from_rad_per_sec(right_motor_vel.rad_per_sec).value -
+                units::RPM::from_rad_per_sec(telemetry.right_motor_actual_velocity.rad_per_sec).value;
+            telemetry.right_motor_velocity_p_term = right_motors->get_velocity_p_term();
+            telemetry.right_motor_velocity_i_term = right_motors->get_velocity_i_term();
+            telemetry.right_motor_velocity_d_term = right_motors->get_velocity_d_term();
+        }
     }
 
     void Chassis::move_velocity(units::WheelLinearVelocity left_velocity,
@@ -538,6 +563,29 @@ namespace abclib::hardware
 
         left_motors->move_velocity_continuous(left_motor_vel, override_kS, override_kV);
         right_motors->move_velocity_continuous(right_motor_vel, override_kS, override_kV);
+
+        // Update telemetry (same as above)
+        {
+            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+
+            telemetry.left_motor_target_velocity = left_motor_vel;
+            telemetry.left_motor_actual_velocity = left_motors->get_raw_velocity();
+            telemetry.left_motor_velocity_error_rpm =
+                units::RPM::from_rad_per_sec(left_motor_vel.rad_per_sec).value -
+                units::RPM::from_rad_per_sec(telemetry.left_motor_actual_velocity.rad_per_sec).value;
+            telemetry.left_motor_velocity_p_term = left_motors->get_velocity_p_term();
+            telemetry.left_motor_velocity_i_term = left_motors->get_velocity_i_term();
+            telemetry.left_motor_velocity_d_term = left_motors->get_velocity_d_term();
+
+            telemetry.right_motor_target_velocity = right_motor_vel;
+            telemetry.right_motor_actual_velocity = right_motors->get_raw_velocity();
+            telemetry.right_motor_velocity_error_rpm =
+                units::RPM::from_rad_per_sec(right_motor_vel.rad_per_sec).value -
+                units::RPM::from_rad_per_sec(telemetry.right_motor_actual_velocity.rad_per_sec).value;
+            telemetry.right_motor_velocity_p_term = right_motors->get_velocity_p_term();
+            telemetry.right_motor_velocity_i_term = right_motors->get_velocity_i_term();
+            telemetry.right_motor_velocity_d_term = right_motors->get_velocity_d_term();
+        }
     }
 
     void Chassis::move_straight_profiled(units::Distance distance,

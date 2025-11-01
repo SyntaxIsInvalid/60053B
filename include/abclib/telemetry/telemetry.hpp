@@ -116,6 +116,24 @@ namespace abclib
         // Battery monitoring
         units::Voltage battery_voltage = units::Voltage::from_volts(0);
         double battery_capacity_percent = 0.0;
+
+        // Left motor velocity control
+        units::MotorAngularVelocity left_motor_target_velocity = units::MotorAngularVelocity(0);
+        units::MotorAngularVelocity left_motor_actual_velocity = units::MotorAngularVelocity(0);
+        double left_motor_velocity_error_rpm = 0;
+        double left_motor_velocity_p_term = 0;
+        double left_motor_velocity_i_term = 0;
+        double left_motor_velocity_d_term = 0;
+        units::Voltage left_motor_velocity_output = units::Voltage::from_volts(0);
+
+        // Right motor velocity control
+        units::MotorAngularVelocity right_motor_target_velocity = units::MotorAngularVelocity(0);
+        units::MotorAngularVelocity right_motor_actual_velocity = units::MotorAngularVelocity(0);
+        double right_motor_velocity_error_rpm = 0;
+        double right_motor_velocity_p_term = 0;
+        double right_motor_velocity_i_term = 0;
+        double right_motor_velocity_d_term = 0;
+        units::Voltage right_motor_velocity_output = units::Voltage::from_volts(0);
     };
 
     // Global telemetry instance

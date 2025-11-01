@@ -3,6 +3,9 @@
 #include "pros/rtos.hpp"
 #include "pros/misc.h"
 #include <cstdio>
+#include "abclib/telemetry/telemetry.hpp"
+#include <mutex>
+#include "abclib/hardware/chassis.hpp"
 
 namespace abclib::characterization
 {
@@ -204,5 +207,118 @@ namespace abclib::characterization
         pros::lcd::print(1, "File: %s", full_filename);
         pros::lcd::print(2, "Analyze for turn");
         pros::lcd::print(3, "kS_turn and kV_turn");
+    }
+
+    void measure_velocity_pid(
+        hardware::Chassis &chassis, // Changed from left/right motor groups
+        bool forward,
+        const char *filename,
+        double target_rpm,
+        int settle_duration_ms)
+    {
+        // Check SD card availability
+        if (!pros::usd::is_installed())
+        {
+            pros::lcd::print(0, "ERROR: No SD card!");
+            return;
+        }
+
+        // Build filename with velocity and direction
+        char full_filename[64];
+        snprintf(full_filename, sizeof(full_filename), "/usd/%s_%.0frpm_%s.csv",
+                 filename, target_rpm, forward ? "forward" : "backward");
+
+        pros::lcd::print(0, "Starting velocity PID test...");
+        pros::lcd::print(1, "Target: %.1f RPM", target_rpm);
+        pros::delay(2000);
+
+        // Reset chassis position instead of individual motor groups
+        chassis.reset_chassis_position();
+        pros::delay(100);
+
+        // Open file for writing
+        FILE *file = fopen(full_filename, "w");
+        if (file == nullptr)
+        {
+            pros::lcd::print(0, "ERROR: Can't open file!");
+            return;
+        }
+
+        // Write CSV header
+        fprintf(file, "time_ms,target_rpm,left_vel_rpm,right_vel_rpm,avg_vel_rpm,");
+        fprintf(file, "error_rpm,left_p,left_i,left_d,right_p,right_i,right_d\n");
+
+        uint32_t test_start_time = pros::millis();
+        double direction_multiplier = forward ? 1.0 : -1.0;
+        units::MotorAngularVelocity target_velocity =
+            units::MotorAngularVelocity::from_rpm(target_rpm * direction_multiplier);
+
+        pros::lcd::print(0, "Holding %.1f RPM...", target_rpm * direction_multiplier);
+
+        // Hold velocity for the specified duration
+        while ((pros::millis() - test_start_time) < static_cast<uint32_t>(settle_duration_ms))
+        {
+            // Convert motor velocity to wheel velocity
+            units::Distance wheel_radius = chassis.get_config().diameter / 2.0;
+            units::WheelLinearVelocity wheel_vel =
+                units::WheelLinearVelocity(target_velocity.rad_per_sec * wheel_radius.inches);
+
+            chassis.move_velocity(wheel_vel, wheel_vel);
+
+            // Read from telemetry
+            TelemetryData local_telem;
+            {
+                std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+                local_telem = telemetry;
+            }
+
+            // Convert velocities to RPM for logging
+            double left_vel_rpm = units::RPM::from_rad_per_sec(
+                                      local_telem.left_motor_actual_velocity.rad_per_sec)
+                                      .value;
+            double right_vel_rpm = units::RPM::from_rad_per_sec(
+                                       local_telem.right_motor_actual_velocity.rad_per_sec)
+                                       .value;
+            double avg_vel_rpm = (left_vel_rpm + right_vel_rpm) / 2.0;
+
+            // Average error
+            double avg_error_rpm = (local_telem.left_motor_velocity_error_rpm +
+                                    local_telem.right_motor_velocity_error_rpm) /
+                                   2.0;
+
+            uint32_t timestamp = pros::millis() - test_start_time;
+
+            // Write to SD card with all PID terms
+            fprintf(file, "%lu,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n",
+                    timestamp,
+                    target_rpm * direction_multiplier,
+                    left_vel_rpm,
+                    right_vel_rpm,
+                    avg_vel_rpm,
+                    avg_error_rpm,
+                    local_telem.left_motor_velocity_p_term,
+                    local_telem.left_motor_velocity_i_term,
+                    local_telem.left_motor_velocity_d_term,
+                    local_telem.right_motor_velocity_p_term,
+                    local_telem.right_motor_velocity_i_term,
+                    local_telem.right_motor_velocity_d_term);
+
+            // Update LCD every 500ms
+            if (timestamp % 500 < 10)
+            {
+                pros::lcd::print(1, "Vel: %.1f RPM", avg_vel_rpm);
+                pros::lcd::print(2, "Err: %.1f RPM", avg_error_rpm);
+            }
+
+            pros::delay(10); // Sample at 100Hz
+        }
+
+        // Stop motors through chassis
+        chassis.stop_motors();
+        fclose(file);
+
+        pros::lcd::print(0, "Velocity test complete!");
+        pros::lcd::print(1, "File: %s", full_filename);
+        pros::lcd::print(2, "Analyze PID response");
     }
 }

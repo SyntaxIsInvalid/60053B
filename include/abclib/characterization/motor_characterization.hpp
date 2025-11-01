@@ -2,6 +2,11 @@
 
 #include "abclib/hardware/motor_group.hpp"
 
+namespace abclib::hardware
+{
+    class Chassis;
+}
+
 namespace abclib::characterization
 {
     void measure_ks_kv(
@@ -23,11 +28,9 @@ namespace abclib::characterization
         int step_duration_ms = 500);
 
     void measure_velocity_pid(
-        hardware::AdvancedMotorGroup &left,
-        hardware::AdvancedMotorGroup &right,
-        bool forward = true,
-        const char *filename = "velocity_pid_test",
-        double target_rpm = 60.0,
-        int settle_duration_ms = 10000);
-
+        hardware::Chassis &chassis,
+        bool forward,
+        const char *filename,
+        double target_rpm,
+        int settle_duration_ms);
 }

@@ -7,6 +7,7 @@
 #include "abclib/estimation/odometry.hpp" // For Pose
 #include <functional>
 #include "abclib/control/pid.hpp" // <-- ADD THIS LINE
+#include "abclib/builder/path.hpp"
 
 namespace abclib::hardware
 {
@@ -62,6 +63,28 @@ namespace abclib::trajectory
          * @brief Get current RAMSETE gains
          */
         control::RamseteConstants get_ramsete_constants() const;
+
+        /**
+         * @brief Follow an entire multi-profile path
+         * @param path Path object containing multiple profile groups
+         * @param timeout Maximum time for entire path execution
+         *
+         * This function blocks until the entire path is complete or timeout occurs.
+         * Automatically handles transitions between profile groups.
+         */
+        void follow_path(const path::Path &path,
+                         units::Time timeout = units::Time::from_seconds(15));
+
+        /**
+         * @brief Get the state of the path at a specific time
+         * @param path Path to query
+         * @param time Time from path start
+         * @return TrajectoryState at the specified time
+         *
+         * This is used for action scheduling - query where the robot should be
+         * at any point during path execution.
+         */
+        TrajectoryState get_state_at(const path::Path &path, units::Time time) const;
 
     private:
         hardware::Chassis *chassis_;
