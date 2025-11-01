@@ -54,7 +54,13 @@ namespace abclib::trajectory
         const uint32_t start_time = pros::millis();
         const double dt = 0.01;
 
-        bool is_turn_in_place = segment->is_turn_in_place();
+        bool is_turn_in_place = false;
+
+        if (segment)
+        {
+            // Single-segment mode: check the segment directly
+            is_turn_in_place = segment->is_turn_in_place();
+        }
 
         while (true)
         {
@@ -81,6 +87,14 @@ namespace abclib::trajectory
             }
 
             TrajectoryState reference_state = trajectory.get_state(sample_time);
+
+            // For multi-segment paths, detect turn-in-place from trajectory
+            if (!segment)
+            {
+                // If both vx and vy are near zero, we're in a turn
+                is_turn_in_place = (std::abs(reference_state.vx) < 1e-6 &&
+                                    std::abs(reference_state.vy) < 1e-6);
+            }
 
             if (config.state_callback)
             {

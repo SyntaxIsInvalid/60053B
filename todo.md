@@ -6,7 +6,6 @@
 - [ ] lvgl mayne later to make brain screen look not cancer
 - [ ] moter dynamic stuff from these equations, V = k_s \cdot \text{sgn}(v) + k_v \cdot v + k_a \cdot a, f_c = \frac{k_s \cdot k_t}{R}, J = \frac{k_a \cdot k_t}{R}
 - [ ] add unit literals
-- [ ] velocity pid characterization test 
 - [ ] figure out primitive pose error maybe 
 - [ ] add timing metrics for the movements
 - [ ] namespace the telemetry

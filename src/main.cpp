@@ -12,17 +12,17 @@ pros::Controller controller(pros::E_CONTROLLER_MASTER);
 hardware::motor_group_config left_config{
     .kS = 0.633391,
     .kV = 0.1594417,
-    .kPv = 0.2,
-    .kIv = 0.0,
-    .kDv = 0.0,
+    .kPv = 0.15,
+    .kIv = 0.03,
+    .kDv = 0.00,
 };
 
 hardware::motor_group_config right_config{
     .kS = 0.633391,
     .kV = 0.1594417,
-    .kPv = 0.2,
-    .kIv = 0.0,
-    .kDv = 0.0,
+    .kPv = 0.15,
+    .kIv = 0.03,
+    .kDv = 0.00,
 };
 
 hardware::AdvancedMotorGroup leftMotors({-10, 4}, pros::MotorGearset::blue, left_config);
@@ -68,6 +68,7 @@ void initialize()
     rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // match_load_ramp.retract();
     chassis.calibrate();
+    /*
     pros::Task screen_task([&]()
                            {
          while (1) {
@@ -128,7 +129,7 @@ void initialize()
                             local_telem.trajectory_total_time.seconds);
 
              pros::delay(100);
-         } });
+         } });*/
 }
 
 /**
@@ -150,53 +151,88 @@ void disabled() {}
 void competition_initialize() {}
 
 using namespace abclib::path;
-void autonomous() {
-    characterization::measure_velocity_pid(
-        chassis,
-        true,
-        "velocity_pid_test",
-        60.0,
-        9000
-    );
-    controller.print(0, 0, "done");
-
-
+void autonomous()
+{
     // Create path builder
-    /*
+
     PathBuilder builder(units::Distance::from_inches(14.0));
 
     Path test_path = builder
-        .start(0, 0, 0)  // Start at origin facing 0 radians
+                         .start(0, 0, 0) // Start at origin facing 0 radians
+
+                         .begin_profile("forward1",
+                                        units::BodyLinearVelocity(36.0),
+                                        18.0)
+                         .straight_forward(24.0) // go forward 24 inches
+                        /*
+                         .begin_profile("turn1",
+                                        units::BodyLinearVelocity(24.0),
+                                        6.0)
+                         .turn_in_place(M_PI) // turn 180 degrees (turn gets added to turn1 profile)
+
+                         .begin_profile("forward2",
+                                        units::BodyLinearVelocity(36.0),
+                                        18.0)
+                         .straight_to(0, 0) // go back to origin using straight_to
+
+                         .begin_profile("turn2",
+                                        units::BodyLinearVelocity(24.0),
+                                        6.0)
+                         .turn_in_place(0) // turn back to 0 radians
+*/
+                         .build();
+
+    // Start logging task
+    std::atomic<bool> path_complete{false};
+
+    pros::Task logger([&]()
+                      {
+        FILE* file = fopen("/usd/execution_log2.csv", "w");
+        if (!file) return;
         
-        .begin_profile("forward1", 
-                      units::BodyLinearVelocity(36.0),
-                      3.0)
-        .straight_forward(24.0)  // go forward 24 inches
+        fprintf(file, "time_ms,x,y,theta_deg,v,omega,");
+        fprintf(file, "xte,ate,status,settlement_reason,left_cmd,right_cmd\n");
         
-        .begin_profile("turn1",
-                      units::BodyLinearVelocity(24.0),
-                      2.0)
-        .turn_in_place(M_PI)  // turn 180 degrees (turn gets added to turn1 profile)
+        uint32_t start = pros::millis();
         
-        .begin_profile("forward2",
-                      units::BodyLinearVelocity(36.0),
-                      3.0)
-        .straight_to(0, 0)  // go back to origin using straight_to
+        while (!path_complete.load()) {
+            TelemetryData local_telem;
+            {
+                std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+                local_telem = telemetry;
+            }
+            
+            fprintf(file, "%u,%.3f,%.3f,%.2f,%.2f,%.2f,",
+                   pros::millis() - start,
+                   local_telem.pose.x(),
+                   local_telem.pose.y(),
+                   local_telem.pose.theta() * 180.0 / M_PI,
+                   local_telem.pose_v.inches_per_sec,
+                   local_telem.pose_omega.rad_per_sec);
+            
+            fprintf(file, "%.3f,%.3f,%s,%s,%.2f,%.2f\n",
+                   local_telem.cross_track_error.inches,
+                   local_telem.along_track_error.inches,
+                   path_status_to_string(local_telem.path_status),
+                   settlement_reason_to_string(local_telem.settlement_reason),
+                   local_telem.left_wheel_cmd.inches_per_sec,
+                   local_telem.right_wheel_cmd.inches_per_sec);
+            
+            fflush(file);
+            pros::delay(20);
+        }
         
-        .begin_profile("turn2",
-                      units::BodyLinearVelocity(24.0),
-                      2.0)
-        .turn_in_place(0)  // turn back to 0 radians
-        
-        .build();
-    
+        fclose(file); });
+
     chassis.follow_path(test_path, units::Time::from_seconds(15));
-    */
+    pros::delay(100);
+    controller.print(0, 0, "done");
+
     /*
     // Test 6: Complex path mixing everything
     Path test_complex = builder
         .start(0, 0, 0)
-        .begin_profile("approach", 
+        .begin_profile("approach",
                       units::BodyLinearVelocity(36.0),
                       3.0)
         .spline_to(24, 12, M_PI/6)
@@ -205,12 +241,12 @@ void autonomous() {
                       units::BodyLinearVelocity(24.0),
                       2.0)
         .turn_in_place(M_PI/2)
-        .begin_profile("pickup", 
+        .begin_profile("pickup",
                       units::BodyLinearVelocity(12.0),
                       1.0)
         .spline_to(48, 48, M_PI, {{20.0, 20.0, 1.0, 1.0, 0.0, 0.0}})
         .break_continuity()
-        .begin_profile("return", 
+        .begin_profile("return",
                       units::BodyLinearVelocity(36.0),
                       3.0)
         .spline_to(24, 24, -M_PI/4)
@@ -218,13 +254,13 @@ void autonomous() {
                       units::BodyLinearVelocity(20.0),
                       2.5)
         .turn_in_place(-3.0 * M_PI / 4.0)
-        .begin_profile("final_approach", 
+        .begin_profile("final_approach",
                     units::BodyLinearVelocity(36.0),
                     3.0)
         .straight_to(0, 0)
         .build();
 
-    
+
     PathLogger::log_path(test_complex, "test_complex_path");
     trajectory::TrajectoryLogger::log_path_trajectories(test_complex, "test_complex_trajectories");
     pros::lcd::print(0, "All path tests logged!");
