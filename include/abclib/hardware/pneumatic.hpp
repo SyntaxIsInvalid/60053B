@@ -7,7 +7,7 @@ namespace abclib::hardware
     class Pneumatic
     {
     private:
-        pros::ADIDigitalOut piston;
+        pros::adi::DigitalOut piston;
         bool is_extended;
 
     public:

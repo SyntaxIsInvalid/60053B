@@ -1,3 +1,4 @@
+#if 0
 #pragma once
 #include "api.h"
 #include <optional>
@@ -73,3 +74,4 @@ namespace abclib::estimation
         void calibrate_sensors(); // Reset sensors only, keep pose
     };
 }
+#endif

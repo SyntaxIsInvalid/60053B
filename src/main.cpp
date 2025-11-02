@@ -68,7 +68,6 @@ void initialize()
     rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // match_load_ramp.retract();
     chassis.calibrate();
-    /*
     pros::Task screen_task([&]()
                            {
          while (1) {
@@ -129,7 +128,7 @@ void initialize()
                             local_telem.trajectory_total_time.seconds);
 
              pros::delay(100);
-         } });*/
+         } });
 }
 
 /**
@@ -153,8 +152,12 @@ void competition_initialize() {}
 using namespace abclib::path;
 void autonomous()
 {
+    chassis.move_straight_profiled(units::Distance::from_inches(12), 
+                                units::BodyLinearVelocity(12.0),
+                                6,
+    units::Time::from_seconds(5));
     // Create path builder
-
+/*
     PathBuilder builder(units::Distance::from_inches(14.0));
 
     Path test_path = builder
@@ -164,7 +167,7 @@ void autonomous()
                                         units::BodyLinearVelocity(36.0),
                                         18.0)
                          .straight_forward(24.0) // go forward 24 inches
-                        /*
+
                          .begin_profile("turn1",
                                         units::BodyLinearVelocity(24.0),
                                         6.0)
@@ -179,7 +182,7 @@ void autonomous()
                                         units::BodyLinearVelocity(24.0),
                                         6.0)
                          .turn_in_place(0) // turn back to 0 radians
-*/
+
                          .build();
 
     // Start logging task
@@ -227,7 +230,7 @@ void autonomous()
     chassis.follow_path(test_path, units::Time::from_seconds(15));
     pros::delay(100);
     controller.print(0, 0, "done");
-
+    */
     /*
     // Test 6: Complex path mixing everything
     Path test_complex = builder

@@ -16,7 +16,7 @@
 #include "abclib/hardware/pneumatic.hpp"
 
 // state estimation/localization
-#include "abclib/estimation/odometry.hpp"
+//#include "abclib/estimation/odometry.hpp"
 
 // math
 #include "abclib/math/angles.hpp"

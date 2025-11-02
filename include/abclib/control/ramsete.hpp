@@ -1,6 +1,6 @@
 #pragma once
 
-#include "abclib/estimation/odometry.hpp"
+#include "abclib/estimation/pose.hpp"
 #include "abclib/trajectory/trajectory.hpp"
 #include "abclib/units/units.hpp"
 

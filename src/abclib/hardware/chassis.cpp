@@ -5,30 +5,50 @@
 #include "abclib/path/turn_in_place_segment.hpp"
 #include <fstream>
 #include "abclib/kinematics/differential_drive.hpp"
+#include "abclib/estimation/wheel_measurement_models.hpp"
+#include "abclib/estimation/imu_measurement_model.hpp"
 using namespace abclib;
 
 namespace abclib::hardware
 {
 
-    Chassis::Chassis(ChassisConfig chassis_config, Sensors sensors, const control::PIDConstants lateral_constants, const control::PIDConstants angular_constants) : left_motors(chassis_config.left),
-                                                                                                                                                                    right_motors(chassis_config.right),
-                                                                                                                                                                    track_width(chassis_config.track_width),
-                                                                                                                                                                    wheel_diameter(chassis_config.diameter),
-                                                                                                                                                                    imu(sensors.imu),
-                                                                                                                                                                    lateral_pid(lateral_constants),
-                                                                                                                                                                    angular_pid(angular_constants),
-                                                                                                                                                                    ticks(chassis_config.left->get_ticks()),
-                                                                                                                                                                    config_(chassis_config),
-                                                                                                                                                                    // Conditional initialization based on sensor type
-                                                                                                                                                                    odom(sensors.motor_y_encoder ? estimation::Odometry(sensors.motor_y_encoder, sensors.motor_x_encoder, sensors.imu) : estimation::Odometry(sensors.y_encoder, sensors.x_encoder, sensors.imu)),
-                                                                                                                                                                    path_follower_(std::make_unique<trajectory::PathFollower>(this, chassis_config.ramsete_constants))
-
+    Chassis::Chassis(ChassisConfig chassis_config, Sensors sensors,
+                     const control::PIDConstants lateral_constants,
+                     const control::PIDConstants angular_constants)
+        : left_motors(chassis_config.left),
+          right_motors(chassis_config.right),
+          track_width(chassis_config.track_width),
+          wheel_diameter(chassis_config.diameter),
+          imu(sensors.imu),
+          lateral_pid(lateral_constants),
+          angular_pid(angular_constants),
+          ticks(chassis_config.left->get_ticks()),
+          config_(chassis_config),
+          path_follower_(std::make_unique<trajectory::PathFollower>(this, chassis_config.ramsete_constants))
     {
+        // Create measurement models
+        auto vertical_model = new estimation::WheelMeasurementModel(
+            sensors.motor_y_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_y_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.y_encoder));
+
+        auto horizontal_model = (sensors.x_encoder || sensors.motor_x_encoder) ? new estimation::WheelMeasurementModel(
+                                                                                     sensors.motor_x_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_x_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.x_encoder))
+                                                                               : nullptr;
+
+        auto imu_model = new estimation::IMUMeasurementModel(sensors.imu);
+
+        // Get offsets
+        units::Distance vertical_offset = sensors.motor_y_encoder ? sensors.motor_y_encoder->get_offset() : sensors.y_encoder->get_offset();
+        units::Distance horizontal_offset = (sensors.x_encoder || sensors.motor_x_encoder) ? (sensors.motor_x_encoder ? sensors.motor_x_encoder->get_offset() : sensors.x_encoder->get_offset()) : units::Distance::from_inches(0.0);
+
+        // Create estimator
+        estimator_.reset(new estimation::GeometricOdometryEstimator(
+            vertical_model, horizontal_model, imu_model,
+            vertical_offset, horizontal_offset));
     }
 
     Chassis::~Chassis()
     {
-        odom.stop();
+        estimator_->stop();
     }
 
     void Chassis::drive(int throttle, int turn, double throttle_coefficient, double turn_coefficient)
@@ -65,7 +85,7 @@ namespace abclib::hardware
 
     void Chassis::calibrate()
     {
-        odom.stop();
+        estimator_->stop();
         left_motors->reset_position();
         right_motors->reset_position();
         imu->reset();
@@ -77,8 +97,8 @@ namespace abclib::hardware
         }
         pros::delay(100); // Additional safety delay
 
-        odom.calibrate_sensors(); // Reset sensors but keep pose
-        odom.init();
+        estimator_->calibrate(); // Reset sensors but keep pose
+        estimator_->init();
     }
 
     void Chassis::reset_chassis_position()
@@ -95,7 +115,7 @@ namespace abclib::hardware
 
     estimation::Pose Chassis::get_pose() const
     {
-        return odom.get_pose();
+        return estimator_->get_pose();
     }
 
     void Chassis::set_pose(units::Distance x, units::Distance y, units::Radians heading)
@@ -107,7 +127,7 @@ namespace abclib::hardware
         new_pose.omega = units::BodyAngularVelocity(0.0);
 
         // Set the odometry pose (thread-safe with mutex)
-        odom.set_pose(new_pose);
+        estimator_->set_pose(new_pose);
 
         // Set IMU heading to match (note the negation for IMU convention)
         imu->set_heading(-heading.to_degrees().value);

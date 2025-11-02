@@ -3,12 +3,13 @@
 #include "api.h"
 #include "abclib/hardware/motor_group.hpp"
 #include "tracking_wheel.hpp"
-#include "abclib/estimation/odometry.hpp"
+// #include "abclib/estimation/odometry.hpp"
 #include "abclib/math/angles.hpp"
 #include "motor_tracking_wheel.hpp"
 #include "abclib/telemetry/telemetry.hpp"
 #include "abclib/trajectory/path_follower.hpp"
 #include "abclib/units/units.hpp"
+#include "abclib/estimation/geometric_odometry_estimator.hpp"
 
 namespace abclib::hardware
 {
@@ -60,7 +61,8 @@ namespace abclib::hardware
 
         control::PID lateral_pid;
         control::PID angular_pid;
-        estimation::Odometry odom;
+        // estimation::Odometry odom;
+        std::unique_ptr<estimation::IStateEstimator> estimator_;
 
         units::Distance track_width;
         units::Distance wheel_diameter;
