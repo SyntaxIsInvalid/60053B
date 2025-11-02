@@ -1,4 +1,4 @@
-#include "geometric_odometry_estimator.hpp"
+#include "abclib/estimation/geometric_odometry_estimator.hpp"
 #include <cmath>
 #include <mutex>
 #include "abclib/math/angles.hpp"

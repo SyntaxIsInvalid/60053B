@@ -25,6 +25,10 @@ namespace abclib::hardware
 
         const double group_gearing = 1;
         pros::Rotation *rotation = nullptr;
+
+        bool enable_voltage_compensation = false;
+        units::Voltage compensation_nominal = units::Voltage::from_volts(12.0);
+        units::Voltage compensation_min_battery = units::Voltage::from_volts(11.5);
     };
 
     class AdvancedMotorGroup
@@ -102,5 +106,7 @@ namespace abclib::hardware
         units::MotorPosition get_raw_position() const;
         motor_group_config get_config() const { return group_config; }
         void stop_all_tasks();
+        void move_velocity_pros(units::MotorAngularVelocity target_velocity);
+        void move_velocity_pros_task(units::MotorAngularVelocity target_velocity);
     };
 }

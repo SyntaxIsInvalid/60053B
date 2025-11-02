@@ -2,6 +2,7 @@
 #include <cmath>
 #include <algorithm>
 #include <mutex>
+#include "abclib/telemetry/telemetry.hpp"
 namespace abclib::hardware
 {
 
@@ -100,6 +101,27 @@ namespace abclib::hardware
 
     void AdvancedMotor::move_voltage(units::Voltage voltage)
     {
+        double compensation_scale = 1.0;
+        bool compensation_active = false;
+
+        if (config_.enable_voltage_compensation)
+        {
+            units::Voltage battery = units::Voltage::from_millivolts(pros::battery::get_voltage());
+
+            if (battery < config_.compensation_min_battery)
+            {
+                compensation_scale = config_.compensation_nominal.volts / battery.volts;
+                voltage = voltage * compensation_scale;
+                compensation_active = true;
+            }
+        }
+
+        {
+            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+            telemetry.voltage_compensation_active = compensation_active;
+            telemetry.voltage_compensation_scale = compensation_scale;
+        }
+
         motor_->move(voltage.to_pros_units());
     }
 
@@ -333,6 +355,33 @@ namespace abclib::hardware
         units::Voltage output_voltage(out);
         output_voltage = units::Voltage(std::clamp(output_voltage.volts, -12.0, 12.0));
         move_voltage(output_voltage);
+    }
+
+    void AdvancedMotor::move_velocity_pros(units::MotorAngularVelocity target_velocity)
+    {
+        // Convert rad/s to RPM for PROS
+        units::RPM target_rpm = units::RPM::from_rad_per_sec(target_velocity.rad_per_sec);
+        motor_->move_velocity(target_rpm.value);
+    }
+
+    void AdvancedMotor::move_velocity_pros_task(units::MotorAngularVelocity target_velocity)
+    {
+        std::lock_guard<pros::Mutex> lock(task_mutex_);
+
+        // Signal existing task to stop
+        if (current_task_.has_value())
+        {
+            current_task_->notify();
+        }
+
+        // Create new task that maintains velocity indefinitely using PROS controller
+        current_task_ = pros::Task([this, target_velocity]()
+                                   {
+        while (pros::Task::notify_take(true, 0) == 0) {
+            this->move_velocity_pros(target_velocity);
+            pros::delay(10);
+        }
+        this->brake(); });
     }
 
 }

@@ -5,7 +5,7 @@
 
 namespace abclib
 {
-    Logger::Logger(const std::string &name, bool auto_segment, const LogFields& fields)
+    Logger::Logger(const std::string &name, bool auto_segment, const LogFields &fields)
         : base_name_(name),
           auto_segment_(auto_segment),
           fields_(fields),
@@ -193,6 +193,7 @@ namespace abclib
         if (fields_.battery)
         {
             fprintf(file_, ",battery_voltage_volts,battery_capacity_percent");
+            fprintf(file_, ",voltage_comp_scale,voltage_comp_active");
         }
 
         fprintf(file_, "\n");
@@ -348,9 +349,11 @@ namespace abclib
         // Battery monitoring
         if (fields_.battery)
         {
-            fprintf(file_, ",%.3f,%.1f",
+            fprintf(file_, ",%.3f,%.1f,%.2f,%d",
                     data.battery_voltage.volts,
-                    data.battery_capacity_percent);
+                    data.battery_capacity_percent,
+                    data.voltage_compensation_scale,
+                    data.voltage_compensation_active ? 1 : 0);
         }
 
         fprintf(file_, "\n");

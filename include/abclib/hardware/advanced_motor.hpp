@@ -28,6 +28,10 @@ namespace abclib::hardware
 
         pros::Rotation *rotation = nullptr;
         pros::motor_brake_mode_e_t brake_mode = pros::E_MOTOR_BRAKE_BRAKE;
+
+        bool enable_voltage_compensation = false;
+        units::Voltage compensation_nominal = units::Voltage::from_volts(12.0);
+        units::Voltage compensation_min_battery = units::Voltage::from_volts(11.5);
     };
 
     class AdvancedMotor
@@ -76,8 +80,8 @@ namespace abclib::hardware
 
         void move_velocity_continuous(units::MotorAngularVelocity target_velocity);
         void move_velocity_continuous(units::MotorAngularVelocity target_velocity,
-                             double override_kS,
-                             double override_kV);
+                                      double override_kS,
+                                      double override_kV);
         void move_velocity_continuous_task(units::MotorAngularVelocity target_velocity);
 
         void set_feedforward(bool enable);
@@ -89,6 +93,9 @@ namespace abclib::hardware
 
         units::MotorAngularVelocity get_raw_velocity() const;
         units::MotorPosition get_raw_position() const;
+
+        void move_velocity_pros(units::MotorAngularVelocity target_velocity);
+        void move_velocity_pros_task(units::MotorAngularVelocity target_velocity);
 
     private:
         pros::Motor *motor_;

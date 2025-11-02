@@ -4,7 +4,7 @@
 #include "abclib/control/ramsete.hpp"
 #include "abclib/path/path_segment_interface.hpp"
 #include "abclib/telemetry/telemetry.hpp" // For PathFollowerStatus
-#include "abclib/estimation/odometry.hpp" // For Pose
+// #include "abclib/estimation/odometry.hpp" // For Pose
 #include <functional>
 #include "abclib/control/pid.hpp" // <-- ADD THIS LINE
 #include "abclib/builder/path.hpp"

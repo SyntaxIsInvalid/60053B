@@ -53,6 +53,9 @@ namespace abclib::hardware
             // Create empty motor config
             MotorConfig motor_cfg{};
             motor_cfg.brake_mode = pros::E_MOTOR_BRAKE_BRAKE;
+            motor_cfg.enable_voltage_compensation = config.enable_voltage_compensation;
+            motor_cfg.compensation_nominal = config.compensation_nominal;
+            motor_cfg.compensation_min_battery = config.compensation_min_battery;
 
             // Create the advanced motor wrapper with unique_ptr
             owned_advanced_motors_.push_back(
@@ -371,6 +374,35 @@ namespace abclib::hardware
         }
 
         brake(); // Stop the motors
+    }
+
+    void AdvancedMotorGroup::move_velocity_pros(units::MotorAngularVelocity target_velocity)
+    {
+        for (auto m : motors)
+        {
+            m->move_velocity_pros(target_velocity);
+        }
+    }
+
+    void AdvancedMotorGroup::move_velocity_pros_task(units::MotorAngularVelocity target_velocity)
+    {
+        std::lock_guard<pros::Mutex> lock(task_mutex_);
+
+        // Signal existing task to stop
+        if (current_task_.has_value())
+        {
+            current_task_->notify();
+        }
+
+        // Create new task that maintains velocity indefinitely using PROS controller
+        current_task_ = pros::Task([this, target_velocity]()
+                                   {
+        while (pros::Task::notify_take(true, 0) == 0) {
+            this->move_velocity_pros(target_velocity);
+            pros::delay(10);
+        }
+        // Stop motor when task exits
+        this->brake(); });
     }
 
 } // namespace abclib::hardware

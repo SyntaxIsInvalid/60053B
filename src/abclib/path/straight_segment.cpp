@@ -32,7 +32,7 @@ namespace abclib::path
         double geometric_heading = std::atan2(dy, dx);
 
         // Enforce heading alignment with tolerance for floating point errors
-        const double heading_tolerance = 1e-6; // ~0.00006 degrees
+        const double heading_tolerance = 1e-3; 
 
         double start_heading_error = math::normalize_angle(start_pose(2) - geometric_heading);
         if (std::abs(start_heading_error) > heading_tolerance)

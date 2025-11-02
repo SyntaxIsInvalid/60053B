@@ -170,5 +170,7 @@ namespace abclib::hardware
             units::Time timeout = units::Time::from_seconds(10),
             const std::optional<Eigen::Matrix<double, 6, 1>> &custom_Q = std::nullopt,
             const std::optional<Eigen::Matrix<double, 4, 1>> &custom_R = std::nullopt);
+        void move_velocity_pros(units::WheelLinearVelocity left_velocity,
+                                units::WheelLinearVelocity right_velocity);
     };
 }

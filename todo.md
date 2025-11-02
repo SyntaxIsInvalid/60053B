@@ -12,3 +12,4 @@
 - [ ] update characterization to use logger 
 - [ ] add battery voltage compensation
 - [ ] update all the telemetry on what would be useful to log
+- [ ] update move straight profiled to just a straight not segment 

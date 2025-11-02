@@ -116,6 +116,8 @@ namespace abclib
         // Battery monitoring
         units::Voltage battery_voltage = units::Voltage::from_volts(0);
         double battery_capacity_percent = 0.0;
+        bool voltage_compensation_active = false;
+        double voltage_compensation_scale = 1.0;
 
         // Left motor velocity control
         units::MotorAngularVelocity left_motor_target_velocity = units::MotorAngularVelocity(0);

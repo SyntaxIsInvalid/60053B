@@ -23,8 +23,7 @@ namespace abclib::hardware
           lateral_pid(lateral_constants),
           angular_pid(angular_constants),
           ticks(chassis_config.left->get_ticks()),
-          config_(chassis_config),
-          path_follower_(std::make_unique<trajectory::PathFollower>(this, chassis_config.ramsete_constants))
+          config_(chassis_config)
     {
         // Create measurement models
         auto vertical_model = new estimation::WheelMeasurementModel(
@@ -44,6 +43,7 @@ namespace abclib::hardware
         estimator_.reset(new estimation::GeometricOdometryEstimator(
             vertical_model, horizontal_model, imu_model,
             vertical_offset, horizontal_offset));
+        path_follower_ = std::make_unique<trajectory::PathFollower>(this, chassis_config.ramsete_constants);
     }
 
     Chassis::~Chassis()
@@ -717,6 +717,40 @@ namespace abclib::hardware
         // Stop any running velocity control tasks
         left_motors->stop_all_tasks();
         right_motors->stop_all_tasks();
+    }
+
+    void Chassis::move_velocity_pros(units::WheelLinearVelocity left_velocity,
+                                     units::WheelLinearVelocity right_velocity)
+    {
+        // Convert linear wheel velocity to angular motor velocity
+        units::Distance wheel_radius = get_wheel_radius();
+
+        units::MotorAngularVelocity left_motor_vel =
+            units::MotorAngularVelocity(left_velocity.inches_per_sec / wheel_radius.inches);
+        units::MotorAngularVelocity right_motor_vel =
+            units::MotorAngularVelocity(right_velocity.inches_per_sec / wheel_radius.inches);
+
+        left_motors->move_velocity_pros(left_motor_vel);
+        right_motors->move_velocity_pros(right_motor_vel);
+
+        // Update telemetry
+        {
+            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+
+            // Left motor
+            telemetry.left_motor_target_velocity = left_motor_vel;
+            telemetry.left_motor_actual_velocity = left_motors->get_raw_velocity();
+            telemetry.left_motor_velocity_error_rpm =
+                units::RPM::from_rad_per_sec(left_motor_vel.rad_per_sec).value -
+                units::RPM::from_rad_per_sec(telemetry.left_motor_actual_velocity.rad_per_sec).value;
+
+            // Right motor
+            telemetry.right_motor_target_velocity = right_motor_vel;
+            telemetry.right_motor_actual_velocity = right_motors->get_raw_velocity();
+            telemetry.right_motor_velocity_error_rpm =
+                units::RPM::from_rad_per_sec(right_motor_vel.rad_per_sec).value -
+                units::RPM::from_rad_per_sec(telemetry.right_motor_actual_velocity.rad_per_sec).value;
+        }
     }
 
 }

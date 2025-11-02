@@ -15,6 +15,7 @@ hardware::motor_group_config left_config{
     .kPv = 0.15,
     .kIv = 0.03,
     .kDv = 0.00,
+    .enable_voltage_compensation = true
 };
 
 hardware::motor_group_config right_config{
@@ -23,6 +24,7 @@ hardware::motor_group_config right_config{
     .kPv = 0.15,
     .kIv = 0.03,
     .kDv = 0.00,
+    .enable_voltage_compensation = true
 };
 
 hardware::AdvancedMotorGroup leftMotors({-10, 4}, pros::MotorGearset::blue, left_config);
@@ -61,11 +63,12 @@ control::PIDConstants angular_pid(
 
 hardware::Chassis chassis(chassis_constant, sensors, lateral_pid, angular_pid);
 
+
 void initialize()
 {
     pros::lcd::initialize();
-    leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-    rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    // leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+    // rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // match_load_ramp.retract();
     chassis.calibrate();
     pros::Task screen_task([&]()
@@ -98,9 +101,11 @@ void initialize()
                             local_telem.pose_omega.rad_per_sec);
 
              // Line 2: Battery
-             pros::lcd::print(2, "Battery: %.2fV %.0f%%",
-                            local_telem.battery_voltage.volts,
-                            local_telem.battery_capacity_percent);
+             pros::lcd::print(2, "%.2fV %.0f%% [%s%.2fx]",
+               local_telem.battery_voltage.volts,
+               local_telem.battery_capacity_percent,
+               local_telem.voltage_compensation_active ? "C" : "-",
+               local_telem.voltage_compensation_scale);
 
              // Line 3: Cross-track and Along-track errors
              pros::lcd::print(3, "XTE:%.2f ATE:%.2f",
@@ -150,12 +155,9 @@ void disabled() {}
 void competition_initialize() {}
 
 using namespace abclib::path;
+
 void autonomous()
 {
-    chassis.move_straight_profiled(units::Distance::from_inches(12), 
-                                units::BodyLinearVelocity(12.0),
-                                6,
-    units::Time::from_seconds(5));
     // Create path builder
 /*
     PathBuilder builder(units::Distance::from_inches(14.0));
