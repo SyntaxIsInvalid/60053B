@@ -321,4 +321,90 @@ namespace abclib::characterization
         pros::lcd::print(1, "File: %s", full_filename);
         pros::lcd::print(2, "Analyze PID response");
     }
+
+    void measure_ka(
+        hardware::AdvancedMotorGroup &left,
+        hardware::AdvancedMotorGroup &right,
+        bool forward,
+        const char *filename,
+        double constant_voltage,
+        int test_duration_ms)
+    {
+        // Check SD card availability
+        if (!pros::usd::is_installed())
+        {
+            pros::lcd::print(0, "ERROR: No SD card!");
+            return;
+        }
+
+        // Build filename with voltage and direction suffix
+        char full_filename[64];
+        snprintf(full_filename, sizeof(full_filename), "/usd/%s_%.1fV_%s.csv",
+                 filename, constant_voltage, forward ? "forward" : "backward");
+
+        pros::lcd::print(0, "Starting kA test...");
+        pros::lcd::print(1, "Voltage: %.1fV", constant_voltage);
+        pros::lcd::print(2, "Direction: %s", forward ? "FWD" : "BWD");
+        pros::delay(2000);
+
+        left.reset_position();
+        right.reset_position();
+        pros::delay(100);
+
+        // Open file for writing
+        FILE *file = fopen(full_filename, "w");
+        if (file == nullptr)
+        {
+            pros::lcd::print(0, "ERROR: Can't open file!");
+            return;
+        }
+
+        // Write CSV header
+        fprintf(file, "time_ms,voltage_volts,left_vel_rad_s,right_vel_rad_s,avg_vel_rad_s\n");
+
+        uint32_t test_start_time = pros::millis();
+        double direction_multiplier = forward ? 1.0 : -1.0;
+
+        pros::lcd::print(0, "Testing %.1fV...", constant_voltage);
+
+        // Apply constant voltage and log velocity
+        units::Voltage applied_voltage = units::Voltage::from_volts(constant_voltage * direction_multiplier);
+
+        while ((pros::millis() - test_start_time) < static_cast<uint32_t>(test_duration_ms))
+        {
+            // Apply constant voltage
+            left.move_voltage(applied_voltage);
+            right.move_voltage(applied_voltage);
+
+            // Get velocities
+            units::MotorAngularVelocity left_vel = left.get_raw_velocity();
+            units::MotorAngularVelocity right_vel = right.get_raw_velocity();
+            double avg_vel_rad_s = (left_vel.rad_per_sec + right_vel.rad_per_sec) / 2.0;
+
+            uint32_t timestamp = pros::millis() - test_start_time;
+
+            // Write to SD card
+            fprintf(file, "%lu,%.2f,%.4f,%.4f,%.4f\n",
+                    timestamp, constant_voltage * direction_multiplier,
+                    left_vel.rad_per_sec, right_vel.rad_per_sec, avg_vel_rad_s);
+
+            // Update LCD periodically
+            if (timestamp % 500 == 0)
+            {
+                pros::lcd::print(1, "Time: %.1fs", timestamp / 1000.0);
+                pros::lcd::print(2, "Vel: %.1f rad/s", avg_vel_rad_s);
+            }
+
+            pros::delay(10); // Sample at 100Hz
+        }
+
+        // Stop motors and cleanup
+        left.brake();
+        right.brake();
+        fclose(file);
+
+        pros::lcd::print(0, "kA test complete!");
+        pros::lcd::print(1, "File: %s", full_filename);
+        pros::lcd::print(2, "Analyze for kA value");
+    }
 }

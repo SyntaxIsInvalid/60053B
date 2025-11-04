@@ -33,4 +33,12 @@ namespace abclib::characterization
         const char *filename,
         double target_rpm,
         int settle_duration_ms);
+
+    void measure_ka(
+        hardware::AdvancedMotorGroup &left,
+        hardware::AdvancedMotorGroup &right,
+        bool forward = true,
+        const char *filename = "ka_test",
+        double constant_voltage = 6.0,
+        int test_duration_ms = 2000);
 }
