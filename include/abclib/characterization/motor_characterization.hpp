@@ -41,4 +41,12 @@ namespace abclib::characterization
         const char *filename = "ka_test",
         double constant_voltage = 6.0,
         int test_duration_ms = 2000);
+
+    void measure_ka_turn(
+        hardware::AdvancedMotorGroup &left,
+        hardware::AdvancedMotorGroup &right,
+        bool ccw_rotation = true,
+        const char *filename = "ka_turn_test",
+        double constant_voltage = 6.0,
+        int test_duration_ms = 5000);
 }

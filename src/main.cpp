@@ -10,18 +10,18 @@ using namespace abclib;
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 hardware::motor_group_config left_config{
-    .kS = 0.633391,
+    .kS = 0.919850,
     .kV = 0.1594417,
-    .kA = 0.016899,
+    .kA = 0.012848,
     .kPv = 0.18,
     .kIv = 0.25,
     .kDv = 0.00,
     .enable_voltage_compensation = true};
 
 hardware::motor_group_config right_config{
-    .kS = 0.633391,
+    .kS = 0.919850,
     .kV = 0.1594417,
-    .kA = 0.016899,
+    .kA = 0.012848,
     .kPv = 0.18,
     .kIv = 0.25,
     .kDv = 0.00,
@@ -47,6 +47,7 @@ hardware::ChassisConfig chassis_constant{
     .track_width = units::Distance::from_inches(14),
     .turn_in_place_kS = 1.278592,
     .turn_in_place_kV = 0.170242,
+    .turn_in_place_kA = 0.012877
 };
 
 hardware::Sensors sensors(&imu, &y_tracker, nullptr);
@@ -72,6 +73,7 @@ void initialize()
     // rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // match_load_ramp.retract();
     chassis.calibrate();
+    /*
     pros::Task screen_task([&]()
                            {
          while (1) {
@@ -135,8 +137,8 @@ void initialize()
 
              pros::delay(100);
          } });
+         */
 }
-
 
 /**
  * Runs while the robot is in the disabled state of Field Management System or
@@ -160,12 +162,15 @@ using namespace abclib::path;
 
 void autonomous()
 {
+    /*
     chassis.set_pose(
         units::Distance::from_inches(0),
         units::Distance::from_inches(0),
         units::Degrees(0));
 
-    chassis.move_straight_profiled(units::Distance::from_inches(16), units::BodyLinearVelocity(18), 24);
+    chassis.turn_to_heading_profiled(units::Degrees(90), 90, 150, units::Time::from_seconds(3));
+    */
+    characterization::measure_ks_kv_turn(leftMotors, rightMotors, false);
     controller.print(0, 0, "done");
     /*
     // Always reset pose to origin after calibrating
@@ -265,35 +270,35 @@ void autonomous()
         */
     /*
     // Test 6: Complex path mixing everything
-    Path test_complex = builder
-        .start(0, 0, 0)
-        .begin_profile("approach",
-                      units::BodyLinearVelocity(36.0),
-                      3.0)
-        .spline_to(24, 12, M_PI/6)
-        .straight_forward(20.0)
-        .begin_profile("turn1",
-                      units::BodyLinearVelocity(24.0),
-                      2.0)
-        .turn_in_place(M_PI/2)
-        .begin_profile("pickup",
-                      units::BodyLinearVelocity(12.0),
-                      1.0)
-        .spline_to(48, 48, M_PI, {{20.0, 20.0, 1.0, 1.0, 0.0, 0.0}})
-        .break_continuity()
-        .begin_profile("return",
-                      units::BodyLinearVelocity(36.0),
-                      3.0)
-        .spline_to(24, 24, -M_PI/4)
-        .begin_profile("turn2",
-                      units::BodyLinearVelocity(20.0),
-                      2.5)
-        .turn_in_place(-3.0 * M_PI / 4.0)
-        .begin_profile("final_approach",
-                    units::BodyLinearVelocity(36.0),
-                    3.0)
-        .straight_to(0, 0)
-        .build();
+        Path test_complex = builder
+            .start(0, 0, 0)
+            .begin_profile("approach",
+                        units::BodyLinearVelocity(36.0),
+                        3.0)
+            .spline_to(24, 12, M_PI/6)
+            .straight_forward(20.0)
+            .begin_profile("turn1",
+                        units::BodyLinearVelocity(24.0),
+                        2.0)
+            .turn_in_place(M_PI/2)
+            .begin_profile("pickup",
+                        units::BodyLinearVelocity(12.0),
+                        1.0)
+            .spline_to(48, 48, M_PI, {{20.0, 20.0, 1.0, 1.0, 0.0, 0.0}})
+            .break_continuity()
+            .begin_profile("return",
+                        units::BodyLinearVelocity(36.0),
+                        3.0)
+            .spline_to(24, 24, -M_PI/4)
+            .begin_profile("turn2",
+                        units::BodyLinearVelocity(20.0),
+                        2.5)
+            .turn_in_place(-3.0 * M_PI / 4.0)
+            .begin_profile("final_approach",
+                        units::BodyLinearVelocity(36.0),
+                        3.0)
+            .straight_to(0, 0)
+            .build();
 
 
     PathLogger::log_path(test_complex, "test_complex_path");

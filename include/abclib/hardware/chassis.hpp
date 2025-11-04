@@ -23,6 +23,7 @@ namespace abclib::hardware
         bool use_pros_controller = false;
         double turn_in_place_kS = 0.0;
         double turn_in_place_kV = 0.0;
+        double turn_in_place_kA = 0.0;
     };
 
     struct Sensors
@@ -165,6 +166,13 @@ namespace abclib::hardware
             double max_acceleration,
             units::Time timeout = units::Time::from_seconds(5),
             double heading_tolerance = 0.1 // ~5.7 degrees tolerance for IMU drift
+        );
+
+        void turn_to_heading_profiled(
+            units::Degrees target_heading,
+            double max_body_angular_velocity_deg_per_sec,
+            double max_bodyangular_acceleration_deg_per_sec2,
+            units::Time timeout = units::Time::from_seconds(3)
         );
     };
 }
