@@ -13,40 +13,53 @@ namespace abclib::path
         std::string name;
         units::BodyLinearVelocity max_velocity;
         double max_acceleration; // inches/s^2
-        
+
         std::vector<std::unique_ptr<IPathSegment>> segments;
-        
+
         // Computed during build
         double total_arc_length = 0.0;
-        
-        ProfileGroup(const std::string& group_name,
-                    units::BodyLinearVelocity max_vel,
-                    double max_accel)
-            : name(group_name)
-            , max_velocity(max_vel)
-            , max_acceleration(max_accel)
-        {}
-        
+
+        ProfileGroup(const std::string &group_name,
+                     units::BodyLinearVelocity max_vel,
+                     double max_accel)
+            : name(group_name), max_velocity(max_vel), max_acceleration(max_accel)
+        {
+        }
+
         // Calculate total arc length from all segments
         void compute_arc_length()
         {
             total_arc_length = 0.0;
-            for (const auto& seg : segments) {
+            for (const auto &seg : segments)
+            {
                 total_arc_length += seg->get_segment_length();
             }
         }
-        
+
+        bool is_turn_in_place_group() const
+        {
+            if (segments.empty())
+            {
+                return false;
+            }
+            // Since turn-in-place always breaks continuity,
+            // if ANY segment is turn-in-place, the whole group is
+            return segments.front()->is_turn_in_place();
+        }
+
         Pose get_start_pose() const
         {
-            if (segments.empty()) {
+            if (segments.empty())
+            {
                 throw std::runtime_error("ProfileGroup: no segments");
             }
             return segments.front()->get_start_pose();
         }
-        
+
         Pose get_end_pose() const
         {
-            if (segments.empty()) {
+            if (segments.empty())
+            {
                 throw std::runtime_error("ProfileGroup: no segments");
             }
             return segments.back()->get_end_pose();

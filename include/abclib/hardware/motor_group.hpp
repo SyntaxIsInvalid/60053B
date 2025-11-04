@@ -96,10 +96,14 @@ namespace abclib::hardware
                                 units::Time timeout = units::DEFAULT_TIMEOUT,
                                 units::Voltage min_voltage = units::DEFAULT_MIN_VOLTAGE,
                                 units::Voltage max_voltage = units::DEFAULT_MAX_VOLTAGE);
-        void move_velocity_continuous(units::MotorAngularVelocity target_velocity);
         void move_velocity_continuous(units::MotorAngularVelocity target_velocity,
+                                      double target_acceleration);
+
+        void move_velocity_continuous(units::MotorAngularVelocity target_velocity,
+                                      double target_acceleration,
                                       double override_kS,
-                                      double override_kV);
+                                      double override_kV,
+                                      double override_kA);
         void move_velocity_continuous_task(units::MotorAngularVelocity target_velocity);
 
         units::MotorAngularVelocity get_raw_velocity() const;

@@ -31,6 +31,7 @@ namespace abclib::trajectory
                    units::BodyLinearVelocity max_velocity, // TYPED
                    double max_acceleration)
             : segment_(segment),
+              profile_group_(nullptr),
               total_arc_length_(segment->get_segment_length()),
               profile_(units::Distance::from_inches(total_arc_length_),
                        max_velocity,
@@ -142,6 +143,17 @@ namespace abclib::trajectory
             return state;
         }
 
+        const path::IPathSegment *get_current_segment(double arc_length) const
+        {
+            if (profile_group_)
+            {
+                auto location = find_segment_at_arc(arc_length);
+                return profile_group_->segments[location.segment_index].get();
+            }
+            return segment_;
+        }
+
+        const path::ProfileGroup *get_profile_group() const { return profile_group_; }
         units::Time get_total_time() const { return profile_.get_total_time(); }
         double get_total_distance() const { return profile_.get_total_distance().inches; }
         bool is_complete(units::Time time) const { return time >= get_total_time(); }

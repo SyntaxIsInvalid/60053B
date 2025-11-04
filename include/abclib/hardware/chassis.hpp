@@ -20,7 +20,7 @@ namespace abclib::hardware
         units::Distance diameter;
         units::Distance track_width;
         control::RamseteConstants ramsete_constants = {2.0, 0.7};
-
+        bool use_pros_controller = false;
         double turn_in_place_kS = 0.0;
         double turn_in_place_kV = 0.0;
     };
@@ -122,22 +122,17 @@ namespace abclib::hardware
 
         void move_voltage(units::Voltage left_voltage, units::Voltage right_voltage);
         void move_velocity(units::WheelLinearVelocity left_velocity,
-                           units::WheelLinearVelocity right_velocity);
+                           units::WheelLinearVelocity right_velocity,
+                           double left_acceleration = 0.0,
+                           double right_acceleration = 0.0);
+
         void move_velocity(units::WheelLinearVelocity left_velocity,
                            units::WheelLinearVelocity right_velocity,
+                           double left_acceleration,
+                           double right_acceleration,
                            double override_kS,
-                           double override_kV);
-
-        void move_straight_profiled(units::Distance distance,
-                                    units::BodyLinearVelocity max_velocity,
-                                    double max_acceleration,
-                                    units::Time timeout = units::Time::from_seconds(10));
-
-        void turn_to_heading_profiled(
-            units::Degrees target_heading,
-            units::Degrees max_angular_velocity,
-            units::Degrees max_angular_acceleration,
-            units::Time timeout = units::Time::from_seconds(5));
+                           double override_kV,
+                           double override_kA);
 
         void set_pose(units::Distance x,
                       units::Distance y,
@@ -161,16 +156,15 @@ namespace abclib::hardware
             path_follower_->follow_path(path, timeout);
         }
 
-        void move_to_pose_profiled(
-            units::Distance target_x,
-            units::Distance target_y,
-            units::Degrees target_heading,
-            units::BodyLinearVelocity max_velocity,
-            double max_acceleration,
-            units::Time timeout = units::Time::from_seconds(10),
-            const std::optional<Eigen::Matrix<double, 6, 1>> &custom_Q = std::nullopt,
-            const std::optional<Eigen::Matrix<double, 4, 1>> &custom_R = std::nullopt);
         void move_velocity_pros(units::WheelLinearVelocity left_velocity,
                                 units::WheelLinearVelocity right_velocity);
+
+        void move_straight_profiled(
+            units::Distance distance,
+            units::BodyLinearVelocity max_velocity,
+            double max_acceleration,
+            units::Time timeout = units::Time::from_seconds(5),
+            double heading_tolerance = 0.1 // ~5.7 degrees tolerance for IMU drift
+        );
     };
 }

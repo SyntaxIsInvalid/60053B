@@ -12,20 +12,20 @@ pros::Controller controller(pros::E_CONTROLLER_MASTER);
 hardware::motor_group_config left_config{
     .kS = 0.633391,
     .kV = 0.1594417,
-    .kPv = 0.15,
-    .kIv = 0.03,
+    .kA = 0.016899,
+    .kPv = 0.18,
+    .kIv = 0.25,
     .kDv = 0.00,
-    .enable_voltage_compensation = true
-};
+    .enable_voltage_compensation = true};
 
 hardware::motor_group_config right_config{
     .kS = 0.633391,
     .kV = 0.1594417,
-    .kPv = 0.15,
-    .kIv = 0.03,
+    .kA = 0.016899,
+    .kPv = 0.18,
+    .kIv = 0.25,
     .kDv = 0.00,
-    .enable_voltage_compensation = true
-};
+    .enable_voltage_compensation = true};
 
 hardware::AdvancedMotorGroup leftMotors({-10, 4}, pros::MotorGearset::blue, left_config);
 hardware::AdvancedMotorGroup rightMotors({6, -11}, pros::MotorGearset::blue, right_config);
@@ -35,8 +35,10 @@ hardware::AdvancedMotorGroup rightMotors({6, -11}, pros::MotorGearset::blue, rig
 // subsystems::Intake intake({15}, pros::MotorGearset::blue);
 
 pros::IMU imu(9);
-pros::Rotation y_rotation(21);
-hardware::TrackingWheel y_tracker(&y_rotation, units::Distance::from_inches(2), units::Distance::from_inches(-0.25));
+// pros::Rotation y_rotation(21);
+// hardware::TrackingWheel y_tracker(&y_rotation, units::Distance::from_inches(2), units::Distance::from_inches(-0.25));
+
+hardware::MotorTrackingWheel y_tracker(&leftMotors, units::Distance::from_inches(3.25), units::Distance::from_inches(7));
 
 hardware::ChassisConfig chassis_constant{
     .left = &leftMotors,
@@ -62,7 +64,6 @@ control::PIDConstants angular_pid(
 );
 
 hardware::Chassis chassis(chassis_constant, sensors, lateral_pid, angular_pid);
-
 
 void initialize()
 {
@@ -136,6 +137,7 @@ void initialize()
          } });
 }
 
+
 /**
  * Runs while the robot is in the disabled state of Field Management System or
  * the VEX Competition Switch, following either autonomous or opcontrol. When
@@ -158,81 +160,109 @@ using namespace abclib::path;
 
 void autonomous()
 {
-    // Create path builder
-/*
-    PathBuilder builder(units::Distance::from_inches(14.0));
+    chassis.set_pose(
+        units::Distance::from_inches(0),
+        units::Distance::from_inches(0),
+        units::Degrees(0));
 
-    Path test_path = builder
-                         .start(0, 0, 0) // Start at origin facing 0 radians
-
-                         .begin_profile("forward1",
-                                        units::BodyLinearVelocity(36.0),
-                                        18.0)
-                         .straight_forward(24.0) // go forward 24 inches
-
-                         .begin_profile("turn1",
-                                        units::BodyLinearVelocity(24.0),
-                                        6.0)
-                         .turn_in_place(M_PI) // turn 180 degrees (turn gets added to turn1 profile)
-
-                         .begin_profile("forward2",
-                                        units::BodyLinearVelocity(36.0),
-                                        18.0)
-                         .straight_to(0, 0) // go back to origin using straight_to
-
-                         .begin_profile("turn2",
-                                        units::BodyLinearVelocity(24.0),
-                                        6.0)
-                         .turn_in_place(0) // turn back to 0 radians
-
-                         .build();
-
-    // Start logging task
-    std::atomic<bool> path_complete{false};
-
-    pros::Task logger([&]()
-                      {
-        FILE* file = fopen("/usd/execution_log2.csv", "w");
-        if (!file) return;
-        
-        fprintf(file, "time_ms,x,y,theta_deg,v,omega,");
-        fprintf(file, "xte,ate,status,settlement_reason,left_cmd,right_cmd\n");
-        
-        uint32_t start = pros::millis();
-        
-        while (!path_complete.load()) {
-            TelemetryData local_telem;
-            {
-                std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-                local_telem = telemetry;
-            }
-            
-            fprintf(file, "%u,%.3f,%.3f,%.2f,%.2f,%.2f,",
-                   pros::millis() - start,
-                   local_telem.pose.x(),
-                   local_telem.pose.y(),
-                   local_telem.pose.theta() * 180.0 / M_PI,
-                   local_telem.pose_v.inches_per_sec,
-                   local_telem.pose_omega.rad_per_sec);
-            
-            fprintf(file, "%.3f,%.3f,%s,%s,%.2f,%.2f\n",
-                   local_telem.cross_track_error.inches,
-                   local_telem.along_track_error.inches,
-                   path_status_to_string(local_telem.path_status),
-                   settlement_reason_to_string(local_telem.settlement_reason),
-                   local_telem.left_wheel_cmd.inches_per_sec,
-                   local_telem.right_wheel_cmd.inches_per_sec);
-            
-            fflush(file);
-            pros::delay(20);
-        }
-        
-        fclose(file); });
-
-    chassis.follow_path(test_path, units::Time::from_seconds(15));
-    pros::delay(100);
+    chassis.move_straight_profiled(units::Distance::from_inches(16), units::BodyLinearVelocity(18), 24);
     controller.print(0, 0, "done");
+    /*
+    // Always reset pose to origin after calibrating
+    chassis.set_pose(
+        units::Distance::from_inches(0),
+        units::Distance::from_inches(0),
+        units::Degrees(0));
+
+    path::Pose start(0, 0, 0); // At origin, facing forward
+    path::Pose end(24, 0, 0);  // 24 inches straight ahead
+
+    path::StraightSegment straight(start, end);
+
+    trajectory::FollowerConfig config;
+    config.max_velocity = units::BodyLinearVelocity(24); // Slow - 24 in/s
+    config.max_acceleration = 12;                        // Gentle - 12 in/s²
+    config.timeout = units::Time::from_seconds(5);
+
+    chassis.follow_segment(&straight, config);
+
+    pros::delay(1000); // Pause to see result
     */
+    // Create path builder
+    /*
+        PathBuilder builder(units::Distance::from_inches(14.0));
+
+        Path test_path = builder
+                             .start(0, 0, 0) // Start at origin facing 0 radians
+
+                             .begin_profile("forward1",
+                                            units::BodyLinearVelocity(36.0),
+                                            18.0)
+                             .straight_forward(24.0) // go forward 24 inches
+
+                             .begin_profile("turn1",
+                                            units::BodyLinearVelocity(24.0),
+                                            6.0)
+                             .turn_in_place(M_PI) // turn 180 degrees (turn gets added to turn1 profile)
+
+                             .begin_profile("forward2",
+                                            units::BodyLinearVelocity(36.0),
+                                            18.0)
+                             .straight_to(0, 0) // go back to origin using straight_to
+
+                             .begin_profile("turn2",
+                                            units::BodyLinearVelocity(24.0),
+                                            6.0)
+                             .turn_in_place(0) // turn back to 0 radians
+
+                             .build();
+
+        // Start logging task
+        std::atomic<bool> path_complete{false};
+
+        pros::Task logger([&]()
+                          {
+            FILE* file = fopen("/usd/execution_log2.csv", "w");
+            if (!file) return;
+
+            fprintf(file, "time_ms,x,y,theta_deg,v,omega,");
+            fprintf(file, "xte,ate,status,settlement_reason,left_cmd,right_cmd\n");
+
+            uint32_t start = pros::millis();
+
+            while (!path_complete.load()) {
+                TelemetryData local_telem;
+                {
+                    std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+                    local_telem = telemetry;
+                }
+
+                fprintf(file, "%u,%.3f,%.3f,%.2f,%.2f,%.2f,",
+                       pros::millis() - start,
+                       local_telem.pose.x(),
+                       local_telem.pose.y(),
+                       local_telem.pose.theta() * 180.0 / M_PI,
+                       local_telem.pose_v.inches_per_sec,
+                       local_telem.pose_omega.rad_per_sec);
+
+                fprintf(file, "%.3f,%.3f,%s,%s,%.2f,%.2f\n",
+                       local_telem.cross_track_error.inches,
+                       local_telem.along_track_error.inches,
+                       path_status_to_string(local_telem.path_status),
+                       settlement_reason_to_string(local_telem.settlement_reason),
+                       local_telem.left_wheel_cmd.inches_per_sec,
+                       local_telem.right_wheel_cmd.inches_per_sec);
+
+                fflush(file);
+                pros::delay(20);
+            }
+
+            fclose(file); });
+
+        chassis.follow_path(test_path, units::Time::from_seconds(15));
+        pros::delay(100);
+        controller.print(0, 0, "done");
+        */
     /*
     // Test 6: Complex path mixing everything
     Path test_complex = builder

@@ -6,9 +6,15 @@ namespace abclib::path
     using Point = IPathSegment::Point;
 
     StraightSegment::StraightSegment(const Pose &start_pose, const Pose &end_pose)
+        : StraightSegment(start_pose, end_pose, 1e-3) // Delegate to overloaded constructor
+    {
+    }
+
+    // NEW overloaded constructor with all the logic
+    StraightSegment::StraightSegment(const Pose &start_pose, const Pose &end_pose,
+                                     double heading_tolerance)
         : start_pose_(start_pose), end_pose_(end_pose)
     {
-
         // Calculate displacement and geometric properties
         double dx = end_pose(0) - start_pose(0);
         double dy = end_pose(1) - start_pose(1);
@@ -31,9 +37,7 @@ namespace abclib::path
         // Calculate geometric heading
         double geometric_heading = std::atan2(dy, dx);
 
-        // Enforce heading alignment with tolerance for floating point errors
-        const double heading_tolerance = 1e-3; 
-
+        // Use the provided heading_tolerance instead of hardcoded value
         double start_heading_error = math::normalize_angle(start_pose(2) - geometric_heading);
         if (std::abs(start_heading_error) > heading_tolerance)
         {

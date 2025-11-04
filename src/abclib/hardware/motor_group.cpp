@@ -298,19 +298,20 @@ namespace abclib::hardware
                                    { this->hold_velocity(target_rpm, timeout, min_voltage, max_voltage); });
     }
 
-    void AdvancedMotorGroup::move_velocity_continuous(units::MotorAngularVelocity target_velocity)
+    void AdvancedMotorGroup::move_velocity_continuous(units::MotorAngularVelocity target_velocity,
+                                                      double target_acceleration)
     {
-        const double dt = 0.01; // Assumes 100Hz calls
+        const double dt = 0.01;
 
         units::MotorAngularVelocity vel = get_raw_velocity();
         double err = target_velocity.rad_per_sec - vel.rad_per_sec;
         double out = velocity_pid.compute(err, dt);
 
-        // Add feedforward if enabled
         if (use_feedforward)
         {
             double ff = group_config.kS * ((target_velocity.rad_per_sec > 0) - (target_velocity.rad_per_sec < 0));
             ff += group_config.kV * target_velocity.rad_per_sec;
+            ff += group_config.kA * target_acceleration; // ADD THIS
             out += ff;
         }
 
@@ -319,21 +320,22 @@ namespace abclib::hardware
         move_voltage(output_voltage);
     }
 
-    void AdvancedMotorGroup::move_velocity_continuous(units::MotorAngularVelocity target_velocity,
+    void AdvancedMotorGroup::move_velocity_continuous(units::MotorAngularVelocity target_velocity, double target_acceleration,
                                                       double override_kS,
-                                                      double override_kV)
+                                                      double override_kV,
+                                                      double override_kA)
     {
-        const double dt = 0.01; // Assumes 100Hz calls
+        const double dt = 0.01;
 
         units::MotorAngularVelocity vel = get_raw_velocity();
         double err = target_velocity.rad_per_sec - vel.rad_per_sec;
         double out = velocity_pid.compute(err, dt);
 
-        // Use override constants
         if (use_feedforward)
         {
             double ff = override_kS * ((target_velocity.rad_per_sec > 0) - (target_velocity.rad_per_sec < 0));
             ff += override_kV * target_velocity.rad_per_sec;
+            ff += override_kA * target_acceleration; // ADD THIS
             out += ff;
         }
 
@@ -346,20 +348,17 @@ namespace abclib::hardware
     {
         std::lock_guard<pros::Mutex> lock(task_mutex_);
 
-        // Signal existing task to stop
         if (current_task_.has_value())
         {
             current_task_->notify();
         }
 
-        // Create new task that maintains velocity indefinitely
         current_task_ = pros::Task([this, target_velocity]()
                                    {
         while (pros::Task::notify_take(true, 0) == 0) {
-            this->move_velocity_continuous(target_velocity);
+            this->move_velocity_continuous(target_velocity, 0.0);
             pros::delay(10);
         }
-        // Stop motor when task exits
         this->brake(); });
     }
 

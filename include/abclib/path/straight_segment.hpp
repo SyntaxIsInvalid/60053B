@@ -20,6 +20,10 @@ public:
      * must match the geometric direction of the line from start to end.
      */
     StraightSegment(const Pose& start_pose, const Pose& end_pose);
+
+    StraightSegment(const Pose& start_pose, const Pose& end_pose, 
+                    double heading_tolerance);
+
     
     // IPathSegment interface
     void calc_point(double u, double& x, double& y) const override;

@@ -7,6 +7,8 @@
 #include "abclib/kinematics/differential_drive.hpp"
 #include "abclib/estimation/wheel_measurement_models.hpp"
 #include "abclib/estimation/imu_measurement_model.hpp"
+#include "abclib/math/coordinate_frames.hpp"
+#include "abclib/path/straight_segment.hpp"
 using namespace abclib;
 
 namespace abclib::hardware
@@ -530,9 +532,10 @@ namespace abclib::hardware
         right_motors->move_voltage(right_voltage);
     }
     void Chassis::move_velocity(units::WheelLinearVelocity left_velocity,
-                                units::WheelLinearVelocity right_velocity)
+                                units::WheelLinearVelocity right_velocity,
+                                double left_acceleration,
+                                double right_acceleration)
     {
-        // Convert linear wheel velocity to angular motor velocity
         units::Distance wheel_radius = get_wheel_radius();
 
         units::MotorAngularVelocity left_motor_vel =
@@ -540,8 +543,12 @@ namespace abclib::hardware
         units::MotorAngularVelocity right_motor_vel =
             units::MotorAngularVelocity(right_velocity.inches_per_sec / wheel_radius.inches);
 
-        left_motors->move_velocity_continuous(left_motor_vel);
-        right_motors->move_velocity_continuous(right_motor_vel);
+        // Convert wheel acceleration to motor acceleration
+        double left_motor_accel = left_acceleration / wheel_radius.inches;
+        double right_motor_accel = right_acceleration / wheel_radius.inches;
+
+        left_motors->move_velocity_continuous(left_motor_vel, left_motor_accel);
+        right_motors->move_velocity_continuous(right_motor_vel, right_motor_accel);
 
         // Update telemetry
         {
@@ -571,8 +578,11 @@ namespace abclib::hardware
 
     void Chassis::move_velocity(units::WheelLinearVelocity left_velocity,
                                 units::WheelLinearVelocity right_velocity,
+                                double left_acceleration,
+                                double right_acceleration,
                                 double override_kS,
-                                double override_kV)
+                                double override_kV,
+                                double override_kA)
     {
         units::Distance wheel_radius = get_wheel_radius();
 
@@ -581,8 +591,11 @@ namespace abclib::hardware
         units::MotorAngularVelocity right_motor_vel =
             units::MotorAngularVelocity(right_velocity.inches_per_sec / wheel_radius.inches);
 
-        left_motors->move_velocity_continuous(left_motor_vel, override_kS, override_kV);
-        right_motors->move_velocity_continuous(right_motor_vel, override_kS, override_kV);
+        double left_motor_accel = left_acceleration / wheel_radius.inches;
+        double right_motor_accel = right_acceleration / wheel_radius.inches;
+
+        left_motors->move_velocity_continuous(left_motor_vel, override_kS, override_kV, override_kA, left_motor_accel);
+        right_motors->move_velocity_continuous(right_motor_vel, override_kS, override_kV, override_kA, right_motor_accel);
 
         // Update telemetry (same as above)
         {
@@ -606,110 +619,6 @@ namespace abclib::hardware
             telemetry.right_motor_velocity_i_term = right_motors->get_velocity_i_term();
             telemetry.right_motor_velocity_d_term = right_motors->get_velocity_d_term();
         }
-    }
-
-    void Chassis::move_straight_profiled(units::Distance distance,
-                                         units::BodyLinearVelocity max_velocity,
-                                         double max_acceleration,
-                                         units::Time timeout)
-    {
-        auto current = get_pose();
-        path::Pose start(current.x(), current.y(), current.theta());
-
-        // Calculate end position using raw inches for trig operations
-        path::Pose end(
-            current.x() + distance.inches * std::cos(current.theta()),
-            current.y() + distance.inches * std::sin(current.theta()),
-            current.theta());
-
-        path::StraightSegment segment(start, end);
-
-        trajectory::FollowerConfig config;
-        config.max_velocity = max_velocity; // Already typed
-        config.max_acceleration = max_acceleration;
-        config.timeout = timeout; // Already typed
-
-        path_follower_->follow_segment(&segment, config);
-    }
-
-    void Chassis::turn_to_heading_profiled(
-        units::Degrees target_heading,
-        units::Degrees max_angular_velocity,
-        units::Degrees max_angular_acceleration,
-        units::Time timeout)
-    {
-        // 1. Get current pose
-        estimation::Pose current_pose = get_pose();
-
-        // 2. Create turn-in-place segment
-        path::Pose start(current_pose.x(), current_pose.y(), current_pose.theta());
-        path::TurnInPlaceSegment segment(start, target_heading.to_radians().value, track_width);
-
-        // 3. Convert angular velocity/acceleration to linear equivalents for the trajectory
-        // For turn-in-place: v_wheel = ω_robot * (track_width / 2)
-        double turning_radius = track_width.inches / 2.0;
-        units::BodyLinearVelocity max_velocity = units::BodyLinearVelocity(
-            max_angular_velocity.to_radians().value * turning_radius);
-        double max_acceleration = max_angular_acceleration.to_radians().value * turning_radius;
-
-        // 4. Create follower configuration
-        trajectory::FollowerConfig config;
-        config.max_velocity = max_velocity;
-        config.max_acceleration = max_acceleration;
-        config.timeout = timeout;
-        config.position_threshold = units::Distance::from_inches(0.5); // not used for turn-in-place
-        config.velocity_threshold = units::BodyLinearVelocity(0.1);
-        config.settle_count_required = 5; // 50ms at 100Hz
-
-        // 5. Follow the segment
-        path_follower_->follow_segment(&segment, config);
-    }
-
-    void Chassis::move_to_pose_profiled(
-        units::Distance target_x,
-        units::Distance target_y,
-        units::Degrees target_heading,
-        units::BodyLinearVelocity max_velocity,
-        double max_acceleration,
-        units::Time timeout,
-        const std::optional<path::Eta3PathSegment::EtaVec> &eta,
-        const std::optional<path::Eta3PathSegment::KappaVec> &kappa)
-    {
-        // 1. Get current pose in body frame
-        estimation::Pose current_body = get_pose();
-
-        // 2. Convert current pose: body -> math
-        double start_x_math, start_y_math, start_theta_math;
-        math::body_to_math_frame(
-            current_body.pose,
-            start_x_math, start_y_math, start_theta_math);
-
-        // 3. Convert target pose: body -> math
-        double end_x_math, end_y_math, end_theta_math;
-        units::BodyPose target_body(
-            target_x.inches,
-            target_y.inches,
-            target_heading);
-        math::body_to_math_frame(
-            target_body,
-            end_x_math, end_y_math, end_theta_math);
-
-        // 4. Create Eta3 segment in math frame
-        path::Pose start_math(start_x_math, start_y_math, start_theta_math);
-        path::Pose end_math(end_x_math, end_y_math, end_theta_math);
-        path::Eta3PathSegment segment(start_math, end_math, eta, kappa);
-
-        // 5. Create follower configuration
-        trajectory::FollowerConfig config;
-        config.max_velocity = max_velocity;
-        config.max_acceleration = max_acceleration;
-        config.timeout = timeout;
-        config.position_threshold = units::Distance::from_inches(0.5);
-        config.velocity_threshold = units::BodyLinearVelocity(0.5);
-        config.settle_count_required = 10; // 100ms at 100Hz
-
-        // 6. Follow the segment using existing infrastructure
-        path_follower_->follow_segment(&segment, config);
     }
 
     void Chassis::stop_motors()
@@ -752,5 +661,41 @@ namespace abclib::hardware
                 units::RPM::from_rad_per_sec(telemetry.right_motor_actual_velocity.rad_per_sec).value;
         }
     }
+    void Chassis::move_straight_profiled(
+        units::Distance distance,
+        units::BodyLinearVelocity max_velocity,
+        double max_acceleration,
+        units::Time timeout,
+        double heading_tolerance)
+    {
+        // Get current pose from odometry (REP-103 body frame)
+        estimation::Pose current_body = get_pose();
 
+        // Convert current pose to math frame
+        double start_x_math, start_y_math, start_theta_math;
+        math::body_to_math_frame(current_body.pose,
+                                 start_x_math, start_y_math, start_theta_math);
+
+        // Calculate end pose in math frame
+        // Move in the direction of current heading
+        double end_x_math = start_x_math + distance.inches * std::cos(start_theta_math);
+        double end_y_math = start_y_math + distance.inches * std::sin(start_theta_math);
+        double end_theta_math = start_theta_math; // Heading stays the same
+
+        // Create path segment in math frame
+        path::Pose start_pose(start_x_math, start_y_math, start_theta_math);
+        path::Pose end_pose(end_x_math, end_y_math, end_theta_math);
+
+        path::StraightSegment segment(start_pose, end_pose, heading_tolerance);
+
+        // Configure trajectory follower
+        trajectory::FollowerConfig config;
+        config.max_velocity = max_velocity;
+        config.max_acceleration = max_acceleration;
+        config.timeout = timeout;
+        config.ramsete_constants = config_.ramsete_constants;
+
+        // Execute the trajectory
+        path_follower_->follow_segment(&segment, config);
+    }
 }
