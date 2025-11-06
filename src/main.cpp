@@ -9,6 +9,7 @@
 using namespace abclib;
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
+
 hardware::motor_group_config left_config{
     .kS = 0.919850,
     .kV = 0.1594417,
@@ -73,7 +74,7 @@ void initialize()
     // rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // match_load_ramp.retract();
     chassis.calibrate();
-    /*
+    
     pros::Task screen_task([&]()
                            {
          while (1) {
@@ -109,12 +110,12 @@ void initialize()
                local_telem.battery_capacity_percent,
                local_telem.voltage_compensation_active ? "C" : "-",
                local_telem.voltage_compensation_scale);
-
+                    /*
              // Line 3: Cross-track and Along-track errors
              pros::lcd::print(3, "XTE:%.2f ATE:%.2f",
                             local_telem.cross_track_error.inches,
                             local_telem.along_track_error.inches);
-
+                
              // Line 4: Max tracking errors
              pros::lcd::print(4, "MaxXTE:%.2f MaxATE:%.2f",
                             local_telem.max_cross_track_error.inches,
@@ -129,7 +130,7 @@ void initialize()
              pros::lcd::print(6, "Settle:%s Cnt:%d",
                             settlement_reason_to_string(local_telem.settlement_reason),
                             local_telem.settle_count);
-
+            */
              // Line 7: Trajectory timing
              pros::lcd::print(7, "Time:%.2f/%.2fs",
                             local_telem.trajectory_time.seconds,
@@ -137,7 +138,7 @@ void initialize()
 
              pros::delay(100);
          } });
-         */
+         
 }
 
 /**
@@ -162,15 +163,12 @@ using namespace abclib::path;
 
 void autonomous()
 {
-    /*
     chassis.set_pose(
         units::Distance::from_inches(0),
         units::Distance::from_inches(0),
         units::Degrees(0));
 
-    chassis.turn_to_heading_profiled(units::Degrees(90), 90, 150, units::Time::from_seconds(3));
-    */
-    characterization::measure_ks_kv_turn(leftMotors, rightMotors, false);
+    chassis.turn_to_heading_profiled(units::Degrees(90), 180, 360, units::Time::from_seconds(5));
     controller.print(0, 0, "done");
     /*
     // Always reset pose to origin after calibrating
