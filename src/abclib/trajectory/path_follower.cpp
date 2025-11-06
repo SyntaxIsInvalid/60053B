@@ -142,29 +142,141 @@ namespace abclib::trajectory
             units::Time sample_time = std::min(elapsed_time, trajectory.get_total_time());
             TrajectoryState reference_state = trajectory.get_state(sample_time);
 
-            // Convert current pose from body frame (REP-103) to math frame for RAMSETE
-            double current_x_math, current_y_math, current_theta_math;
-            math::body_to_math_frame(current_pose_body.pose,
-                                     current_x_math, current_y_math, current_theta_math);
+            // Get current segment to determine control mode
+            const path::IPathSegment *current_seg = trajectory.get_current_segment(reference_state.arc_length);
 
-            // Create math-frame pose for RAMSETE
-            estimation::Pose current_pose_math;
-            current_pose_math.pose = units::BodyPose::from_radians(current_x_math, current_y_math, current_theta_math);
-            current_pose_math.v = current_pose_body.v; // Velocities stay the same (body-relative)
-            current_pose_math.omega = current_pose_body.omega;
-            control::RamseteOutput ramsete_output = ramsete_.compute(current_pose_math, reference_state);
             // Call state callback if provided
             if (config.state_callback)
             {
                 config.state_callback(reference_state);
             }
 
-            // Check if trajectory is complete
+            // Branch on segment type for control computation
+            kinematics::WheelVelocities wheel_vels;
+            units::Voltage left_voltage;
+            units::Voltage right_voltage;
+            control::RamseteOutput ramsete_output; // For telemetry and settlement
+
+            if (current_seg->is_turn_in_place())
+            {
+                // ===== TURN-IN-PLACE CONTROL: Feedforward + Feedback =====
+
+                // Feedforward: use reference omega from trajectory
+                double omega_ref = reference_state.omega;
+
+                // Feedback: proportional control on heading error
+                double heading_error = math::normalize_angle(
+                    reference_state.theta - current_pose_body.theta());
+                double omega_feedback = config.turn_kP * heading_error;
+
+                // Combined command
+                units::BodyAngularVelocity omega_command =
+                    units::BodyAngularVelocity(omega_ref + omega_feedback);
+
+                // Convert to wheel velocities (v = 0 for turn-in-place)
+                units::Distance track_width = chassis_->get_track_width();
+                wheel_vels = kinematics::diff_drive_ik(
+                    units::BodyLinearVelocity(0),
+                    omega_command,
+                    track_width);
+
+                // Calculate wheel accelerations for feedforward
+                double half_track = track_width.inches / 2.0;
+                double body_angular_accel = reference_state.alpha;
+                double left_accel = -half_track * body_angular_accel;
+                double right_accel = half_track * body_angular_accel;
+
+                // Apply control with turn-in-place gains
+                const auto &chassis_config = chassis_->get_config();
+                if (chassis_config.use_pros_controller)
+                {
+                    chassis_->move_velocity_pros(wheel_vels.left, wheel_vels.right);
+                }
+                else
+                {
+                    chassis_->move_velocity(wheel_vels.left, wheel_vels.right,
+                                            left_accel, right_accel,
+                                            chassis_config.turn_in_place_kS,
+                                            chassis_config.turn_in_place_kV,
+                                            chassis_config.turn_in_place_kA);
+                }
+
+                // Populate ramsete_output for settlement checking and telemetry
+                // For turn-in-place, position errors are not meaningful
+                ramsete_output.e_x = units::Distance::from_inches(0);
+                ramsete_output.e_y = units::Distance::from_inches(0);
+                ramsete_output.e_theta = units::Radians(heading_error);
+                ramsete_output.v = units::BodyLinearVelocity(0);
+                ramsete_output.omega = omega_command;
+
+                // Update turn-specific telemetry
+                {
+                    std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
+                    abclib::telemetry.omega_reference = units::BodyAngularVelocity(omega_ref);
+                    abclib::telemetry.omega_error = units::BodyAngularVelocity(omega_ref - current_pose_body.omega.rad_per_sec);
+                    abclib::telemetry.omega_pid_output = omega_feedback;
+                    abclib::telemetry.omega_commanded = omega_command;
+                    abclib::telemetry.left_wheel_cmd = wheel_vels.left;
+                    abclib::telemetry.right_wheel_cmd = wheel_vels.right;
+                }
+
+                // Approximate voltages for telemetry
+                left_voltage = units::Voltage::from_volts(0);
+                right_voltage = units::Voltage::from_volts(0);
+            }
+            else
+            {
+                // ===== NORMAL PATH CONTROL: RAMSETE =====
+
+                // Convert current pose from body frame (REP-103) to math frame for RAMSETE
+                double current_x_math, current_y_math, current_theta_math;
+                math::body_to_math_frame(current_pose_body.pose,
+                                         current_x_math, current_y_math, current_theta_math);
+
+                // Create math-frame pose for RAMSETE
+                estimation::Pose current_pose_math;
+                current_pose_math.pose = units::BodyPose::from_radians(current_x_math, current_y_math, current_theta_math);
+                current_pose_math.v = current_pose_body.v;
+                current_pose_math.omega = current_pose_body.omega;
+
+                // Compute RAMSETE control
+                ramsete_output = ramsete_.compute(current_pose_math, reference_state);
+
+                // Convert to wheel velocities
+                units::Distance track_width = chassis_->get_track_width();
+                wheel_vels = kinematics::diff_drive_ik(
+                    ramsete_output.v, ramsete_output.omega, track_width);
+
+                // Calculate wheel accelerations
+                double half_track = track_width.inches / 2.0;
+                double body_linear_accel = reference_state.arc_acceleration;
+                double body_angular_accel = reference_state.alpha;
+                double left_accel = body_linear_accel - half_track * body_angular_accel;
+                double right_accel = body_linear_accel + half_track * body_angular_accel;
+
+                // Apply control
+                const auto &chassis_config = chassis_->get_config();
+                if (chassis_config.use_pros_controller)
+                {
+                    chassis_->move_velocity_pros(wheel_vels.left, wheel_vels.right);
+                }
+                else
+                {
+                    chassis_->move_velocity(wheel_vels.left, wheel_vels.right,
+                                            left_accel, right_accel);
+                }
+
+                // Approximate voltages for telemetry
+                left_voltage = units::Voltage::from_volts(0);
+                right_voltage = units::Voltage::from_volts(0);
+            }
+
+            // ===== SETTLEMENT CHECKING (common for both modes) =====
+
             if (trajectory.is_complete(elapsed_time))
             {
-                // Check settlement
-                const path::IPathSegment *current_seg = trajectory.get_current_segment(reference_state.arc_length);
-                if (check_settlement(current_pose_body, reference_state, config, ramsete_output, settle_count, current_seg))
+                if (check_settlement(current_pose_body, reference_state, config,
+                                     ramsete_output, settle_count, current_seg))
                 {
                     std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
                     abclib::telemetry.is_settled = true;
@@ -175,39 +287,11 @@ namespace abclib::trajectory
                 }
             }
 
-            // Determine current status
+            // ===== STATUS AND TELEMETRY (common for both modes) =====
+
             PathFollowerStatus current_status = determine_trajectory_status(
                 trajectory, elapsed_time, settle_count > 0);
 
-            // Compute control output with RAMSETE
-            // Convert to wheel velocities
-            units::Distance track_width = chassis_->get_track_width();
-            kinematics::WheelVelocities wheel_vels = kinematics::diff_drive_ik(
-                ramsete_output.v, ramsete_output.omega, track_width);
-
-            double half_track = track_width.inches / 2.0;
-            double body_linear_accel = reference_state.arc_acceleration; // tangential acceleration
-            double body_angular_accel = reference_state.alpha;
-
-            double left_accel = body_linear_accel - half_track * body_angular_accel;
-            double right_accel = body_linear_accel + half_track * body_angular_accel;
-
-            // Apply control
-            const auto &chassis_config = chassis_->get_config();
-            if (chassis_config.use_pros_controller)
-            {
-                chassis_->move_velocity_pros(wheel_vels.left, wheel_vels.right);
-            }
-            else
-            {
-                chassis_->move_velocity(wheel_vels.left, wheel_vels.right, left_accel, right_accel);
-            }
-
-            // Get voltages for telemetry (approximate from velocities)
-            units::Voltage left_voltage = units::Voltage::from_volts(0);
-            units::Voltage right_voltage = units::Voltage::from_volts(0);
-
-            // Update telemetry
             update_telemetry(current_pose_body, reference_state, ramsete_output,
                              left_voltage, right_voltage,
                              current_status, elapsed_time, trajectory.get_total_time());
@@ -215,6 +299,7 @@ namespace abclib::trajectory
             pros::delay(10);
         }
 
+        // Stop motors when complete
         chassis_->stop_motors();
 
         {

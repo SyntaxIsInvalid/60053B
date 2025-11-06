@@ -702,149 +702,38 @@ namespace abclib::hardware
     }
 
     void Chassis::turn_to_heading_profiled(
-        units::Degrees target_heading,
-        double max_body_angular_velocity_deg_per_sec,
-        double max_body_angular_acceleration_deg_per_sec2,
-        units::Time timeout)
-    {
-        uint32_t start_time = pros::millis();
-
-        // 1. Get current heading from odometry
-        estimation::Pose current_pose = get_pose();
-        double current_heading_rad = current_pose.theta();
-
-        // 2. Calculate angular displacement (shortest path)
-        double target_heading_rad = target_heading.to_radians().value;
-        double angular_displacement_rad = math::normalize_angle(target_heading_rad - current_heading_rad);
-
-        // 3. Create TurnInPlaceSegment
-        path::Pose start_pose(current_pose.x(), current_pose.y(), current_heading_rad);
-        path::TurnInPlaceSegment turn_segment(start_pose, target_heading_rad, track_width);
-
-        // 4. Create trajectory from segment
-        double max_angular_velocity_rad_per_sec = max_body_angular_velocity_deg_per_sec * M_PI / 180.0;
-        double max_angular_acceleration_rad_per_sec2 = max_body_angular_acceleration_deg_per_sec2 * M_PI / 180.0;
-
-        // Convert angular to linear for trajectory (using turning radius)
-        double turning_radius = track_width.inches / 2.0;
-        units::BodyLinearVelocity max_vel = units::BodyLinearVelocity(
-            turning_radius * max_angular_velocity_rad_per_sec);
-        double max_accel = turning_radius * max_angular_acceleration_rad_per_sec2;
-
-        trajectory::Trajectory trajectory(&turn_segment, max_vel, max_accel);
-
-        // Settlement parameters
-        const double angular_threshold_rad = 0.5 * M_PI / 180.0;
-        const double omega_threshold_rad_per_sec = 2.0 * M_PI / 180.0;
-        const int settle_count_required = 5;
-        int settle_count = 0;
-
-        // Reset telemetry tracking
-        {
-            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-            telemetry.max_angular_error = units::Radians(0);
-            telemetry.cumulative_angular_error = units::Radians(0);
-        }
-
-        const double dt = 0.01;
-
-        // Main control loop
-        while (true)
-        {
-            uint32_t loop_start = pros::millis();
-            double elapsed_seconds = (loop_start - start_time) / 1000.0;
-            units::Time elapsed_time = units::Time::from_seconds(elapsed_seconds);
-
-            // Check timeout
-            if (elapsed_time >= timeout)
-            {
-                std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-                telemetry.settlement_reason = SettlementReason::TIMEOUT;
-                telemetry.time_to_settle = elapsed_time;
-                break;
-            }
-
-            estimation::Pose pose = get_pose();
-
-            // Get trajectory state (like old path_follower)
-            trajectory::TrajectoryState reference_state = trajectory.get_state(elapsed_time);
-
-            // Get omega directly from trajectory state (like old code)
-            double omega_ref = reference_state.omega;
-            double heading_error = math::normalize_angle(target_heading_rad - pose.theta());
-            const double kP_heading = 0.04;
-            double omega_feedback = kP_heading * heading_error;
-            // Pure feedforward (no heading correction for now)
-            units::BodyAngularVelocity omega_command = units::BodyAngularVelocity(omega_ref + omega_feedback);
-
-            // Convert to wheel velocities
-            kinematics::WheelVelocities wheel_vels = kinematics::diff_drive_ik(
-                units::BodyLinearVelocity(0),
-                omega_command,
-                track_width);
-
-            // Check if trajectory complete
-            if (trajectory.is_complete(elapsed_time))
-            {
-                double heading_error = math::normalize_angle(target_heading_rad - pose.theta());
-
-                if (std::abs(heading_error) < angular_threshold_rad &&
-                    std::abs(pose.omega.rad_per_sec) < omega_threshold_rad_per_sec)
-                {
-                    settle_count++;
-                    if (settle_count >= settle_count_required)
-                    {
-                        std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-                        telemetry.is_settled = true;
-                        telemetry.settlement_reason = SettlementReason::WITHIN_THRESHOLD;
-                        telemetry.time_to_settle = elapsed_time;
-                        break;
-                    }
-                }
-                else
-                {
-                    settle_count = 0;
-                }
-            }
-
-            // Send velocity commands
-            const auto &chassis_config = get_config();
-            double body_angular_accel = reference_state.alpha;
-            double half_track = track_width.inches / 2.0;
-            double left_accel = -half_track * body_angular_accel; // wheel LINEAR accel (inches/s²)
-            double right_accel = half_track * body_angular_accel; // wheel LINEAR accel (inches/s²)
-
-            move_velocity(wheel_vels.left, wheel_vels.right, left_accel, right_accel,
-                          chassis_config.turn_in_place_kS,
-                          chassis_config.turn_in_place_kV,
-                          chassis_config.turn_in_place_kA);
-            // Update telemetry
-            {
-                std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-                telemetry.pose = pose.pose;
-                telemetry.pose_v = pose.v;
-                telemetry.pose_omega = pose.omega;
-                telemetry.omega_reference = units::BodyAngularVelocity(omega_ref);
-                telemetry.omega_commanded = omega_command;
-
-                double angular_error = math::normalize_angle(target_heading_rad - pose.theta());
-                telemetry.angular_error = units::Radians(angular_error);
-                telemetry.angular_target = units::Radians(target_heading_rad);
-                telemetry.angular_actual = units::Radians(pose.theta());
-
-                telemetry.left_wheel_cmd = wheel_vels.left;
-                telemetry.right_wheel_cmd = wheel_vels.right;
-                telemetry.is_settled = false;
-                telemetry.settle_count = settle_count;
-                telemetry.settlement_reason = SettlementReason::NOT_SETTLED;
-            }
-
-            pros::delay(10);
-        }
-
-        // Stop motors
-        stop_motors();
-        left_motors->brake();
-        right_motors->brake();
-    }
+    units::Degrees target_heading,
+    double max_body_angular_velocity_deg_per_sec,
+    double max_body_angular_acceleration_deg_per_sec2,
+    units::Time timeout)
+{
+    // 1. Get current pose from odometry
+    estimation::Pose current_pose = get_pose();
+    double current_heading_rad = current_pose.theta();
+    double target_heading_rad = target_heading.to_radians().value;
+    
+    // 2. Create TurnInPlaceSegment in math frame
+    path::Pose start_pose(current_pose.x(), current_pose.y(), current_heading_rad);
+    path::TurnInPlaceSegment turn_segment(start_pose, target_heading_rad, track_width);
+    
+    // 3. Convert angular velocity/acceleration to linear (wheel velocity)
+    // For turn-in-place: v_wheel = ω_body * r, where r = track_width / 2
+    double turning_radius = track_width.inches / 2.0;
+    double max_angular_vel_rad_per_sec = max_body_angular_velocity_deg_per_sec * M_PI / 180.0;
+    double max_angular_accel_rad_per_sec2 = max_body_angular_acceleration_deg_per_sec2 * M_PI / 180.0;
+    
+    double max_wheel_linear_velocity = max_angular_vel_rad_per_sec * turning_radius;
+    double max_wheel_linear_accel = max_angular_accel_rad_per_sec2 * turning_radius;
+    
+    // 4. Configure follower with converted linear velocities
+    trajectory::FollowerConfig config;
+    config.max_velocity = units::BodyLinearVelocity(max_wheel_linear_velocity);
+    config.max_acceleration = max_wheel_linear_accel;
+    config.timeout = timeout;
+    config.ramsete_constants = config_.ramsete_constants;
+    config.turn_kP = 0.35; // Can make this configurable via ChassisConfig later
+    
+    // 5. Let the path follower handle everything!
+    path_follower_->follow_segment(&turn_segment, config);
+}
 }
