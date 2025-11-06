@@ -8,8 +8,75 @@
 #include "abclib/trajectory/trajectory_logger.hpp"
 using namespace abclib;
 
+#ifdef ROBOT_TEST_DRIVE
+#include "abclib/configs/test_robot.hpp"
+#elif defined(ROBOT_COMPETITION)
+#include "abclib/configs/competition_robot.hpp"
+#else
+#error "No robot configuration selected!"
+#endif
+
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
+using namespace abclib::robot_config;
+
+hardware::AdvancedMotorGroup leftMotors(
+    robot_config::LEFT_MOTOR_PORTS,
+    pros::MotorGearset::blue,
+    robot_config::get_left_motor_config());
+
+hardware::AdvancedMotorGroup rightMotors(
+    robot_config::RIGHT_MOTOR_PORTS,
+    pros::MotorGearset::blue,
+    robot_config::get_right_motor_config());
+
+pros::IMU imu(robot_config::IMU_PORT);
+
+#if USE_ROTATION_TRACKER
+// Competition robot - uses rotation sensor
+pros::Rotation y_rotation(robot_config::Y_ROTATION_PORT);
+hardware::TrackingWheel y_tracker(
+    &y_rotation,
+    units::Distance::from_inches(robot_config::Y_TRACKER_WHEEL_DIAMETER),
+    units::Distance::from_inches(robot_config::Y_TRACKER_OFFSET_INCHES));
+hardware::Sensors sensors(&imu, &y_tracker, nullptr);
+#else
+// Test drive - uses motor tracking
+hardware::MotorTrackingWheel y_tracker(
+    &leftMotors,
+    units::Distance::from_inches(robot_config::WHEEL_DIAMETER_INCHES),
+    units::Distance::from_inches(robot_config::Y_TRACKER_OFFSET_INCHES));
+hardware::Sensors sensors(&imu, &y_tracker, nullptr);
+#endif
+
+hardware::ChassisConfig chassis_constant{
+    .left = &leftMotors,
+    .right = &rightMotors,
+    .diameter = units::Distance::from_inches(robot_config::WHEEL_DIAMETER_INCHES),
+    .track_width = units::Distance::from_inches(robot_config::TRACK_WIDTH_INCHES),
+    .turn_in_place_kS = robot_config::TURN_IN_PLACE_KS,
+    .turn_in_place_kV = robot_config::TURN_IN_PLACE_KV,
+    .turn_in_place_kA = robot_config::TURN_IN_PLACE_KA};
+
+hardware::Chassis chassis(
+    chassis_constant,
+    sensors,
+    robot_config::get_lateral_pid(),
+    robot_config::get_angular_pid());
+
+// Pneumatics - only for competition robot
+#if HAS_PNEUMATICS
+hardware::Pneumatic match_load_ramp(robot_config::MATCH_LOAD_RAMP_PORT);
+hardware::Pneumatic intake_lift(robot_config::INTAKE_LIFT_PORT);
+#endif
+
+// Intake - only for competition robot
+#if HAS_INTAKE
+subsystems::Intake top_intake(robot_config::TOP_INTAKE_PORTS, pros::MotorGearset::blue);
+subsystems::Intake bottom_intake(robot_config::BOTTOM_INTAKE_PORTS, pros::MotorGearset::blue);
+#endif
+
+/*
 hardware::motor_group_config left_config{
     .kS = 0.919850,
     .kV = 0.1594417,
@@ -66,7 +133,7 @@ control::PIDConstants angular_pid(
 );
 
 hardware::Chassis chassis(chassis_constant, sensors, lateral_pid, angular_pid);
-
+*/
 void initialize()
 {
     pros::lcd::initialize();
@@ -74,7 +141,10 @@ void initialize()
     // rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // match_load_ramp.retract();
     chassis.calibrate();
-    
+    #if HAS_PNEUMATICS
+        match_load_ramp.retract();
+        intake_lift.retract();
+    #endif
     pros::Task screen_task([&]()
                            {
          while (1) {
@@ -138,7 +208,6 @@ void initialize()
 
              pros::delay(100);
          } });
-         
 }
 
 /**
@@ -216,26 +285,33 @@ void opcontrol()
         int turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
         int throttle = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         chassis.drive(throttle, turn, 1, .65);
-        /*
-        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
-        {
-            intake.set_intake();
-        }
-        else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
-        {
-            intake.set_outtake();
-        }
-        else
-        {
-            intake.set_idle();
-        }
+        #if HAS_INTAKE
+            if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
+            {
+                top_intake.set_intake();
+                bottom_intake.set_intake();
+            }
+            else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
+            {
+                top_intake.set_outtake();
+                bottom_intake.set_outtake();
+            }
+            else
+            {
+                top_intake.set_idle();
+                bottom_intake.set_idle();
+            }
+        #endif
 
-        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A))
-        {
-            match_load_ramp.toggle();
-        }
+        #if HAS_PNEUMATICS
+            if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)) {
+                match_load_ramp.toggle();
+            }
+            if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B)) {
+                intake_lift.toggle();
+            }
+        #endif
 
-        */
         pros::delay(20);
     }
 }

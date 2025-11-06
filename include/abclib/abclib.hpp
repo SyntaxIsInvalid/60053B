@@ -1,5 +1,15 @@
 #pragma once
 
+// configs 
+#include "abclib/configs/robot_selection.hpp"
+#if defined(ROBOT_TEST_DRIVE)
+    #include "abclib/configs/test_robot.hpp"
+#elif defined(ROBOT_COMPETITION)
+    #include "abclib/configs/competition_robot.hpp"
+#else
+    #error "No robot configuration selected!"
+#endif
+
 // units
 #include "abclib/units/units.hpp"
 

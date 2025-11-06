@@ -25,6 +25,9 @@ namespace abclib::trajectory
         units::BodyLinearVelocity velocity_threshold = units::BodyLinearVelocity(0.5);
         int settle_count_required = 10; // consecutive loops
 
+        // Turn-in-place control gain
+        double turn_kP = 0.04; // Proportional gain for heading feedback during turns
+
         // Optional callback for action scheduling
         std::function<void(const TrajectoryState &)> state_callback = nullptr;
     };
