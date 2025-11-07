@@ -10,8 +10,14 @@ namespace abclib::robot_config
     // Motor ports
     inline const std::vector<int8_t> LEFT_MOTOR_PORTS = {-12, -11, -19};
     inline const std::vector<int8_t> RIGHT_MOTOR_PORTS = {14, 15, 20};
-    inline const std::vector<int8_t> TOP_INTAKE_PORTS = {-9};
-    inline const std::vector<int8_t> BOTTOM_INTAKE_PORTS = {10};
+    inline const std::vector<int8_t> TOP_INTAKE_PORTS = {9};
+    inline const std::vector<int8_t> BOTTOM_INTAKE_PORTS = {-10};
+
+    // Intake voltages - now using units::Voltage
+    inline const units::Voltage TOP_INTAKE_VOLTAGE = units::Voltage::from_volts(8.0);
+    inline const units::Voltage TOP_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
+    inline const units::Voltage BOTTOM_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
+    inline const units::Voltage BOTTOM_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
 
     // Sensor ports
     constexpr int8_t IMU_PORT = 18;
@@ -20,13 +26,12 @@ namespace abclib::robot_config
     // Pneumatic ports
     constexpr char MATCH_LOAD_RAMP_PORT = 'G';
     constexpr char INTAKE_LIFT_PORT = 'H';
-    // constexpr char INTAKE_DOOR = ''
 
-    // Physical dimensions
-    constexpr double WHEEL_DIAMETER_INCHES = 2.75;
-    constexpr double TRACK_WIDTH_INCHES = 14.0;
-    constexpr double Y_TRACKER_WHEEL_DIAMETER = 2.0;
-    constexpr double Y_TRACKER_OFFSET_INCHES = 0.0;
+    // Physical dimensions - now using units::Distance
+    inline const units::Distance WHEEL_DIAMETER = units::Distance::from_inches(2.75);
+    inline const units::Distance TRACK_WIDTH = units::Distance::from_inches(14.0);
+    inline const units::Distance Y_TRACKER_WHEEL_DIAMETER = units::Distance::from_inches(2.0);
+    inline const units::Distance Y_TRACKER_OFFSET = units::Distance::from_inches(0.0);
 
     // Motor configurations (untuned)
     inline hardware::motor_group_config get_left_motor_config()
@@ -64,7 +69,7 @@ namespace abclib::robot_config
         return control::PIDConstants(4.7, 0, 0);
     }
 
-    // Chassis config values (untuned)
+    // Chassis config values (untuned) - these remain as raw doubles since they're feedforward gains
     constexpr double TURN_IN_PLACE_KS = 0;
     constexpr double TURN_IN_PLACE_KV = 0;
     constexpr double TURN_IN_PLACE_KA = 0;

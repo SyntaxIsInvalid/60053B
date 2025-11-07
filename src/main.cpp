@@ -6,6 +6,19 @@
 #include "abclib/builder/path_builder.hpp"
 #include "abclib/builder/path_logger.hpp"
 #include "abclib/trajectory/trajectory_logger.hpp"
+#include "liblvgl/lvgl.h"
+
+/*
+extern const lv_image_dsc_t faker_whispher;
+static lv_obj_t* teleop_image = nullptr;
+*/
+
+/*
+constexpr bool SHOW_TELEOP_IMAGE = false;
+constexpr bool SHOW_AUTON_IMAGE = false;
+
+static lv_obj_t* teleop_image = nullptr;
+*/
 using namespace abclib;
 
 #ifdef ROBOT_TEST_DRIVE
@@ -37,26 +50,27 @@ pros::IMU imu(robot_config::IMU_PORT);
 pros::Rotation y_rotation(robot_config::Y_ROTATION_PORT);
 hardware::TrackingWheel y_tracker(
     &y_rotation,
-    units::Distance::from_inches(robot_config::Y_TRACKER_WHEEL_DIAMETER),
-    units::Distance::from_inches(robot_config::Y_TRACKER_OFFSET_INCHES));
+    robot_config::Y_TRACKER_WHEEL_DIAMETER,
+    robot_config::Y_TRACKER_OFFSET);
 hardware::Sensors sensors(&imu, &y_tracker, nullptr);
 #else
 // Test drive - uses motor tracking
 hardware::MotorTrackingWheel y_tracker(
     &leftMotors,
-    units::Distance::from_inches(robot_config::WHEEL_DIAMETER_INCHES),
-    units::Distance::from_inches(robot_config::Y_TRACKER_OFFSET_INCHES));
+    robot_config::WHEEL_DIAMETER,
+    robot_config::Y_TRACKER_OFFSET);
 hardware::Sensors sensors(&imu, &y_tracker, nullptr);
 #endif
 
 hardware::ChassisConfig chassis_constant{
     .left = &leftMotors,
     .right = &rightMotors,
-    .diameter = units::Distance::from_inches(robot_config::WHEEL_DIAMETER_INCHES),
-    .track_width = units::Distance::from_inches(robot_config::TRACK_WIDTH_INCHES),
+    .diameter = robot_config::WHEEL_DIAMETER,
+    .track_width = robot_config::TRACK_WIDTH,
     .turn_in_place_kS = robot_config::TURN_IN_PLACE_KS,
     .turn_in_place_kV = robot_config::TURN_IN_PLACE_KV,
     .turn_in_place_kA = robot_config::TURN_IN_PLACE_KA};
+
 
 hardware::Chassis chassis(
     chassis_constant,
@@ -72,68 +86,24 @@ hardware::Pneumatic intake_lift(robot_config::INTAKE_LIFT_PORT);
 
 // Intake - only for competition robot
 #if HAS_INTAKE
-subsystems::Intake top_intake(robot_config::TOP_INTAKE_PORTS, pros::MotorGearset::blue);
-subsystems::Intake bottom_intake(robot_config::BOTTOM_INTAKE_PORTS, pros::MotorGearset::blue);
+#if HAS_INTAKE
+subsystems::Intake top_intake(
+    robot_config::TOP_INTAKE_PORTS, 
+    pros::MotorGearset::blue,
+    hardware::motor_group_config{},
+    robot_config::TOP_INTAKE_VOLTAGE,
+    robot_config::TOP_OUTTAKE_VOLTAGE);
+
+subsystems::Intake bottom_intake(
+    robot_config::BOTTOM_INTAKE_PORTS, 
+    pros::MotorGearset::blue,
+    hardware::motor_group_config{},
+    robot_config::BOTTOM_INTAKE_VOLTAGE,
+    robot_config::BOTTOM_OUTTAKE_VOLTAGE);
+#endif
 #endif
 
-/*
-hardware::motor_group_config left_config{
-    .kS = 0.919850,
-    .kV = 0.1594417,
-    .kA = 0.012848,
-    .kPv = 0.18,
-    .kIv = 0.25,
-    .kDv = 0.00,
-    .enable_voltage_compensation = true};
 
-hardware::motor_group_config right_config{
-    .kS = 0.919850,
-    .kV = 0.1594417,
-    .kA = 0.012848,
-    .kPv = 0.18,
-    .kIv = 0.25,
-    .kDv = 0.00,
-    .enable_voltage_compensation = true};
-
-hardware::AdvancedMotorGroup leftMotors({-10, 4}, pros::MotorGearset::blue, left_config);
-hardware::AdvancedMotorGroup rightMotors({6, -11}, pros::MotorGearset::blue, right_config);
-
-// hardware::Pneumatic match_load_ramp('D');
-
-// subsystems::Intake intake({15}, pros::MotorGearset::blue);
-
-pros::IMU imu(9);
-// pros::Rotation y_rotation(21);
-// hardware::TrackingWheel y_tracker(&y_rotation, units::Distance::from_inches(2), units::Distance::from_inches(-0.25));
-
-hardware::MotorTrackingWheel y_tracker(&leftMotors, units::Distance::from_inches(3.25), units::Distance::from_inches(7));
-
-hardware::ChassisConfig chassis_constant{
-    .left = &leftMotors,
-    .right = &rightMotors,
-    .diameter = units::Distance::from_inches(3.25),
-    .track_width = units::Distance::from_inches(14),
-    .turn_in_place_kS = 1.278592,
-    .turn_in_place_kV = 0.170242,
-    .turn_in_place_kA = 0.012877
-};
-
-hardware::Sensors sensors(&imu, &y_tracker, nullptr);
-
-control::PIDConstants lateral_pid(
-    0.5, // kP - proportional
-    0,   // kI - integral
-    0    // kD - derivative
-);
-
-control::PIDConstants angular_pid(
-    5, // kP - proportional
-    0, // kI - integral
-    0  // kD - derivative
-);
-
-hardware::Chassis chassis(chassis_constant, sensors, lateral_pid, angular_pid);
-*/
 void initialize()
 {
     pros::lcd::initialize();
@@ -145,6 +115,12 @@ void initialize()
         match_load_ramp.retract();
         intake_lift.retract();
     #endif
+    /*
+    teleop_image = lv_image_create(lv_screen_active());
+    lv_image_set_src(teleop_image, &faker_whispher);
+    lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
+    */
     pros::Task screen_task([&]()
                            {
          while (1) {
@@ -180,7 +156,7 @@ void initialize()
                local_telem.battery_capacity_percent,
                local_telem.voltage_compensation_active ? "C" : "-",
                local_telem.voltage_compensation_scale);
-                    /*
+            #if 0
              // Line 3: Cross-track and Along-track errors
              pros::lcd::print(3, "XTE:%.2f ATE:%.2f",
                             local_telem.cross_track_error.inches,
@@ -200,12 +176,12 @@ void initialize()
              pros::lcd::print(6, "Settle:%s Cnt:%d",
                             settlement_reason_to_string(local_telem.settlement_reason),
                             local_telem.settle_count);
-            */
+
              // Line 7: Trajectory timing
              pros::lcd::print(7, "Time:%.2f/%.2fs",
                             local_telem.trajectory_time.seconds,
                             local_telem.trajectory_total_time.seconds);
-
+            #endif
              pros::delay(100);
          } });
 }
@@ -231,14 +207,20 @@ void competition_initialize() {}
 using namespace abclib::path;
 
 void autonomous()
-{
+{   
+    /*
+    if (teleop_image) {
+        lv_obj_delete(teleop_image);
+        teleop_image = nullptr;
+    }
+        */
     chassis.set_pose(
         units::Distance::from_inches(0),
         units::Distance::from_inches(0),
         units::Degrees(0));
-
-    chassis.turn_to_heading_profiled(units::Degrees(90), 180, 360, units::Time::from_seconds(5));
-    controller.print(0, 0, "done");
+        top_intake.set_voltage(units::Voltage::from_volts(2));
+    pros::delay(1000);
+    top_intake.set_idle();
     /*
     // Test 6: Complex path mixing everything
         Path test_complex = builder
@@ -279,7 +261,19 @@ void autonomous()
 }
 
 void opcontrol()
-{
+{   
+    /*
+    if (teleop_image) {
+        lv_obj_remove_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
+    }
+        */
+       /*
+    if (!teleop_image && SHOW_TELEOP_IMAGE) {
+        teleop_image = lv_image_create(lv_screen_active());
+        lv_image_set_src(teleop_image, "S:/faker_whispher.bin");
+        lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
+    }
+        */
     while (1)
     {
         int turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
