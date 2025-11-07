@@ -14,7 +14,7 @@ namespace abclib::robot_config
     inline const std::vector<int8_t> BOTTOM_INTAKE_PORTS = {-10};
 
     // Intake voltages - now using units::Voltage
-    inline const units::Voltage TOP_INTAKE_VOLTAGE = units::Voltage::from_volts(8.0);
+    inline const units::Voltage TOP_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
     inline const units::Voltage TOP_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
     inline const units::Voltage BOTTOM_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
     inline const units::Voltage BOTTOM_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
@@ -66,6 +66,7 @@ namespace abclib::robot_config
 
     inline control::PIDConstants get_angular_pid()
     {
+        //return control::PIDConstants(4.7, 0, 0);
         return control::PIDConstants(4.7, 0, 0);
     }
 

@@ -49,6 +49,9 @@ namespace abclib::subsystems
         void intake_for(units::Time duration);
         void outtake_for(units::Time duration);
 
+        void intake_for_voltage(units::Voltage voltage, units::Time duration);
+        void outtake_for_voltage(units::Voltage voltage, units::Time duration);
+
         // Velocity control with PROS built-in controller
         void intake_at_velocity(units::RPM target_rpm);
         void outtake_at_velocity(units::RPM target_rpm);

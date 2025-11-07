@@ -146,6 +146,66 @@ namespace abclib::subsystems
         }
     }
 
+    void Intake::intake_for_voltage(units::Voltage voltage, units::Time duration)
+    {
+        // Cancel any existing timed task
+        {
+            std::lock_guard<pros::Mutex> lock(task_mutex_);
+            if (timed_task_.has_value())
+            {
+                timed_task_->notify();
+            }
+        }
+
+        // Start intake at specified voltage immediately
+        current_state = IntakeState::INTAKING;
+        motors->move_voltage(voltage);
+
+        // Create task to stop after duration
+        {
+            std::lock_guard<pros::Mutex> lock(task_mutex_);
+            timed_task_ = pros::Task([this, duration]()
+                                     {
+            uint32_t start = pros::millis();
+            while ((pros::millis() - start) < duration.to_millis_uint()) {
+                if (pros::Task::notify_take(true, 10) > 0) {
+                    return; // Task was cancelled
+                }
+            }
+            this->set_idle(); });
+        }
+    }
+
+    void Intake::outtake_for_voltage(units::Voltage voltage, units::Time duration)
+    {
+        // Cancel any existing timed task
+        {
+            std::lock_guard<pros::Mutex> lock(task_mutex_);
+            if (timed_task_.has_value())
+            {
+                timed_task_->notify();
+            }
+        }
+
+        // Start outtake at specified voltage immediately
+        current_state = IntakeState::OUTTAKING;
+        motors->move_voltage(-voltage); // Negative voltage for outtake direction
+
+        // Create task to stop after duration
+        {
+            std::lock_guard<pros::Mutex> lock(task_mutex_);
+            timed_task_ = pros::Task([this, duration]()
+                                     {
+            uint32_t start = pros::millis();
+            while ((pros::millis() - start) < duration.to_millis_uint()) {
+                if (pros::Task::notify_take(true, 10) > 0) {
+                    return; // Task was cancelled
+                }
+            }
+            this->set_idle(); });
+        }
+    }
+
     void Intake::intake_at_velocity(units::RPM target_rpm)
     {
         // Cancel any running timed task

@@ -124,7 +124,6 @@ void initialize()
     lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
     */
-   /*
     pros::Task screen_task([&]()
                            {
          while (1) {
@@ -188,7 +187,6 @@ void initialize()
 #endif
              pros::delay(100);
          } });
-          */
 }
 
 /**
@@ -234,7 +232,6 @@ void autonomous()
         match_load_ramp,
         intake_lift
     };
-    
     // Run the selected auton
     run_selected_auton(robot);
     controller.print(0, 0, "done");
@@ -262,13 +259,15 @@ void opcontrol()
 #if HAS_INTAKE
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
         {
-            top_intake.set_intake();
+            top_intake.set_voltage(units::Voltage::from_volts(8));
             bottom_intake.set_intake();
         }
         else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
         {
             top_intake.set_outtake();
             bottom_intake.set_outtake();
+        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
+            top_intake.set_voltage(units::Voltage::from_volts(12));
         }
         else
         {
@@ -278,16 +277,30 @@ void opcontrol()
 #endif
 
 #if HAS_PNEUMATICS
-        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A))
+        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y))
         {
             match_load_ramp.toggle();
         }
-        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
+        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT))
         {
             intake_lift.toggle();
         }
 #endif
 
+#if HAS_PNEUMATICS && HAS_INTAKE
+if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L1))
+{
+    // Extend intake lift if it's not already extended
+    if (!intake_lift.get_state())
+    {
+        intake_lift.extend();
+    }
+    
+    // Start the top intake
+    top_intake.set_intake();
+    bottom_intake.set_intake();
+}
+#endif
         pros::delay(20);
     }
 }

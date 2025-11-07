@@ -145,8 +145,8 @@ namespace abclib::hardware
     void Chassis::turn_to_heading(units::Degrees target_heading, units::Time timeout, units::Voltage angular_min, units::Voltage angular_max, bool reset_position)
     {
         std::uint32_t start_time = pros::millis();
-        const units::Degrees threshold(1.0); // 1 degree threshold
-        const int settle_count_required = 5; // 50 ms
+        const units::Degrees threshold(3.0); // 1 degree threshold
+        const int settle_count_required = 3; // 50 ms
         int settle_count = 0;
         const double dt = 0.01;
 
@@ -329,7 +329,7 @@ namespace abclib::hardware
         double start_heading = start_pose.theta();
         double initial_x = start_pose.x();
         double initial_y = start_pose.y();
-        const int settle_count_required = 5; // Must be settled for 5 consecutive loops (50ms)
+        const int settle_count_required = 3; // Must be settled for 5 consecutive loops (50ms)
         int settle_count = 0;
 
         lateral_pid.reset();
@@ -736,5 +736,139 @@ namespace abclib::hardware
         path_follower_->follow_segment(&turn_segment, config);
     }
 
-   
+    void Chassis::turn_to_heading_test(units::Degrees target_heading,
+                                       units::Time timeout,
+                                       units::Voltage angular_min,
+                                       units::Voltage angular_max,
+                                       bool reset_position)
+    {
+        std::uint32_t start_time = pros::millis();
+        const units::Degrees threshold(1.0); // 1 degree threshold
+        const int settle_count_required = 3;
+        int settle_count = 0;
+        const double dt = 0.01;
+
+        // Convert target heading to radians for internal calculations
+        units::Radians target_heading_rad = target_heading.to_radians();
+
+        // Reset position if requested
+        if (reset_position)
+        {
+            imu->set_heading(0);
+        }
+
+        // Reset PID controller
+        angular_pid.reset();
+
+        {
+            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+            telemetry.max_angular_error = units::Radians(0);
+            telemetry.cumulative_angular_error = units::Radians(0);
+        }
+
+        while ((pros::millis() - start_time) < timeout.to_millis_uint())
+        {
+            // Get current heading in radians
+            units::BodyHeading current_heading = get_heading();
+            units::Radians current_heading_rad = current_heading.angle;
+
+            estimation::Pose current_pose = get_pose();
+
+            // Calculate angular error (in radians)
+            double angular_error_rad = target_heading_rad.value - current_heading_rad.value;
+
+            // Normalize heading error to [-PI, PI] for shortest turn direction
+            angular_error_rad = math::normalize_angle(angular_error_rad);
+            units::Radians angular_error(angular_error_rad);
+
+            // Check if we've reached the target
+            if (std::fabs(angular_error.to_degrees().value) <= threshold.value &&
+                std::fabs(current_pose.omega.rad_per_sec) < 0.1)
+            {
+                settle_count++;
+                if (settle_count >= settle_count_required)
+                {
+                    {
+                        std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+                        telemetry.is_settled = true;
+                        telemetry.settle_count = settle_count;
+                        telemetry.settlement_reason = SettlementReason::WITHIN_THRESHOLD;
+                        telemetry.time_to_settle = units::Time::from_millis(pros::millis() - start_time);
+                    }
+                    left_motors->brake();
+                    right_motors->brake();
+                    break;
+                }
+            }
+            else
+            {
+                settle_count = 0;
+            }
+
+            // Calculate PID output
+            double angular_output = angular_pid.compute(angular_error_rad, dt);
+
+            // Simple clamping without minimum voltage enforcement near target
+            angular_output = std::clamp(angular_output, -angular_max.volts, angular_max.volts);
+
+            // Calculate motor voltages
+            units::Voltage left_voltage = units::Voltage(-angular_output);
+            units::Voltage right_voltage = units::Voltage(angular_output);
+
+            // Update telemetry
+            {
+                std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+
+                // Angular control
+                telemetry.angular_error = angular_error;
+                telemetry.angular_output = units::Voltage(angular_output);
+                telemetry.angular_target = target_heading_rad;
+                telemetry.angular_actual = current_heading_rad;
+                telemetry.angular_p_term = angular_pid.get_p_term();
+                telemetry.angular_i_term = angular_pid.get_i_term();
+                telemetry.angular_d_term = angular_pid.get_d_term();
+
+                // Pose (from odometry)
+                telemetry.pose = current_pose.pose;
+                telemetry.pose_v = current_pose.v;
+                telemetry.pose_omega = current_pose.omega;
+
+                // Settlement tracking
+                telemetry.is_settled = false;
+                telemetry.settle_count = settle_count;
+                telemetry.settlement_reason = SettlementReason::NOT_SETTLED;
+
+                telemetry.max_angular_error = units::Radians(
+                    std::max(telemetry.max_angular_error.value, std::abs(angular_error_rad)));
+                telemetry.cumulative_angular_error = units::Radians(
+                    telemetry.cumulative_angular_error.value + std::abs(angular_error_rad) * dt);
+
+                // Motor voltages
+                telemetry.left_motor_voltage = left_voltage;
+                telemetry.right_motor_voltage = right_voltage;
+            }
+
+            // Apply turn power to motors (opposite directions for turning)
+            move_left_motors(left_voltage);
+            move_right_motors(right_voltage);
+
+            pros::delay(10);
+        }
+
+        // Check if we timed out
+        bool timed_out = (pros::millis() - start_time) >= timeout.to_millis_uint();
+        {
+            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+            if (timed_out && !telemetry.is_settled)
+            {
+                telemetry.settlement_reason = SettlementReason::TIMEOUT;
+                telemetry.time_to_settle = units::Time::from_millis(pros::millis() - start_time);
+            }
+        }
+
+        // Stop motors when done
+        left_motors->brake();
+        right_motors->brake();
+    }
+
 }

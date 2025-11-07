@@ -184,5 +184,11 @@ namespace abclib::hardware
             double max_bodyangular_acceleration_deg_per_sec2,
             units::Time timeout = units::Time::from_seconds(3));
 
+        void turn_to_heading_test(units::Degrees target_heading, 
+                         units::Time timeout, 
+                         units::Voltage angular_min, 
+                         units::Voltage angular_max, 
+                         bool reset_position = false);
+
     };
 }
