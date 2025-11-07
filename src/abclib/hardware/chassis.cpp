@@ -175,6 +175,8 @@ namespace abclib::hardware
             units::BodyHeading current_heading = get_heading();
             units::Radians current_heading_rad = current_heading.angle;
 
+            estimation::Pose current_pose = get_pose();
+
             // Calculate angular error (in radians)
             double angular_error_rad = target_heading_rad.value - current_heading_rad.value;
 
@@ -183,7 +185,7 @@ namespace abclib::hardware
             units::Radians angular_error(angular_error_rad);
 
             // Check if we've reached the target
-            if (std::fabs(angular_error.to_degrees().value) <= threshold.value)
+            if (std::fabs(angular_error.to_degrees().value) <= threshold.value && std::fabs(current_pose.omega.rad_per_sec) < 0.1)
             {
                 settle_count++;
                 if (settle_count >= settle_count_required)
@@ -231,8 +233,6 @@ namespace abclib::hardware
             units::Voltage left_voltage = units::Voltage(-angular_output);
             units::Voltage right_voltage = units::Voltage(angular_output);
 
-            // Get current pose for telemetry
-            estimation::Pose current_pose = get_pose();
 
             // Update telemetry
             {

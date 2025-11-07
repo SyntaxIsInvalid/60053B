@@ -218,9 +218,8 @@ void autonomous()
         units::Distance::from_inches(0),
         units::Distance::from_inches(0),
         units::Degrees(0));
-        top_intake.set_voltage(units::Voltage::from_volts(2));
-    pros::delay(1000);
-    top_intake.set_idle();
+    chassis.turn_to_heading(units::Degrees(90), units::Time::from_seconds(5));
+    controller.print(0,0,"done");
     /*
     // Test 6: Complex path mixing everything
         Path test_complex = builder
