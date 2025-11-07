@@ -233,7 +233,6 @@ namespace abclib::hardware
             units::Voltage left_voltage = units::Voltage(-angular_output);
             units::Voltage right_voltage = units::Voltage(angular_output);
 
-
             // Update telemetry
             {
                 std::lock_guard<pros::Mutex> lock(telemetry_mutex);
@@ -702,38 +701,40 @@ namespace abclib::hardware
     }
 
     void Chassis::turn_to_heading_profiled(
-    units::Degrees target_heading,
-    double max_body_angular_velocity_deg_per_sec,
-    double max_body_angular_acceleration_deg_per_sec2,
-    units::Time timeout)
-{
-    // 1. Get current pose from odometry
-    estimation::Pose current_pose = get_pose();
-    double current_heading_rad = current_pose.theta();
-    double target_heading_rad = target_heading.to_radians().value;
-    
-    // 2. Create TurnInPlaceSegment in math frame
-    path::Pose start_pose(current_pose.x(), current_pose.y(), current_heading_rad);
-    path::TurnInPlaceSegment turn_segment(start_pose, target_heading_rad, track_width);
-    
-    // 3. Convert angular velocity/acceleration to linear (wheel velocity)
-    // For turn-in-place: v_wheel = ω_body * r, where r = track_width / 2
-    double turning_radius = track_width.inches / 2.0;
-    double max_angular_vel_rad_per_sec = max_body_angular_velocity_deg_per_sec * M_PI / 180.0;
-    double max_angular_accel_rad_per_sec2 = max_body_angular_acceleration_deg_per_sec2 * M_PI / 180.0;
-    
-    double max_wheel_linear_velocity = max_angular_vel_rad_per_sec * turning_radius;
-    double max_wheel_linear_accel = max_angular_accel_rad_per_sec2 * turning_radius;
-    
-    // 4. Configure follower with converted linear velocities
-    trajectory::FollowerConfig config;
-    config.max_velocity = units::BodyLinearVelocity(max_wheel_linear_velocity);
-    config.max_acceleration = max_wheel_linear_accel;
-    config.timeout = timeout;
-    config.ramsete_constants = config_.ramsete_constants;
-    config.turn_kP = 0.35; // Can make this configurable via ChassisConfig later
-    
-    // 5. Let the path follower handle everything!
-    path_follower_->follow_segment(&turn_segment, config);
-}
+        units::Degrees target_heading,
+        double max_body_angular_velocity_deg_per_sec,
+        double max_body_angular_acceleration_deg_per_sec2,
+        units::Time timeout)
+    {
+        // 1. Get current pose from odometry
+        estimation::Pose current_pose = get_pose();
+        double current_heading_rad = current_pose.theta();
+        double target_heading_rad = target_heading.to_radians().value;
+
+        // 2. Create TurnInPlaceSegment in math frame
+        path::Pose start_pose(current_pose.x(), current_pose.y(), current_heading_rad);
+        path::TurnInPlaceSegment turn_segment(start_pose, target_heading_rad, track_width);
+
+        // 3. Convert angular velocity/acceleration to linear (wheel velocity)
+        // For turn-in-place: v_wheel = ω_body * r, where r = track_width / 2
+        double turning_radius = track_width.inches / 2.0;
+        double max_angular_vel_rad_per_sec = max_body_angular_velocity_deg_per_sec * M_PI / 180.0;
+        double max_angular_accel_rad_per_sec2 = max_body_angular_acceleration_deg_per_sec2 * M_PI / 180.0;
+
+        double max_wheel_linear_velocity = max_angular_vel_rad_per_sec * turning_radius;
+        double max_wheel_linear_accel = max_angular_accel_rad_per_sec2 * turning_radius;
+
+        // 4. Configure follower with converted linear velocities
+        trajectory::FollowerConfig config;
+        config.max_velocity = units::BodyLinearVelocity(max_wheel_linear_velocity);
+        config.max_acceleration = max_wheel_linear_accel;
+        config.timeout = timeout;
+        config.ramsete_constants = config_.ramsete_constants;
+        config.turn_kP = 0.35; // Can make this configurable via ChassisConfig later
+
+        // 5. Let the path follower handle everything!
+        path_follower_->follow_segment(&turn_segment, config);
+    }
+
+   
 }

@@ -160,6 +160,16 @@ namespace abclib::hardware
         void move_velocity_pros(units::WheelLinearVelocity left_velocity,
                                 units::WheelLinearVelocity right_velocity);
 
+        void follow_trajectory_velocity_control(
+            units::Distance target_x,
+            units::Distance target_y,
+            units::Degrees target_heading,
+            units::BodyLinearVelocity max_velocity,
+            double max_acceleration,
+            units::Time timeout = units::Time::from_seconds(10),
+            const std::optional<Eigen::Matrix<double, 6, 1>> &eta = std::nullopt,
+            const std::optional<Eigen::Matrix<double, 4, 1>> &kappa = std::nullopt);
+
         void move_straight_profiled(
             units::Distance distance,
             units::BodyLinearVelocity max_velocity,
@@ -172,7 +182,7 @@ namespace abclib::hardware
             units::Degrees target_heading,
             double max_body_angular_velocity_deg_per_sec,
             double max_bodyangular_acceleration_deg_per_sec2,
-            units::Time timeout = units::Time::from_seconds(3)
-        );
+            units::Time timeout = units::Time::from_seconds(3));
+
     };
 }

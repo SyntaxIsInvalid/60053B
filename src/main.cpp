@@ -7,6 +7,7 @@
 #include "abclib/builder/path_logger.hpp"
 #include "abclib/trajectory/trajectory_logger.hpp"
 #include "liblvgl/lvgl.h"
+#include "abclib/autonomous_routines/autons.hpp"
 
 /*
 extern const lv_image_dsc_t faker_whispher;
@@ -71,7 +72,6 @@ hardware::ChassisConfig chassis_constant{
     .turn_in_place_kV = robot_config::TURN_IN_PLACE_KV,
     .turn_in_place_kA = robot_config::TURN_IN_PLACE_KA};
 
-
 hardware::Chassis chassis(
     chassis_constant,
     sensors,
@@ -88,21 +88,20 @@ hardware::Pneumatic intake_lift(robot_config::INTAKE_LIFT_PORT);
 #if HAS_INTAKE
 #if HAS_INTAKE
 subsystems::Intake top_intake(
-    robot_config::TOP_INTAKE_PORTS, 
+    robot_config::TOP_INTAKE_PORTS,
     pros::MotorGearset::blue,
     hardware::motor_group_config{},
     robot_config::TOP_INTAKE_VOLTAGE,
     robot_config::TOP_OUTTAKE_VOLTAGE);
 
 subsystems::Intake bottom_intake(
-    robot_config::BOTTOM_INTAKE_PORTS, 
+    robot_config::BOTTOM_INTAKE_PORTS,
     pros::MotorGearset::blue,
     hardware::motor_group_config{},
     robot_config::BOTTOM_INTAKE_VOLTAGE,
     robot_config::BOTTOM_OUTTAKE_VOLTAGE);
 #endif
 #endif
-
 
 void initialize()
 {
@@ -111,16 +110,21 @@ void initialize()
     // rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // match_load_ramp.retract();
     chassis.calibrate();
-    #if HAS_PNEUMATICS
-        match_load_ramp.retract();
-        intake_lift.retract();
-    #endif
+    using namespace abclib::auton;
+    register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red);
+    register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test);
+
+#if HAS_PNEUMATICS
+    match_load_ramp.retract();
+    intake_lift.retract();
+#endif
     /*
     teleop_image = lv_image_create(lv_screen_active());
     lv_image_set_src(teleop_image, &faker_whispher);
     lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
     */
+   /*
     pros::Task screen_task([&]()
                            {
          while (1) {
@@ -156,7 +160,7 @@ void initialize()
                local_telem.battery_capacity_percent,
                local_telem.voltage_compensation_active ? "C" : "-",
                local_telem.voltage_compensation_scale);
-            #if 0
+#if 0
              // Line 3: Cross-track and Along-track errors
              pros::lcd::print(3, "XTE:%.2f ATE:%.2f",
                             local_telem.cross_track_error.inches,
@@ -181,9 +185,10 @@ void initialize()
              pros::lcd::print(7, "Time:%.2f/%.2fs",
                             local_telem.trajectory_time.seconds,
                             local_telem.trajectory_total_time.seconds);
-            #endif
+#endif
              pros::delay(100);
          } });
+          */
 }
 
 /**
@@ -207,103 +212,81 @@ void competition_initialize() {}
 using namespace abclib::path;
 
 void autonomous()
-{   
+{
     /*
     if (teleop_image) {
         lv_obj_delete(teleop_image);
         teleop_image = nullptr;
     }
-        */
+    */
+   
     chassis.set_pose(
         units::Distance::from_inches(0),
         units::Distance::from_inches(0),
         units::Degrees(0));
-    chassis.turn_to_heading(units::Degrees(90), units::Time::from_seconds(5));
-    controller.print(0,0,"done");
-    /*
-    // Test 6: Complex path mixing everything
-        Path test_complex = builder
-            .start(0, 0, 0)
-            .begin_profile("approach",
-                        units::BodyLinearVelocity(36.0),
-                        3.0)
-            .spline_to(24, 12, M_PI/6)
-            .straight_forward(20.0)
-            .begin_profile("turn1",
-                        units::BodyLinearVelocity(24.0),
-                        2.0)
-            .turn_in_place(M_PI/2)
-            .begin_profile("pickup",
-                        units::BodyLinearVelocity(12.0),
-                        1.0)
-            .spline_to(48, 48, M_PI, {{20.0, 20.0, 1.0, 1.0, 0.0, 0.0}})
-            .break_continuity()
-            .begin_profile("return",
-                        units::BodyLinearVelocity(36.0),
-                        3.0)
-            .spline_to(24, 24, -M_PI/4)
-            .begin_profile("turn2",
-                        units::BodyLinearVelocity(20.0),
-                        2.5)
-            .turn_in_place(-3.0 * M_PI / 4.0)
-            .begin_profile("final_approach",
-                        units::BodyLinearVelocity(36.0),
-                        3.0)
-            .straight_to(0, 0)
-            .build();
-
-
-    PathLogger::log_path(test_complex, "test_complex_path");
-    trajectory::TrajectoryLogger::log_path_trajectories(test_complex, "test_complex_trajectories");
-    pros::lcd::print(0, "All path tests logged!");
-    */
+    using namespace abclib::auton;
+    
+    // Create subsystems struct
+    RobotSubsystems robot{
+        chassis,
+        top_intake,
+        bottom_intake,
+        match_load_ramp,
+        intake_lift
+    };
+    
+    // Run the selected auton
+    run_selected_auton(robot);
+    controller.print(0, 0, "done");
 }
 
 void opcontrol()
-{   
+{
     /*
     if (teleop_image) {
         lv_obj_remove_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
     }
         */
-       /*
-    if (!teleop_image && SHOW_TELEOP_IMAGE) {
-        teleop_image = lv_image_create(lv_screen_active());
-        lv_image_set_src(teleop_image, "S:/faker_whispher.bin");
-        lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
-    }
-        */
+    /*
+ if (!teleop_image && SHOW_TELEOP_IMAGE) {
+     teleop_image = lv_image_create(lv_screen_active());
+     lv_image_set_src(teleop_image, "S:/faker_whispher.bin");
+     lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
+ }
+     */
     while (1)
     {
         int turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
         int throttle = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         chassis.drive(throttle, turn, 1, .65);
-        #if HAS_INTAKE
-            if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
-            {
-                top_intake.set_intake();
-                bottom_intake.set_intake();
-            }
-            else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
-            {
-                top_intake.set_outtake();
-                bottom_intake.set_outtake();
-            }
-            else
-            {
-                top_intake.set_idle();
-                bottom_intake.set_idle();
-            }
-        #endif
+#if HAS_INTAKE
+        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
+        {
+            top_intake.set_intake();
+            bottom_intake.set_intake();
+        }
+        else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
+        {
+            top_intake.set_outtake();
+            bottom_intake.set_outtake();
+        }
+        else
+        {
+            top_intake.set_idle();
+            bottom_intake.set_idle();
+        }
+#endif
 
-        #if HAS_PNEUMATICS
-            if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)) {
-                match_load_ramp.toggle();
-            }
-            if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B)) {
-                intake_lift.toggle();
-            }
-        #endif
+#if HAS_PNEUMATICS
+        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A))
+        {
+            match_load_ramp.toggle();
+        }
+        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
+        {
+            intake_lift.toggle();
+        }
+#endif
 
         pros::delay(20);
     }
