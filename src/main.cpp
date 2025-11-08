@@ -12,7 +12,7 @@
 #define TELEMETRY_LEVEL_MINIMAL 1
 #define TELEMETRY_LEVEL_FULL 2
 
-#define TELEMETRY_LEVEL TELEMETRY_LEVEL_NONE
+#define TELEMETRY_LEVEL TELEMETRY_LEVEL_MINIMAL
 
 #define SHOW_TELEOP_IMAGE true // Set to true to show image during teleop
 #define SHOW_AUTON_IMAGE true // Set to true to show image during autonomous
@@ -115,7 +115,7 @@ static lv_obj_t *teleop_image = nullptr;
 void initialize()
 {
     pros::lcd::initialize();
-
+    chassis.calibrate();
     teleop_image = lv_image_create(lv_screen_active());
     lv_image_set_src(teleop_image, "S:/faker_whispher.bin");
     lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
@@ -123,7 +123,6 @@ void initialize()
     // leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // match_load_ramp.retract();
-    chassis.calibrate();
     using namespace abclib::auton;
     register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red);
     register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test);
@@ -222,7 +221,8 @@ using namespace abclib::path;
 
 void autonomous()
 {
-#if SHOW_AUTON_IMAGE
+#if SHOW_AUTON_IMAGE && (TELEMETRY_LEVEL == TELEMETRY_LEVEL_NONE)
+    // Only show image if: image display is enabled AND telemetry is off
     if (teleop_image)
     {
         lv_obj_remove_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
