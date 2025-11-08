@@ -225,6 +225,7 @@ void autonomous()
     using namespace abclib::auton;
     
     // Create subsystems struct
+    /*
     RobotSubsystems robot{
         chassis,
         top_intake,
@@ -234,6 +235,8 @@ void autonomous()
     };
     // Run the selected auton
     run_selected_auton(robot);
+    */
+   chassis.turn_to_heading(units::Degrees(90), units::Time::from_seconds(3));
     controller.print(0, 0, "done");
 }
 

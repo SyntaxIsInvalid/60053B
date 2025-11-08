@@ -105,6 +105,47 @@ namespace abclib::hardware
         estimator_->init();
     }
 
+
+    bool Chassis::check_angular_settlement(
+        units::Radians error,
+        units::BodyAngularVelocity omega,
+        int &settle_count) const
+    {
+        // This is the IMPLEMENTATION - the actual logic
+        bool error_ok = std::abs(error.value) <= settlement_config_.angular_threshold.value;
+        bool velocity_ok = std::abs(omega.rad_per_sec) <
+                           settlement_config_.angular_velocity_threshold.rad_per_sec;
+
+        if (error_ok && velocity_ok)
+        {
+            settle_count++;
+            return settle_count >= settlement_config_.settle_count_required;
+        }
+
+        settle_count = 0;
+        return false;
+    }
+
+    bool Chassis::check_linear_settlement(
+        units::Distance error,
+        units::BodyLinearVelocity velocity,
+        int &settle_count) const
+    {
+        // This is the IMPLEMENTATION - the actual logic
+        bool error_ok = std::abs(error.inches) <= settlement_config_.position_threshold.inches;
+        bool velocity_ok = std::abs(velocity.inches_per_sec) <
+                           settlement_config_.linear_velocity_threshold.inches_per_sec;
+
+        if (error_ok && velocity_ok)
+        {
+            settle_count++;
+            return settle_count >= settlement_config_.settle_count_required;
+        }
+
+        settle_count = 0;
+        return false;
+    }
+
     void Chassis::reset_chassis_position()
     {
         left_motors->reset_position();
@@ -145,8 +186,6 @@ namespace abclib::hardware
     void Chassis::turn_to_heading(units::Degrees target_heading, units::Time timeout, units::Voltage angular_min, units::Voltage angular_max, bool reset_position)
     {
         std::uint32_t start_time = pros::millis();
-        const units::Degrees threshold(3.0); // 1 degree threshold
-        const int settle_count_required = 3; // 50 ms
         int settle_count = 0;
         const double dt = 0.01;
 
@@ -185,10 +224,11 @@ namespace abclib::hardware
             units::Radians angular_error(angular_error_rad);
 
             // Check if we've reached the target
-            if (std::fabs(angular_error.to_degrees().value) <= threshold.value && std::fabs(current_pose.omega.rad_per_sec) < 0.1)
+            if (std::fabs(angular_error.to_degrees().value) <= settlement_config_.angular_threshold.to_degrees().value &&
+                std::fabs(current_pose.omega.rad_per_sec) < settlement_config_.angular_velocity_threshold.rad_per_sec)
             {
                 settle_count++;
-                if (settle_count >= settle_count_required)
+                if (settle_count >= settlement_config_.settle_count_required)
                 {
                     {
                         std::lock_guard<pros::Mutex> lock(telemetry_mutex);
@@ -317,7 +357,6 @@ namespace abclib::hardware
                                           bool reset_position)
     {
         std::uint32_t start_time = pros::millis();
-        const units::Distance threshold = units::Distance::from_inches(0.5);
         const double dt = 0.01; // 100Hz
 
         if (reset_position)
@@ -329,7 +368,6 @@ namespace abclib::hardware
         double start_heading = start_pose.theta();
         double initial_x = start_pose.x();
         double initial_y = start_pose.y();
-        const int settle_count_required = 3; // Must be settled for 5 consecutive loops (50ms)
         int settle_count = 0;
 
         lateral_pid.reset();
@@ -354,11 +392,12 @@ namespace abclib::hardware
             units::Distance distance_traveled = units::Distance::from_inches(distance_traveled_raw);
 
             // Check if we've reached the target
-            if (std::fabs((target_distance - distance_traveled).inches) <= threshold.inches &&
-                std::fabs(current_pose.v.inches_per_sec) < 0.15) // must be nearly stopped
+            if (std::fabs((target_distance - distance_traveled).inches) <= settlement_config_.position_threshold.inches &&
+                std::fabs(current_pose.v.inches_per_sec) < settlement_config_.linear_velocity_threshold.inches_per_sec)
+
             {
                 settle_count++;
-                if (settle_count >= settle_count_required)
+                if (settle_count >= settlement_config_.settle_count_required)
                 {
                     // Update telemetry for successful settlement
                     {
@@ -743,8 +782,6 @@ namespace abclib::hardware
                                        bool reset_position)
     {
         std::uint32_t start_time = pros::millis();
-        const units::Degrees threshold(1.0); // 1 degree threshold
-        const int settle_count_required = 3;
         int settle_count = 0;
         const double dt = 0.01;
 
@@ -782,11 +819,11 @@ namespace abclib::hardware
             units::Radians angular_error(angular_error_rad);
 
             // Check if we've reached the target
-            if (std::fabs(angular_error.to_degrees().value) <= threshold.value &&
-                std::fabs(current_pose.omega.rad_per_sec) < 0.1)
+            if (std::fabs(angular_error.to_degrees().value) <= settlement_config_.angular_threshold.to_degrees().value &&
+                std::fabs(current_pose.omega.rad_per_sec) < settlement_config_.angular_velocity_threshold.rad_per_sec)
             {
                 settle_count++;
-                if (settle_count >= settle_count_required)
+                if (settle_count >= settlement_config_.settle_count_required)
                 {
                     {
                         std::lock_guard<pros::Mutex> lock(telemetry_mutex);

@@ -3,7 +3,6 @@
 #include "api.h"
 #include "abclib/hardware/motor_group.hpp"
 #include "tracking_wheel.hpp"
-// #include "abclib/estimation/odometry.hpp"
 #include "abclib/math/angles.hpp"
 #include "motor_tracking_wheel.hpp"
 #include "abclib/telemetry/telemetry.hpp"
@@ -72,6 +71,27 @@ namespace abclib::hardware
         double ticks;
         units::Distance get_wheel_radius() const { return wheel_diameter / 2.0; }
         std::unique_ptr<trajectory::PathFollower> path_follower_;
+
+        struct SettlementConfig
+        {
+            units::Radians angular_threshold = units::Radians(3.0 * M_PI / 180.0);
+            units::Distance position_threshold = units::Distance::from_inches(0.5);
+            units::BodyAngularVelocity angular_velocity_threshold =
+                units::BodyAngularVelocity(0.1);
+            units::BodyLinearVelocity linear_velocity_threshold =
+                units::BodyLinearVelocity(0.15);
+            int settle_count_required = 3;
+        };
+
+        SettlementConfig settlement_config_;
+
+        bool check_angular_settlement(units::Radians error,
+                                      units::BodyAngularVelocity omega,
+                                      int &settle_count) const;
+
+        bool check_linear_settlement(units::Distance error,
+                                     units::BodyLinearVelocity velocity,
+                                     int &settle_count) const;
 
     public:
         Chassis(ChassisConfig chassis_config, Sensors sensors,
@@ -184,11 +204,20 @@ namespace abclib::hardware
             double max_bodyangular_acceleration_deg_per_sec2,
             units::Time timeout = units::Time::from_seconds(3));
 
-        void turn_to_heading_test(units::Degrees target_heading, 
-                         units::Time timeout, 
-                         units::Voltage angular_min, 
-                         units::Voltage angular_max, 
-                         bool reset_position = false);
+        void turn_to_heading_test(units::Degrees target_heading,
+                                  units::Time timeout,
+                                  units::Voltage angular_min,
+                                  units::Voltage angular_max,
+                                  bool reset_position = false);
 
+        void set_settlement_config(const SettlementConfig &config)
+        {
+            settlement_config_ = config;
+        }
+
+        const SettlementConfig &get_settlement_config() const
+        {
+            return settlement_config_;
+        }
     };
 }
