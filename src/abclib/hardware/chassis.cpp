@@ -11,6 +11,7 @@
 #include "abclib/path/straight_segment.hpp"
 #include "abclib/telemetry/logger.hpp"
 #include "abclib/trajectory/trajectory.hpp"
+#include "abclib/control/profiled_pid.hpp"
 using namespace abclib;
 
 namespace abclib::hardware
@@ -104,7 +105,6 @@ namespace abclib::hardware
         estimator_->calibrate(); // Reset sensors but keep pose
         estimator_->init();
     }
-
 
     bool Chassis::check_angular_settlement(
         units::Radians error,
@@ -845,6 +845,12 @@ namespace abclib::hardware
             // Calculate PID output
             double angular_output = angular_pid.compute(angular_error_rad, dt);
 
+            if (std::fabs(angular_error.to_degrees().value) <= settlement_config_.angular_threshold.to_degrees().value)
+            {
+                double ff_voltage = 1.278592; // or whatever small voltage value you want
+                angular_output += std::copysign(ff_voltage, angular_error_rad);
+            }
+
             // Simple clamping without minimum voltage enforcement near target
             angular_output = std::clamp(angular_output, -angular_max.volts, angular_max.volts);
 
@@ -904,6 +910,142 @@ namespace abclib::hardware
         }
 
         // Stop motors when done
+        left_motors->brake();
+        right_motors->brake();
+    }
+
+    void Chassis::turn_to_heading_profiled_pid(
+        units::Degrees target_heading,
+        double max_angular_velocity_rad_per_sec,
+        double max_angular_acceleration_rad_per_sec2,
+        units::Time timeout)
+    {
+        std::uint32_t start_time = pros::millis();
+        const double dt = 0.01;
+
+        // Convert target heading to radians
+        units::Radians target_heading_rad = target_heading.to_radians();
+        double target_rad = target_heading_rad.value;
+
+        // Get initial heading
+        units::BodyHeading initial_heading = get_heading();
+        double initial_rad = initial_heading.angle.value;
+        double last_wrapped_rad = initial_rad;
+        double cumulative_unwrapped_rad = initial_rad; // Track unwrapped position
+
+        // Unwrap target to be close to initial
+        double angle_diff = target_rad - initial_rad;
+        angle_diff = math::normalize_angle(angle_diff);
+        double unwrapped_target = initial_rad + angle_diff;
+
+        // Create ProfiledPID
+        control::ProfiledPIDConstants profiled_constants;
+        profiled_constants.pid_constants = angular_pid.get_constants();
+        profiled_constants.max_velocity = max_angular_velocity_rad_per_sec;
+        profiled_constants.max_acceleration = max_angular_acceleration_rad_per_sec2;
+        profiled_constants.position_tolerance = settlement_config_.angular_threshold.value;
+        profiled_constants.velocity_tolerance = settlement_config_.angular_velocity_threshold.rad_per_sec;
+
+        control::ProfiledPID profiled_pid(profiled_constants);
+        profiled_pid.reset(cumulative_unwrapped_rad);
+
+        // Reset telemetry
+        {
+            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+            telemetry.max_angular_error = units::Radians(0);
+            telemetry.cumulative_angular_error = units::Radians(0);
+        }
+
+        while ((pros::millis() - start_time) < timeout.to_millis_uint())
+        {
+            // Get current wrapped heading
+            units::BodyHeading current_heading = get_heading();
+            double current_wrapped_rad = current_heading.angle.value;
+
+            // Calculate the delta and unwrap it
+            double delta_rad = current_wrapped_rad - last_wrapped_rad;
+            delta_rad = math::normalize_angle(delta_rad); // Handle wrapping
+            cumulative_unwrapped_rad += delta_rad;
+            last_wrapped_rad = current_wrapped_rad;
+
+            estimation::Pose current_pose = get_pose();
+
+            // Compute profiled PID output using unwrapped measurement
+            double angular_output = profiled_pid.compute(cumulative_unwrapped_rad, unwrapped_target, dt);
+            double target_velocity = profiled_pid.get_setpoint_velocity();
+            double ff = 1.278592 * math::sgn(target_velocity) + 0.170242 * target_velocity;
+            angular_output += ff;
+            // Clamp output
+            angular_output = std::clamp(angular_output, -12.0, 12.0);
+
+            // Calculate wrapped error for telemetry
+            double angular_error_rad = unwrapped_target - cumulative_unwrapped_rad;
+            angular_error_rad = math::normalize_angle(angular_error_rad);
+            units::Radians angular_error(angular_error_rad);
+
+            // Check settlement
+            if (profiled_pid.at_goal())
+            {
+                {
+                    std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+                    telemetry.is_settled = true;
+                    telemetry.settlement_reason = SettlementReason::WITHIN_THRESHOLD;
+                    telemetry.time_to_settle = units::Time::from_millis(pros::millis() - start_time);
+                }
+                left_motors->brake();
+                right_motors->brake();
+                break;
+            }
+
+            // Motor voltages
+            units::Voltage left_voltage = units::Voltage(-angular_output);
+            units::Voltage right_voltage = units::Voltage(angular_output);
+
+            // Update telemetry
+            {
+                std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+
+                telemetry.angular_error = angular_error;
+                telemetry.angular_output = units::Voltage(angular_output);
+                telemetry.angular_target = units::Radians(unwrapped_target);
+                telemetry.angular_actual = units::Radians(cumulative_unwrapped_rad);
+                telemetry.angular_p_term = profiled_pid.get_pid().get_p_term();
+                telemetry.angular_i_term = profiled_pid.get_pid().get_i_term();
+                telemetry.angular_d_term = profiled_pid.get_pid().get_d_term();
+
+                telemetry.pose = current_pose.pose;
+                telemetry.pose_v = current_pose.v;
+                telemetry.pose_omega = current_pose.omega;
+
+                telemetry.is_settled = false;
+                telemetry.settlement_reason = SettlementReason::NOT_SETTLED;
+
+                telemetry.max_angular_error = units::Radians(
+                    std::max(telemetry.max_angular_error.value, std::abs(angular_error_rad)));
+                telemetry.cumulative_angular_error = units::Radians(
+                    telemetry.cumulative_angular_error.value + std::abs(angular_error_rad) * dt);
+
+                telemetry.left_motor_voltage = left_voltage;
+                telemetry.right_motor_voltage = right_voltage;
+            }
+
+            move_left_motors(left_voltage);
+            move_right_motors(right_voltage);
+
+            pros::delay(10);
+        }
+
+        // Timeout check
+        bool timed_out = (pros::millis() - start_time) >= timeout.to_millis_uint();
+        {
+            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+            if (timed_out && !telemetry.is_settled)
+            {
+                telemetry.settlement_reason = SettlementReason::TIMEOUT;
+                telemetry.time_to_settle = units::Time::from_millis(pros::millis() - start_time);
+            }
+        }
+
         left_motors->brake();
         right_motors->brake();
     }

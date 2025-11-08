@@ -8,6 +8,14 @@
 #include "abclib/trajectory/trajectory_logger.hpp"
 #include "liblvgl/lvgl.h"
 #include "abclib/autonomous_routines/autons.hpp"
+#define TELEMETRY_LEVEL_NONE 0
+#define TELEMETRY_LEVEL_MINIMAL 1
+#define TELEMETRY_LEVEL_FULL 2
+
+#define TELEMETRY_LEVEL TELEMETRY_LEVEL_NONE
+
+#define SHOW_TELEOP_IMAGE true // Set to true to show image during teleop
+#define SHOW_AUTON_IMAGE true // Set to true to show image during autonomous
 
 /*
 extern const lv_image_dsc_t faker_whispher;
@@ -102,10 +110,16 @@ subsystems::Intake bottom_intake(
     robot_config::BOTTOM_OUTTAKE_VOLTAGE);
 #endif
 #endif
+static lv_obj_t *teleop_image = nullptr;
 
 void initialize()
 {
     pros::lcd::initialize();
+
+    teleop_image = lv_image_create(lv_screen_active());
+    lv_image_set_src(teleop_image, "S:/faker_whispher.bin");
+    lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_flag(teleop_image, LV_OBJ_FLAG_HIDDEN); // Hide it initially
     // leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // match_load_ramp.retract();
@@ -118,12 +132,7 @@ void initialize()
     match_load_ramp.retract();
     intake_lift.retract();
 #endif
-    /*
-    teleop_image = lv_image_create(lv_screen_active());
-    lv_image_set_src(teleop_image, &faker_whispher);
-    lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_add_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
-    */
+#if TELEMETRY_LEVEL > TELEMETRY_LEVEL_NONE
     pros::Task screen_task([&]()
                            {
          while (1) {
@@ -141,7 +150,7 @@ void initialize()
                  std::lock_guard<pros::Mutex> lock(telemetry_mutex);
                  local_telem = telemetry;
              }
-
+#if TELEMETRY_LEVEL >= TELEMETRY_LEVEL_MINIMAL
              // Line 0: X, Y, and Theta
              pros::lcd::print(0, "X:%.2f Y:%.2f Th:%.1f",
                             local_telem.pose.x(),
@@ -159,7 +168,8 @@ void initialize()
                local_telem.battery_capacity_percent,
                local_telem.voltage_compensation_active ? "C" : "-",
                local_telem.voltage_compensation_scale);
-#if 0
+#endif
+#if TELEMETRY_LEVEL >= TELEMETRY_LEVEL_FULL
              // Line 3: Cross-track and Along-track errors
              pros::lcd::print(3, "XTE:%.2f ATE:%.2f",
                             local_telem.cross_track_error.inches,
@@ -187,6 +197,7 @@ void initialize()
 #endif
              pros::delay(100);
          } });
+#endif
 }
 
 /**
@@ -211,19 +222,25 @@ using namespace abclib::path;
 
 void autonomous()
 {
+#if SHOW_AUTON_IMAGE
+    if (teleop_image)
+    {
+        lv_obj_remove_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
+    }
+#endif
     /*
     if (teleop_image) {
         lv_obj_delete(teleop_image);
         teleop_image = nullptr;
     }
     */
-   
+
     chassis.set_pose(
         units::Distance::from_inches(0),
         units::Distance::from_inches(0),
         units::Degrees(0));
     using namespace abclib::auton;
-    
+
     // Create subsystems struct
     /*
     RobotSubsystems robot{
@@ -236,17 +253,32 @@ void autonomous()
     // Run the selected auton
     run_selected_auton(robot);
     */
-   chassis.turn_to_heading(units::Degrees(90), units::Time::from_seconds(3));
+    /*
+     chassis.turn_to_heading_profiled_pid(
+         units::Degrees(90.0),          // target heading
+         2.0,                           // max velocity: 2 rad/s (~115 deg/s)
+         4.0,                           // max accel: 4 rad/s²
+         units::Time::from_seconds(3.0) // timeout
+     );
+ */
     controller.print(0, 0, "done");
 }
 
 void opcontrol()
 {
-    /*
+#if SHOW_TELEOP_IMAGE && (TELEMETRY_LEVEL == TELEMETRY_LEVEL_NONE)
+    // Only show image if: image display is enabled AND telemetry is off
     if (teleop_image) {
         lv_obj_remove_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
     }
-        */
+#endif
+
+    /*
+    if (teleop_image)
+    {
+        lv_obj_remove_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
+    }
+*/
     /*
  if (!teleop_image && SHOW_TELEOP_IMAGE) {
      teleop_image = lv_image_create(lv_screen_active());
@@ -269,8 +301,11 @@ void opcontrol()
         {
             top_intake.set_outtake();
             bottom_intake.set_outtake();
-        } else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
-            top_intake.set_voltage(units::Voltage::from_volts(12));
+        }
+        else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
+        {
+            top_intake.set_intake();
+            bottom_intake.set_intake();
         }
         else
         {
@@ -291,18 +326,18 @@ void opcontrol()
 #endif
 
 #if HAS_PNEUMATICS && HAS_INTAKE
-if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L1))
-{
-    // Extend intake lift if it's not already extended
-    if (!intake_lift.get_state())
-    {
-        intake_lift.extend();
-    }
-    
-    // Start the top intake
-    top_intake.set_intake();
-    bottom_intake.set_intake();
-}
+        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
+        {
+            // Extend intake lift if it's not already extended
+            if (!intake_lift.get_state())
+            {
+                intake_lift.extend();
+            }
+
+            // Start the intakes while holding
+            top_intake.set_intake();
+            bottom_intake.set_intake();
+        }
 #endif
         pros::delay(20);
     }
