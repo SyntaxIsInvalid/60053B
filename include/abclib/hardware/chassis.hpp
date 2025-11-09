@@ -166,8 +166,8 @@ namespace abclib::hardware
 
         void turn_to_heading_profiled_pid(
             units::Degrees target_heading,
-            double max_angular_velocity_rad_per_sec,
-            double max_angular_acceleration_rad_per_sec2,
+            double max_angular_velocity_deg_per_sec,
+            double max_angular_acceleration_deg_per_sec2,
             units::Time timeout);
 
         units::Distance get_track_width() const { return track_width; }

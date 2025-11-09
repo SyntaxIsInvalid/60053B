@@ -63,7 +63,7 @@ namespace abclib::robot_config {
 
     // profiled turn pid constants
     inline control::PIDConstants get_profiled_turn_pid() {
-        return control::PIDConstants(30, 0.0, 0.0);  // Tune these values
+        return control::PIDConstants(25, 0.0, 0.0);  // Tune these values
     }
 
     // Ramsete controller constants (for path following)

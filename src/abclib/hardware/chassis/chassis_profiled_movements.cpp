@@ -93,10 +93,13 @@ namespace abclib::hardware
 
     void Chassis::turn_to_heading_profiled_pid(
         units::Degrees target_heading,
-        double max_angular_velocity_rad_per_sec,
-        double max_angular_acceleration_rad_per_sec2,
+        double max_angular_velocity_deg_per_sec,
+        double max_angular_acceleration_deg_per_sec2,
         units::Time timeout)
     {
+        double max_angular_velocity_rad_per_sec = max_angular_velocity_deg_per_sec * M_PI / 180.0;
+        double max_angular_acceleration_rad_per_sec2 = max_angular_acceleration_deg_per_sec2 * M_PI / 180.0;
+
         std::uint32_t start_time = pros::millis();
         const double dt = 0.01;
 
