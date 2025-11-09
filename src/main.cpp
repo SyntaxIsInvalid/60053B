@@ -14,8 +14,8 @@
 
 #define TELEMETRY_LEVEL TELEMETRY_LEVEL_MINIMAL 
 
-#define SHOW_TELEOP_IMAGE false // Set to true to show image during teleop
-#define SHOW_AUTON_IMAGE false // Set to true to show image during autonomous
+#define SHOW_TELEOP_IMAGE false
+#define SHOW_AUTON_IMAGE false
 
 using namespace abclib;
 
@@ -81,10 +81,11 @@ hardware::Chassis chassis(
 #if HAS_PNEUMATICS
 hardware::Pneumatic match_load_ramp(robot_config::MATCH_LOAD_RAMP_PORT);
 hardware::Pneumatic intake_lift(robot_config::INTAKE_LIFT_PORT);
+#else
+hardware::DummyPneumatic match_load_ramp;
+hardware::DummyPneumatic intake_lift;
 #endif
 
-// Intake - only for competition robot
-#if HAS_INTAKE
 #if HAS_INTAKE
 subsystems::Intake top_intake(
     robot_config::TOP_INTAKE_PORTS,
@@ -99,7 +100,9 @@ subsystems::Intake bottom_intake(
     hardware::motor_group_config{},
     robot_config::BOTTOM_INTAKE_VOLTAGE,
     robot_config::BOTTOM_OUTTAKE_VOLTAGE);
-#endif
+#else
+subsystems::DummyIntake top_intake;
+subsystems::DummyIntake bottom_intake;
 #endif
 static lv_obj_t *teleop_image = nullptr;
 
@@ -117,7 +120,8 @@ void initialize()
     register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red);
     register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test);
     register_auton(AutonRoutine::RED_LEFT, red_left);
-    register_auton(AutonRoutine::KMS, none);
+    register_auton(AutonRoutine::NONE, none);
+    register_auton(AutonRoutine::TEST_BOT_AUTON, test_bot_auton);
 #if HAS_PNEUMATICS
     match_load_ramp.retract();
     intake_lift.retract();
@@ -227,7 +231,6 @@ void autonomous()
     using namespace abclib::auton;
 
     // Create subsystems struct
-    /*
     RobotSubsystems robot{
         chassis,
         top_intake,
@@ -235,15 +238,8 @@ void autonomous()
         match_load_ramp,
         intake_lift
     };
-    */
-    // Run the selected auton
-    // run_selected_auton(robot);
-     chassis.turn_to_heading_profiled_pid(
-         units::Degrees(90.0),          // target heading
-         3.14,                           // max velocity: 2 rad/s (~115 deg/s)
-         6.28,                           // max accel: 4 rad/s²
-         units::Time::from_seconds(5.0) // timeout
-     );
+    run_selected_auton(robot);
+
     controller.print(0, 0, "done");
 }
 

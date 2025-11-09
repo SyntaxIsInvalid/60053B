@@ -4,5 +4,6 @@
 #include "solo_awp_red.hpp"
 #include "skills.hpp"
 #include "red_left.hpp"
-#include "none.hpp"
 #include "path_builder_test.hpp"
+#include "test_bot_auton.hpp"
+#include "none.hpp"

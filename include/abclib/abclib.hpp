@@ -23,7 +23,13 @@
 #include "abclib/hardware/chassis.hpp"
 #include "abclib/hardware/motor_tracking_wheel.hpp"
 #include "abclib/hardware/tracking_wheel_interface.hpp"
-#include "abclib/hardware/pneumatic.hpp"
+
+// Pneumatic - real or dummy based on robot config
+#if HAS_PNEUMATICS
+    #include "abclib/hardware/pneumatic.hpp"
+#else
+    #include "abclib/hardware/dummy_pneumatic.hpp"
+#endif
 
 // state estimation/localization
 //#include "abclib/estimation/odometry.hpp"
@@ -57,5 +63,9 @@
 // characterization
 #include "abclib/characterization/motor_characterization.hpp"
 
-// subsystems
-#include "abclib/subsystems/intake.hpp"
+// subsystems - real or dummy based on robot config
+#if HAS_INTAKE
+    #include "abclib/subsystems/intake.hpp"
+#else
+    #include "abclib/subsystems/dummy_intake.hpp"
+#endif

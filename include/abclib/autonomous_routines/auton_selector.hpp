@@ -10,12 +10,15 @@
 
 namespace abclib::auton {
     enum class AutonRoutine {
-        NONE,
         SOLO_AWP_RED,
         SOLO_AWP_BLUE,
+        RED_RIGHT,
         RED_LEFT,
+        BLUE_RIGHT,
+        BLUE_LEFT,
         SKILLS,
-        KMS,
+        NONE,
+        TEST_BOT_AUTON,
         PATH_BUILDER_TEST
     };
 
@@ -40,7 +43,7 @@ namespace abclib::auton {
     }
 
     // Selected auton (change this to select different auton)
-    inline AutonRoutine selected_auton = AutonRoutine::SOLO_AWP_RED;
+    inline AutonRoutine selected_auton = AutonRoutine::TEST_BOT_AUTON;
 
     // Execute the selected auton
     inline void run_selected_auton(RobotSubsystems& robot) {

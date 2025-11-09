@@ -40,32 +40,35 @@ namespace abclib::subsystems
                units::Voltage outtake_v = units::Voltage::from_volts(-12.0));
 
         // Basic control
-        void set_intake();
-        void set_outtake();
-        void set_idle(); // Yes, this stops the motors
-        void toggle_intake();
+        virtual void set_intake();
+        virtual void set_outtake();
+        virtual void set_idle();
+        virtual void toggle_intake();
 
         // Timed control - runs for a duration then stops
-        void intake_for(units::Time duration);
-        void outtake_for(units::Time duration);
+        virtual void intake_for(units::Time duration);
+        virtual void outtake_for(units::Time duration);
 
-        void intake_for_voltage(units::Voltage voltage, units::Time duration);
-        void outtake_for_voltage(units::Voltage voltage, units::Time duration);
+        virtual void intake_for_voltage(units::Voltage voltage, units::Time duration);
+        virtual void outtake_for_voltage(units::Voltage voltage, units::Time duration);
 
         // Velocity control with PROS built-in controller
-        void intake_at_velocity(units::RPM target_rpm);
-        void outtake_at_velocity(units::RPM target_rpm);
-        void intake_at_velocity_for(units::RPM target_rpm, units::Time duration);
-        void outtake_at_velocity_for(units::RPM target_rpm, units::Time duration);
+        virtual void intake_at_velocity(units::RPM target_rpm);
+        virtual void outtake_at_velocity(units::RPM target_rpm);
+        virtual void intake_at_velocity_for(units::RPM target_rpm, units::Time duration);
+        virtual void outtake_at_velocity_for(units::RPM target_rpm, units::Time duration);
 
         // Direct voltage control (advanced)
-        void set_voltage(units::Voltage voltage);
+        virtual void set_voltage(units::Voltage voltage);
 
         // State queries
         IntakeState get_state() const { return current_state; }
         bool is_intaking() const { return current_state == IntakeState::INTAKING; }
         bool is_outtaking() const { return current_state == IntakeState::OUTTAKING; }
         bool is_idle() const { return current_state == IntakeState::IDLE; }
+        
+        // Virtual destructor
+        virtual ~Intake() = default;
     };
 
 } // namespace abclib::subsystems

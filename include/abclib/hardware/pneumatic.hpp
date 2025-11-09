@@ -13,10 +13,11 @@ namespace abclib::hardware
     public:
         Pneumatic(char port);
 
-        void extend();
-        void retract();
-        void toggle();
-        bool get_state() const;
+        virtual void extend();
+        virtual void retract();
+        virtual void toggle();
+        virtual bool get_state() const;
+        virtual ~Pneumatic() = default;
     };
 
 } // namespace abclib::hardware
