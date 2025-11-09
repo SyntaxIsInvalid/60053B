@@ -23,6 +23,7 @@ namespace abclib::hardware
         double turn_in_place_kS = 0.0;
         double turn_in_place_kV = 0.0;
         double turn_in_place_kA = 0.0;
+        control::PIDConstants profiled_turn_pid_constants = {0.0, 0.0, 0.0};
     };
 
     struct Sensors
@@ -74,7 +75,7 @@ namespace abclib::hardware
 
         struct SettlementConfig
         {
-            units::Radians angular_threshold = units::Radians(3.0 * M_PI / 180.0);
+            units::Radians angular_threshold = units::Radians(1 * M_PI / 180.0);
             units::Distance position_threshold = units::Distance::from_inches(0.5);
             units::BodyAngularVelocity angular_velocity_threshold =
                 units::BodyAngularVelocity(0.1);
@@ -225,5 +226,16 @@ namespace abclib::hardware
         {
             return settlement_config_;
         }
+
+        void move_to_pose_boomerang(
+            units::Distance target_x,
+            units::Distance target_y,
+            units::Degrees target_heading,
+            double dlead, // ← Changed: dimensionless scale factor (0 to 1)
+            units::Time timeout,
+            units::Voltage lateral_min,
+            units::Voltage lateral_max,
+            units::Voltage angular_min,
+            units::Voltage angular_max);
     };
 }

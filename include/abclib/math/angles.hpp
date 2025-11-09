@@ -2,17 +2,17 @@
 
 #include <cmath>
 
-    namespace abclib::math
+namespace abclib::math
+{
+    inline double normalize_angle(double angle)
     {
-        inline double normalize_angle(double angle)
+        angle = fmod(angle + M_PI, 2.0 * M_PI);
+        if (angle < 0.0)
         {
-            angle = fmod(angle + M_PI, 2.0 * M_PI);
-            if (angle < 0.0)
-            {
-                angle += 2.0 * M_PI;
-            }
-            return angle - M_PI;
+            angle += 2.0 * M_PI;
         }
+        return angle - M_PI;
+    }
 
     inline double deg_to_rad(double degree)
     {
@@ -46,5 +46,10 @@
             return 0.5 * x - (x * x * x) / 24.0;
         }
         return (1.0 - std::cos(x)) / x;
+    }
+
+    inline double angle_error(double target, double current)
+    {
+        return normalize_angle(target - current);
     }
 }

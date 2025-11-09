@@ -12,6 +12,7 @@
 #include "abclib/telemetry/logger.hpp"
 #include "abclib/trajectory/trajectory.hpp"
 #include "abclib/control/profiled_pid.hpp"
+#include "abclib/math/point.hpp"
 using namespace abclib;
 
 namespace abclib::hardware
@@ -940,7 +941,7 @@ namespace abclib::hardware
 
         // Create ProfiledPID
         control::ProfiledPIDConstants profiled_constants;
-        profiled_constants.pid_constants = angular_pid.get_constants();
+        profiled_constants.pid_constants = config_.profiled_turn_pid_constants;
         profiled_constants.max_velocity = max_angular_velocity_rad_per_sec;
         profiled_constants.max_acceleration = max_angular_acceleration_rad_per_sec2;
         profiled_constants.position_tolerance = settlement_config_.angular_threshold.value;
@@ -972,8 +973,11 @@ namespace abclib::hardware
 
             // Compute profiled PID output using unwrapped measurement
             double angular_output = profiled_pid.compute(cumulative_unwrapped_rad, unwrapped_target, dt);
+
             double target_velocity = profiled_pid.get_setpoint_velocity();
-            double ff = 1.278592 * math::sgn(target_velocity) + 0.170242 * target_velocity;
+            double target_acceleration = profiled_pid.get_setpoint().acceleration;
+            double ff = config_.turn_in_place_kS * math::sgn(target_velocity) + config_.turn_in_place_kV * target_velocity + config_.turn_in_place_kA * target_acceleration;
+
             angular_output += ff;
             // Clamp output
             angular_output = std::clamp(angular_output, -12.0, 12.0);
@@ -982,7 +986,6 @@ namespace abclib::hardware
             double angular_error_rad = unwrapped_target - cumulative_unwrapped_rad;
             angular_error_rad = math::normalize_angle(angular_error_rad);
             units::Radians angular_error(angular_error_rad);
-
             // Check settlement
             if (profiled_pid.at_goal())
             {

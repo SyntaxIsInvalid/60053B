@@ -71,7 +71,7 @@ namespace abclib::robot_config
     }
 
     // Chassis config values (untuned) - these remain as raw doubles since they're feedforward gains
-    constexpr double TURN_IN_PLACE_KS = 0;
-    constexpr double TURN_IN_PLACE_KV = 0;
+    constexpr double TURN_IN_PLACE_KS = 0.919850;
+    constexpr double TURN_IN_PLACE_KV = 0.169750;
     constexpr double TURN_IN_PLACE_KA = 0;
 }

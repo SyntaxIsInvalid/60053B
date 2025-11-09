@@ -11,9 +11,11 @@ namespace abclib::profiling
     {
         double position;
         double velocity;
+        double acceleration;  // ADDED
         
-        ProfileState() : position(0.0), velocity(0.0) {}
-        ProfileState(double pos, double vel) : position(pos), velocity(vel) {}
+        ProfileState() : position(0.0), velocity(0.0), acceleration(0.0) {}
+        ProfileState(double pos, double vel, double accel = 0.0) 
+            : position(pos), velocity(vel), acceleration(accel) {}
     };
     
     struct ProfileConstraints
@@ -38,7 +40,6 @@ namespace abclib::profiling
     private:
         ProfileConstraints constraints_;
         
-        bool should_flip_acceleration(const ProfileState& current, const ProfileState& goal) const;
         double calculate_max_reachable_velocity(double position, double velocity, 
                                                 double goal_position, double max_accel) const;
     };
@@ -53,51 +54,56 @@ namespace abclib::profiling
         const ProfileState& current, 
         const ProfileState& goal)
     {
+        // Assume goal.velocity = 0 for endpoint
         double direction = (goal.position >= current.position) ? 1.0 : -1.0;
         
-        ProfileState next = current;
+        ProfileState next;
         
         double position_error = goal.position - current.position;
         double velocity_error = goal.velocity - current.velocity;
         
+        // If already at goal, stay there
         if (std::abs(position_error) < 1e-6 && std::abs(velocity_error) < 1e-6)
         {
-            return goal;
+            next.position = goal.position;
+            next.velocity = goal.velocity;
+            next.acceleration = 0.0;
+            return next;
         }
         
-        double max_reachable_velocity = calculate_max_reachable_velocity(
-            current.position, current.velocity, goal.position, constraints_.max_acceleration);
+        double distance_to_goal = std::abs(position_error);
         
+        // Calculate the maximum velocity we can have and still stop at the goal
+        // Using: v_f² = v_i² + 2*a*d, solving for v_i when v_f = 0 (goal velocity)
+        double max_reachable_velocity = std::sqrt(
+            goal.velocity * goal.velocity + 2.0 * constraints_.max_acceleration * distance_to_goal
+        );
+        
+        // Clamp to profile's max velocity
         max_reachable_velocity = std::min(max_reachable_velocity, constraints_.max_velocity);
         
-        double desired_velocity = direction * max_reachable_velocity;
-        
-        double acceleration = 0.0;
-        if (std::abs(current.velocity) < max_reachable_velocity)
+        // Determine if we should accelerate or decelerate
+        double acceleration;
+        if (std::abs(current.velocity) < max_reachable_velocity - 1e-6)
         {
+            // Accelerate toward max velocity
             acceleration = direction * constraints_.max_acceleration;
         }
         else
         {
-            double stopping_distance = (current.velocity * current.velocity) / (2.0 * constraints_.max_acceleration);
-            double distance_to_goal = std::abs(goal.position - current.position);
-            
-            if (stopping_distance >= distance_to_goal - 1e-6)
-            {
-                acceleration = -direction * constraints_.max_acceleration;
-            }
-            else
-            {
-                acceleration = 0.0;
-            }
+            // Decelerate to be able to stop at goal
+            acceleration = -direction * constraints_.max_acceleration;
         }
         
+        // Calculate next velocity
         next.velocity = current.velocity + acceleration * dt;
         
+        // Clamp velocity to constraints
         next.velocity = std::clamp(next.velocity, 
                                    -constraints_.max_velocity, 
                                    constraints_.max_velocity);
         
+        // Enforce direction (don't go backwards when going forward)
         if (direction > 0)
         {
             next.velocity = std::max(0.0, next.velocity);
@@ -107,23 +113,22 @@ namespace abclib::profiling
             next.velocity = std::min(0.0, next.velocity);
         }
         
-        double distance_to_goal = std::abs(goal.position - current.position);
-        double stopping_distance = (next.velocity * next.velocity) / (2.0 * constraints_.max_acceleration);
+        // Calculate next position using average velocity over dt
+        // This is more accurate than using just next.velocity
+        double avg_velocity = (current.velocity + next.velocity) / 2.0;
+        next.position = current.position + avg_velocity * dt;
         
-        if (stopping_distance >= distance_to_goal)
-        {
-            next.position = goal.position;
-            next.velocity = goal.velocity;
-            return next;
-        }
+        // Store the actual acceleration used
+        next.acceleration = acceleration;
         
-        next.position = current.position + next.velocity * dt;
-        
+        // Check if we've reached or passed the goal
         if ((direction > 0 && next.position >= goal.position) ||
             (direction < 0 && next.position <= goal.position))
         {
+            // Clamp to goal - we've arrived
             next.position = goal.position;
-            next.velocity = goal.velocity;
+            next.velocity = goal.velocity;  // Should be 0
+            next.acceleration = 0.0;
         }
         
         return next;
@@ -145,17 +150,6 @@ namespace abclib::profiling
         }
         
         return std::sqrt(max_vel_squared);
-    }
-    
-    inline bool IncrementalTrapezoidalProfile::should_flip_acceleration(
-        const ProfileState& current, 
-        const ProfileState& goal) const
-    {
-        double distance_to_goal = goal.position - current.position;
-        double stopping_distance = (current.velocity * current.velocity) / (2.0 * constraints_.max_acceleration);
-        
-        return (distance_to_goal > 0 && stopping_distance > distance_to_goal) ||
-               (distance_to_goal < 0 && stopping_distance < distance_to_goal);
     }
     
     inline void IncrementalTrapezoidalProfile::set_constraints(const ProfileConstraints& constraints)

@@ -60,6 +60,11 @@ namespace abclib::robot_config {
     constexpr double TURN_IN_PLACE_KS = 1.278592;
     constexpr double TURN_IN_PLACE_KV = 0.170242;
     constexpr double TURN_IN_PLACE_KA = 0.012877;
-    
+
+    // profiled turn pid constants
+    inline control::PIDConstants get_profiled_turn_pid() {
+        return control::PIDConstants(30, 0.0, 0.0);  // Tune these values
+    }
+
     // Ramsete controller constants (for path following)
 }

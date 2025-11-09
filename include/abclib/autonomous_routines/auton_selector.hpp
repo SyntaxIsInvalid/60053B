@@ -12,7 +12,10 @@ namespace abclib::auton {
     enum class AutonRoutine {
         NONE,
         SOLO_AWP_RED,
+        SOLO_AWP_BLUE,
+        RED_LEFT,
         SKILLS,
+        KMS,
         PATH_BUILDER_TEST
     };
 
