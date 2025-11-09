@@ -12,22 +12,11 @@
 #define TELEMETRY_LEVEL_MINIMAL 1
 #define TELEMETRY_LEVEL_FULL 2
 
-#define TELEMETRY_LEVEL TELEMETRY_LEVEL_MINIMAL
+#define TELEMETRY_LEVEL TELEMETRY_LEVEL_MINIMAL 
 
-#define SHOW_TELEOP_IMAGE true // Set to true to show image during teleop
-#define SHOW_AUTON_IMAGE true // Set to true to show image during autonomous
+#define SHOW_TELEOP_IMAGE false // Set to true to show image during teleop
+#define SHOW_AUTON_IMAGE false // Set to true to show image during autonomous
 
-/*
-extern const lv_image_dsc_t faker_whispher;
-static lv_obj_t* teleop_image = nullptr;
-*/
-
-/*
-constexpr bool SHOW_TELEOP_IMAGE = false;
-constexpr bool SHOW_AUTON_IMAGE = false;
-
-static lv_obj_t* teleop_image = nullptr;
-*/
 using namespace abclib;
 
 #ifdef ROBOT_TEST_DRIVE
@@ -78,7 +67,9 @@ hardware::ChassisConfig chassis_constant{
     .track_width = robot_config::TRACK_WIDTH,
     .turn_in_place_kS = robot_config::TURN_IN_PLACE_KS,
     .turn_in_place_kV = robot_config::TURN_IN_PLACE_KV,
-    .turn_in_place_kA = robot_config::TURN_IN_PLACE_KA};
+    .turn_in_place_kA = robot_config::TURN_IN_PLACE_KA,
+    .profiled_turn_pid_constants = robot_config::get_profiled_turn_pid(),
+};
 
 hardware::Chassis chassis(
     chassis_constant,
@@ -117,16 +108,16 @@ void initialize()
     pros::lcd::initialize();
     chassis.calibrate();
     teleop_image = lv_image_create(lv_screen_active());
-    lv_image_set_src(teleop_image, "S:/faker_whispher.bin");
-    lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_add_flag(teleop_image, LV_OBJ_FLAG_HIDDEN); // Hide it initially
+    // lv_image_set_src(teleop_image, "S:/deft.bin");
+    // lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
+    // lv_obj_add_flag(teleop_image, LV_OBJ_FLAG_HIDDEN); // Hide it initially
     // leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-    // match_load_ramp.retract();
     using namespace abclib::auton;
     register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red);
     register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test);
-
+    register_auton(AutonRoutine::RED_LEFT, red_left);
+    register_auton(AutonRoutine::KMS, none);
 #if HAS_PNEUMATICS
     match_load_ramp.retract();
     intake_lift.retract();
@@ -228,12 +219,6 @@ void autonomous()
         lv_obj_remove_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
     }
 #endif
-    /*
-    if (teleop_image) {
-        lv_obj_delete(teleop_image);
-        teleop_image = nullptr;
-    }
-    */
 
     chassis.set_pose(
         units::Distance::from_inches(0),
@@ -250,17 +235,15 @@ void autonomous()
         match_load_ramp,
         intake_lift
     };
-    // Run the selected auton
-    run_selected_auton(robot);
     */
-    /*
+    // Run the selected auton
+    // run_selected_auton(robot);
      chassis.turn_to_heading_profiled_pid(
          units::Degrees(90.0),          // target heading
-         2.0,                           // max velocity: 2 rad/s (~115 deg/s)
-         4.0,                           // max accel: 4 rad/s²
-         units::Time::from_seconds(3.0) // timeout
+         3.14,                           // max velocity: 2 rad/s (~115 deg/s)
+         6.28,                           // max accel: 4 rad/s²
+         units::Time::from_seconds(5.0) // timeout
      );
- */
     controller.print(0, 0, "done");
 }
 
@@ -272,20 +255,6 @@ void opcontrol()
         lv_obj_remove_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
     }
 #endif
-
-    /*
-    if (teleop_image)
-    {
-        lv_obj_remove_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
-    }
-*/
-    /*
- if (!teleop_image && SHOW_TELEOP_IMAGE) {
-     teleop_image = lv_image_create(lv_screen_active());
-     lv_image_set_src(teleop_image, "S:/faker_whispher.bin");
-     lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
- }
-     */
     while (1)
     {
         int turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
@@ -294,7 +263,7 @@ void opcontrol()
 #if HAS_INTAKE
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
         {
-            top_intake.set_voltage(units::Voltage::from_volts(8));
+            top_intake.set_voltage(units::Voltage::from_volts(3));
             bottom_intake.set_intake();
         }
         else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
@@ -302,7 +271,7 @@ void opcontrol()
             top_intake.set_outtake();
             bottom_intake.set_outtake();
         }
-        else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
+        else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
         {
             top_intake.set_intake();
             bottom_intake.set_intake();
@@ -322,21 +291,6 @@ void opcontrol()
         if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT))
         {
             intake_lift.toggle();
-        }
-#endif
-
-#if HAS_PNEUMATICS && HAS_INTAKE
-        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
-        {
-            // Extend intake lift if it's not already extended
-            if (!intake_lift.get_state())
-            {
-                intake_lift.extend();
-            }
-
-            // Start the intakes while holding
-            top_intake.set_intake();
-            bottom_intake.set_intake();
         }
 #endif
         pros::delay(20);

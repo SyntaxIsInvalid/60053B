@@ -187,16 +187,6 @@ namespace abclib::hardware
         void move_velocity_pros(units::WheelLinearVelocity left_velocity,
                                 units::WheelLinearVelocity right_velocity);
 
-        void follow_trajectory_velocity_control(
-            units::Distance target_x,
-            units::Distance target_y,
-            units::Degrees target_heading,
-            units::BodyLinearVelocity max_velocity,
-            double max_acceleration,
-            units::Time timeout = units::Time::from_seconds(10),
-            const std::optional<Eigen::Matrix<double, 6, 1>> &eta = std::nullopt,
-            const std::optional<Eigen::Matrix<double, 4, 1>> &kappa = std::nullopt);
-
         void move_straight_profiled(
             units::Distance distance,
             units::BodyLinearVelocity max_velocity,
@@ -227,15 +217,5 @@ namespace abclib::hardware
             return settlement_config_;
         }
 
-        void move_to_pose_boomerang(
-            units::Distance target_x,
-            units::Distance target_y,
-            units::Degrees target_heading,
-            double dlead, // ← Changed: dimensionless scale factor (0 to 1)
-            units::Time timeout,
-            units::Voltage lateral_min,
-            units::Voltage lateral_max,
-            units::Voltage angular_min,
-            units::Voltage angular_max);
     };
 }
