@@ -3,9 +3,6 @@
 #include "abclib/abclib.hpp"
 #include <numeric>
 #include <mutex>
-#include "abclib/builder/path_builder.hpp"
-#include "abclib/builder/path_logger.hpp"
-#include "abclib/trajectory/trajectory_logger.hpp"
 #include "liblvgl/lvgl.h"
 #include "abclib/autonomous_routines/autons.hpp"
 #define TELEMETRY_LEVEL_NONE 0

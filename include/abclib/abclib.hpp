@@ -59,9 +59,14 @@
 // trajectory modules
 #include "abclib/trajectory/trajectory.hpp"
 #include "abclib/trajectory/path_follower.hpp"
+#include "abclib/trajectory/trajectory_logger.hpp"
 
 // characterization
 #include "abclib/characterization/motor_characterization.hpp"
+
+// builder
+#include "abclib/builder/path_builder.hpp"
+#include "abclib/builder/path_logger.hpp"
 
 // subsystems - real or dummy based on robot config
 #if HAS_INTAKE
