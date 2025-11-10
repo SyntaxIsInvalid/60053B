@@ -130,11 +130,7 @@ namespace abclib::hardware
         profiled_pid.reset(cumulative_unwrapped_rad);
 
         // Reset telemetry
-        {
-            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-            telemetry.max_angular_error = units::Radians(0);
-            telemetry.cumulative_angular_error = units::Radians(0);
-        }
+        reset_telemetry_accumulators();
 
         while ((pros::millis() - start_time) < timeout.to_millis_uint())
         {
@@ -168,12 +164,8 @@ namespace abclib::hardware
             // Check settlement
             if (profiled_pid.at_goal())
             {
-                {
-                    std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-                    telemetry.is_settled = true;
-                    telemetry.settlement_reason = SettlementReason::WITHIN_THRESHOLD;
-                    telemetry.time_to_settle = units::Time::from_millis(pros::millis() - start_time);
-                }
+                update_settlement_telemetry(true, 0, // update to acctually account for settle count eventually
+                                            SettlementReason::WITHIN_THRESHOLD, start_time);
                 left_motors->brake();
                 right_motors->brake();
                 break;
@@ -184,32 +176,11 @@ namespace abclib::hardware
             units::Voltage right_voltage = units::Voltage(angular_output);
 
             // Update telemetry
-            {
-                std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-
-                telemetry.angular_error = angular_error;
-                telemetry.angular_output = units::Voltage(angular_output);
-                telemetry.angular_target = units::Radians(unwrapped_target);
-                telemetry.angular_actual = units::Radians(cumulative_unwrapped_rad);
-                telemetry.angular_p_term = profiled_pid.get_pid().get_p_term();
-                telemetry.angular_i_term = profiled_pid.get_pid().get_i_term();
-                telemetry.angular_d_term = profiled_pid.get_pid().get_d_term();
-
-                telemetry.pose = current_pose.pose;
-                telemetry.pose_v = current_pose.v;
-                telemetry.pose_omega = current_pose.omega;
-
-                telemetry.is_settled = false;
-                telemetry.settlement_reason = SettlementReason::NOT_SETTLED;
-
-                telemetry.max_angular_error = units::Radians(
-                    std::max(telemetry.max_angular_error.value, std::abs(angular_error_rad)));
-                telemetry.cumulative_angular_error = units::Radians(
-                    telemetry.cumulative_angular_error.value + std::abs(angular_error_rad) * dt);
-
-                telemetry.left_motor_voltage = left_voltage;
-                telemetry.right_motor_voltage = right_voltage;
-            }
+            update_angular_telemetry(angular_error_rad, angular_output,
+                                     unwrapped_target, cumulative_unwrapped_rad, dt);
+            update_pose_telemetry(current_pose);
+            update_motor_voltage_telemetry(left_voltage, right_voltage);
+            update_settlement_telemetry(false, 0, SettlementReason::NOT_SETTLED, start_time);
 
             move_left_motors(left_voltage);
             move_right_motors(right_voltage);
@@ -219,12 +190,12 @@ namespace abclib::hardware
 
         // Timeout check
         bool timed_out = (pros::millis() - start_time) >= timeout.to_millis_uint();
+        if (timed_out)
         {
-            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-            if (timed_out && !telemetry.is_settled)
+            const auto &current_data = telemetry.get_read_buffer();
+            if (!current_data.is_settled)
             {
-                telemetry.settlement_reason = SettlementReason::TIMEOUT;
-                telemetry.time_to_settle = units::Time::from_millis(pros::millis() - start_time);
+                update_settlement_telemetry(false, 0, SettlementReason::TIMEOUT, start_time);
             }
         }
 

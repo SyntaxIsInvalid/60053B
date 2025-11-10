@@ -22,10 +22,10 @@ namespace abclib::hardware
         units::BodyAngularVelocity omega,
         int &settle_count) const
     {
-        // This is the IMPLEMENTATION - the actual logic
         bool error_ok = std::abs(error.value) <= settlement_config_.angular_threshold.value;
-        bool velocity_ok = std::abs(omega.rad_per_sec) <
-                           settlement_config_.angular_velocity_threshold.rad_per_sec;
+        bool velocity_ok = std::abs(omega.rad_per_sec) <= 
+                   settlement_config_.angular_velocity_threshold.rad_per_sec;
+
 
         if (error_ok && velocity_ok)
         {
@@ -42,10 +42,9 @@ namespace abclib::hardware
         units::BodyLinearVelocity velocity,
         int &settle_count) const
     {
-        // This is the IMPLEMENTATION - the actual logic
         bool error_ok = std::abs(error.inches) <= settlement_config_.position_threshold.inches;
-        bool velocity_ok = std::abs(velocity.inches_per_sec) <
-                           settlement_config_.linear_velocity_threshold.inches_per_sec;
+        bool velocity_ok = std::abs(velocity.inches_per_sec) <= 
+                   settlement_config_.linear_velocity_threshold.inches_per_sec;
 
         if (error_ok && velocity_ok)
         {
@@ -60,10 +59,11 @@ namespace abclib::hardware
     void Chassis::reset_telemetry_accumulators()
     {
         std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-        telemetry.max_lateral_error = units::Distance::from_inches(0);
-        telemetry.max_angular_error = units::Radians(0);
-        telemetry.cumulative_lateral_error = units::Distance::from_inches(0);
-        telemetry.cumulative_angular_error = units::Radians(0);
+        auto& data = telemetry.get_write_buffer();
+        data.max_lateral_error = units::Distance::from_inches(0);
+        data.max_angular_error = units::Radians(0);
+        data.cumulative_lateral_error = units::Distance::from_inches(0);
+        data.cumulative_angular_error = units::Radians(0);
     }
 
     void Chassis::update_lateral_telemetry(
@@ -74,20 +74,21 @@ namespace abclib::hardware
         double dt)
     {
         std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+        auto& data = telemetry.get_write_buffer();
 
-        telemetry.lateral_error = error;
-        telemetry.lateral_output = units::Voltage::from_volts(output_volts);
-        telemetry.lateral_target = target;
-        telemetry.lateral_actual = actual;
-        telemetry.lateral_p_term = lateral_pid.get_p_term();
-        telemetry.lateral_i_term = lateral_pid.get_i_term();
-        telemetry.lateral_d_term = lateral_pid.get_d_term();
+        data.lateral_error = error;
+        data.lateral_output = units::Voltage::from_volts(output_volts);
+        data.lateral_target = target;
+        data.lateral_actual = actual;
+        data.lateral_p_term = lateral_pid.get_p_term();
+        data.lateral_i_term = lateral_pid.get_i_term();
+        data.lateral_d_term = lateral_pid.get_d_term();
 
         // Accumulators
-        telemetry.max_lateral_error = units::Distance::from_inches(
-            std::max(telemetry.max_lateral_error.inches, std::abs(error.inches)));
-        telemetry.cumulative_lateral_error = units::Distance::from_inches(
-            telemetry.cumulative_lateral_error.inches + std::abs(error.inches) * dt);
+        data.max_lateral_error = units::Distance::from_inches(
+            std::max(data.max_lateral_error.inches, std::abs(error.inches)));
+        data.cumulative_lateral_error = units::Distance::from_inches(
+            data.cumulative_lateral_error.inches + std::abs(error.inches) * dt);
     }
 
     void Chassis::update_angular_telemetry(
@@ -98,28 +99,30 @@ namespace abclib::hardware
         double dt)
     {
         std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+        auto& data = telemetry.get_write_buffer();
 
-        telemetry.angular_error = units::Radians(error_rad);
-        telemetry.angular_output = units::Voltage::from_volts(output_volts);
-        telemetry.angular_target = units::Radians(target_rad);
-        telemetry.angular_actual = units::Radians(actual_rad);
-        telemetry.angular_p_term = angular_pid.get_p_term();
-        telemetry.angular_i_term = angular_pid.get_i_term();
-        telemetry.angular_d_term = angular_pid.get_d_term();
+        data.angular_error = units::Radians(error_rad);
+        data.angular_output = units::Voltage::from_volts(output_volts);
+        data.angular_target = units::Radians(target_rad);
+        data.angular_actual = units::Radians(actual_rad);
+        data.angular_p_term = angular_pid.get_p_term();
+        data.angular_i_term = angular_pid.get_i_term();
+        data.angular_d_term = angular_pid.get_d_term();
 
         // Accumulators
-        telemetry.max_angular_error = units::Radians(
-            std::max(telemetry.max_angular_error.value, std::abs(error_rad)));
-        telemetry.cumulative_angular_error = units::Radians(
-            telemetry.cumulative_angular_error.value + std::abs(error_rad) * dt);
+        data.max_angular_error = units::Radians(
+            std::max(data.max_angular_error.value, std::abs(error_rad)));
+        data.cumulative_angular_error = units::Radians(
+            data.cumulative_angular_error.value + std::abs(error_rad) * dt);
     }
 
     void Chassis::update_pose_telemetry(const estimation::Pose &pose)
     {
         std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-        telemetry.pose = pose.pose;
-        telemetry.pose_v = pose.v;
-        telemetry.pose_omega = pose.omega;
+        auto& data = telemetry.get_write_buffer();
+        data.pose = pose.pose;
+        data.pose_v = pose.v;
+        data.pose_omega = pose.omega;
     }
 
     void Chassis::update_motor_voltage_telemetry(
@@ -127,31 +130,33 @@ namespace abclib::hardware
         units::Voltage right_voltage)
     {
         std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-        telemetry.left_motor_voltage = left_voltage;
-        telemetry.right_motor_voltage = right_voltage;
+        auto& data = telemetry.get_write_buffer();
+        data.left_motor_voltage = left_voltage;
+        data.right_motor_voltage = right_voltage;
     }
 
     void Chassis::update_motor_velocity_telemetry()
     {
         std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+        auto& data = telemetry.get_write_buffer();
 
         // Left motor
-        telemetry.left_motor_actual_velocity = left_motors->get_raw_velocity();
-        telemetry.left_motor_velocity_error_rpm =
-            units::RPM::from_rad_per_sec(telemetry.left_motor_target_velocity.rad_per_sec).value -
-            units::RPM::from_rad_per_sec(telemetry.left_motor_actual_velocity.rad_per_sec).value;
-        telemetry.left_motor_velocity_p_term = left_motors->get_velocity_p_term();
-        telemetry.left_motor_velocity_i_term = left_motors->get_velocity_i_term();
-        telemetry.left_motor_velocity_d_term = left_motors->get_velocity_d_term();
+        data.left_motor_actual_velocity = left_motors->get_raw_velocity();
+        data.left_motor_velocity_error_rpm =
+            units::RPM::from_rad_per_sec(data.left_motor_target_velocity.rad_per_sec).value -
+            units::RPM::from_rad_per_sec(data.left_motor_actual_velocity.rad_per_sec).value;
+        data.left_motor_velocity_p_term = left_motors->get_velocity_p_term();
+        data.left_motor_velocity_i_term = left_motors->get_velocity_i_term();
+        data.left_motor_velocity_d_term = left_motors->get_velocity_d_term();
 
         // Right motor
-        telemetry.right_motor_actual_velocity = right_motors->get_raw_velocity();
-        telemetry.right_motor_velocity_error_rpm =
-            units::RPM::from_rad_per_sec(telemetry.right_motor_target_velocity.rad_per_sec).value -
-            units::RPM::from_rad_per_sec(telemetry.right_motor_actual_velocity.rad_per_sec).value;
-        telemetry.right_motor_velocity_p_term = right_motors->get_velocity_p_term();
-        telemetry.right_motor_velocity_i_term = right_motors->get_velocity_i_term();
-        telemetry.right_motor_velocity_d_term = right_motors->get_velocity_d_term();
+        data.right_motor_actual_velocity = right_motors->get_raw_velocity();
+        data.right_motor_velocity_error_rpm =
+            units::RPM::from_rad_per_sec(data.right_motor_target_velocity.rad_per_sec).value -
+            units::RPM::from_rad_per_sec(data.right_motor_actual_velocity.rad_per_sec).value;
+        data.right_motor_velocity_p_term = right_motors->get_velocity_p_term();
+        data.right_motor_velocity_i_term = right_motors->get_velocity_i_term();
+        data.right_motor_velocity_d_term = right_motors->get_velocity_d_term();
     }
 
     void Chassis::update_settlement_telemetry(
@@ -161,13 +166,14 @@ namespace abclib::hardware
         uint32_t start_time)
     {
         std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-        telemetry.is_settled = is_settled;
-        telemetry.settle_count = settle_count;
-        telemetry.settlement_reason = reason;
+        auto& data = telemetry.get_write_buffer();
+        data.is_settled = is_settled;
+        data.settle_count = settle_count;
+        data.settlement_reason = reason;
 
         if (is_settled || reason != SettlementReason::NOT_SETTLED)
         {
-            telemetry.time_to_settle = units::Time::from_millis(pros::millis() - start_time);
+            data.time_to_settle = units::Time::from_millis(pros::millis() - start_time);
         }
     }
 }

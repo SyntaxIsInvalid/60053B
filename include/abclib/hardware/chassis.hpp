@@ -60,6 +60,8 @@ namespace abclib::hardware
         std::uint32_t previous_time;
         double delta_time;
 
+        mutable pros::Mutex telemetry_mutex;
+
         control::PID lateral_pid;
         control::PID angular_pid;
         // estimation::Odometry odom;
@@ -217,5 +219,34 @@ namespace abclib::hardware
             return settlement_config_;
         }
 
+        void reset_telemetry_accumulators();
+
+        void update_lateral_telemetry(
+            units::Distance error,
+            double output_volts,
+            units::Distance target,
+            units::Distance actual,
+            double dt);
+
+        void update_angular_telemetry(
+            double error_rad,
+            double output_volts,
+            double target_rad,
+            double actual_rad,
+            double dt);
+
+        void update_pose_telemetry(const estimation::Pose &pose);
+
+        void update_motor_voltage_telemetry(
+            units::Voltage left_voltage,
+            units::Voltage right_voltage);
+
+        void update_motor_velocity_telemetry();
+
+        void update_settlement_telemetry(
+            bool is_settled,
+            int settle_count,
+            SettlementReason reason,
+            uint32_t start_time);
     };
 }
