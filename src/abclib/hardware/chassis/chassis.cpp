@@ -107,46 +107,6 @@ namespace abclib::hardware
         estimator_->init();
     }
 
-    bool Chassis::check_angular_settlement(
-        units::Radians error,
-        units::BodyAngularVelocity omega,
-        int &settle_count) const
-    {
-        // This is the IMPLEMENTATION - the actual logic
-        bool error_ok = std::abs(error.value) <= settlement_config_.angular_threshold.value;
-        bool velocity_ok = std::abs(omega.rad_per_sec) <
-                           settlement_config_.angular_velocity_threshold.rad_per_sec;
-
-        if (error_ok && velocity_ok)
-        {
-            settle_count++;
-            return settle_count >= settlement_config_.settle_count_required;
-        }
-
-        settle_count = 0;
-        return false;
-    }
-
-    bool Chassis::check_linear_settlement(
-        units::Distance error,
-        units::BodyLinearVelocity velocity,
-        int &settle_count) const
-    {
-        // This is the IMPLEMENTATION - the actual logic
-        bool error_ok = std::abs(error.inches) <= settlement_config_.position_threshold.inches;
-        bool velocity_ok = std::abs(velocity.inches_per_sec) <
-                           settlement_config_.linear_velocity_threshold.inches_per_sec;
-
-        if (error_ok && velocity_ok)
-        {
-            settle_count++;
-            return settle_count >= settlement_config_.settle_count_required;
-        }
-
-        settle_count = 0;
-        return false;
-    }
-
     void Chassis::reset_chassis_position()
     {
         left_motors->reset_position();

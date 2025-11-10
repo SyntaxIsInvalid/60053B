@@ -1,6 +1,7 @@
 #pragma once
 #include "api.h"
 #include "abclib/units/units.hpp"
+#include <atomic>
 
 namespace abclib
 {
@@ -40,15 +41,15 @@ namespace abclib
         units::Distance cumulative_lateral_error = units::Distance::from_inches(0);
 
         // Angular control (turning)
-        units::Radians angular_error = units::Radians(0); // Changed
+        units::Radians angular_error = units::Radians(0);
         units::Voltage angular_output = units::Voltage::from_volts(0);
-        units::Radians angular_target = units::Radians(0); // Changed
-        units::Radians angular_actual = units::Radians(0); // Changed
+        units::Radians angular_target = units::Radians(0);
+        units::Radians angular_actual = units::Radians(0);
         double angular_p_term = 0;
         double angular_i_term = 0;
         double angular_d_term = 0;
-        units::Radians max_angular_error = units::Radians(0);        // Changed
-        units::Radians cumulative_angular_error = units::Radians(0); // Changed
+        units::Radians max_angular_error = units::Radians(0);
+        units::Radians cumulative_angular_error = units::Radians(0);
 
         // Pose (from odometry)
         units::BodyPose pose = units::BodyPose();
@@ -63,7 +64,7 @@ namespace abclib
         bool is_settled = false;
         int settle_count = 0;
         SettlementReason settlement_reason = SettlementReason::NOT_SETTLED;
-        units::Time time_to_settle = units::Time::from_seconds(0); // Changed
+        units::Time time_to_settle = units::Time::from_seconds(0);
 
         // Motor voltages
         units::Voltage left_motor_voltage = units::Voltage::from_volts(0);
@@ -80,7 +81,7 @@ namespace abclib
         // Final pose error
         units::Distance final_pose_error_x = units::Distance::from_inches(0);
         units::Distance final_pose_error_y = units::Distance::from_inches(0);
-        units::Radians final_pose_error_theta = units::Radians(0); // Changed
+        units::Radians final_pose_error_theta = units::Radians(0);
 
         // Path follower status
         PathFollowerStatus path_status = PathFollowerStatus::IDLE;
@@ -90,13 +91,13 @@ namespace abclib
         units::BodyLinearVelocity reference_velocity = units::BodyLinearVelocity(0);
         units::Distance reference_arc_position = units::Distance::from_inches(0);
 
-        // Turn-in-place specific tracking (add near path follower section)
+        // Turn-in-place specific tracking
         units::BodyAngularVelocity omega_reference = units::BodyAngularVelocity(0);
         units::BodyAngularVelocity omega_error = units::BodyAngularVelocity(0);
-        double omega_pid_output = 0.0; // raw PID output before adding to reference
+        double omega_pid_output = 0.0;
         units::BodyAngularVelocity omega_commanded = units::BodyAngularVelocity(0);
 
-        // Wheel velocity commands (what we're actually sending to motors)
+        // Wheel velocity commands
         units::WheelLinearVelocity left_wheel_cmd = units::WheelLinearVelocity(0);
         units::WheelLinearVelocity right_wheel_cmd = units::WheelLinearVelocity(0);
 
@@ -105,13 +106,13 @@ namespace abclib
         units::WheelAngularVelocity right_wheel_velocity = units::WheelAngularVelocity(0);
 
         // Loop timing metrics
-        units::Time loop_time = units::Time::from_seconds(0);          // Current loop duration
-        units::Time max_loop_time = units::Time::from_seconds(0);      // Peak loop duration
-        units::Time min_loop_time = units::Time::from_seconds(999);    // Minimum loop duration (for baseline)
-        units::Time avg_loop_time = units::Time::from_seconds(0);      // Rolling average loop time
-        uint32_t timing_violations = 0;                                // Count of loops exceeding target
-        uint32_t total_loop_count = 0;                                 // Total loops executed
-        units::Time target_loop_time = units::Time::from_millis(10.0); // Expected loop time (10ms for 100Hz)
+        units::Time loop_time = units::Time::from_seconds(0);
+        units::Time max_loop_time = units::Time::from_seconds(0);
+        units::Time min_loop_time = units::Time::from_seconds(999);
+        units::Time avg_loop_time = units::Time::from_seconds(0);
+        uint32_t timing_violations = 0;
+        uint32_t total_loop_count = 0;
+        units::Time target_loop_time = units::Time::from_millis(10.0);
 
         // Battery monitoring
         units::Voltage battery_voltage = units::Voltage::from_volts(0);
@@ -138,9 +139,37 @@ namespace abclib
         units::Voltage right_motor_velocity_output = units::Voltage::from_volts(0);
     };
 
-    // Global telemetry instance
-    inline TelemetryData telemetry;
-    inline pros::Mutex telemetry_mutex;
+    // Double-buffered telemetry system
+    class TelemetryBuffer
+    {
+    private:
+        TelemetryData buffers[2];
+        std::atomic<int> read_index{0};
+        int write_index = 1;
+
+    public:
+        // Writer (control loop) gets direct access to write buffer
+        TelemetryData& get_write_buffer()
+        {
+            return buffers[write_index];
+        }
+
+        // Writer swaps buffers when done updating
+        void swap()
+        {
+            read_index.store(write_index, std::memory_order_release);
+            write_index = 1 - write_index;
+        }
+
+        // Reader (display/logging) gets const access to read buffer
+        const TelemetryData& get_read_buffer() const
+        {
+            return buffers[read_index.load(std::memory_order_acquire)];
+        }
+    };
+
+    // Global telemetry instance (double-buffered)
+    inline TelemetryBuffer telemetry;
 
     // Helper function to convert enum to string for display
     inline const char *settlement_reason_to_string(SettlementReason reason)
