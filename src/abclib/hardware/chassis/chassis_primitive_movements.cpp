@@ -100,7 +100,7 @@ namespace abclib::hardware
             // Apply turn power to motors (opposite directions for turning)
             move_left_motors(left_voltage);
             move_right_motors(right_voltage);
-
+            telemetry.swap();
             pros::delay(10);
         }
 
@@ -238,7 +238,7 @@ namespace abclib::hardware
             // Send power to motors
             move_left_motors(left_voltage);
             move_right_motors(right_voltage);
-
+            telemetry.swap();
             pros::delay(10);
         }
 
@@ -386,7 +386,7 @@ namespace abclib::hardware
             // Apply turn power to motors (opposite directions for turning)
             move_left_motors(left_voltage);
             move_right_motors(right_voltage);
-
+            telemetry.swap();
             pros::delay(10);
         }
 

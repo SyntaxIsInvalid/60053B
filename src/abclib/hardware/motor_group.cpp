@@ -52,7 +52,7 @@ namespace abclib::hardware
 
             // Create empty motor config
             MotorConfig motor_cfg{};
-            motor_cfg.brake_mode = pros::E_MOTOR_BRAKE_BRAKE;
+            motor_cfg.brake_mode = pros::E_MOTOR_BRAKE_COAST;
             motor_cfg.enable_voltage_compensation = config.enable_voltage_compensation;
             motor_cfg.compensation_nominal = config.compensation_nominal;
             motor_cfg.compensation_min_battery = config.compensation_min_battery;

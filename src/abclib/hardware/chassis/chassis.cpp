@@ -209,30 +209,6 @@ namespace abclib::hardware
         update_motor_velocity_telemetry();
     }
 
-    void Chassis::move_velocity_pros(units::WheelLinearVelocity left_velocity,
-                                     units::WheelLinearVelocity right_velocity)
-    {
-        // Convert linear wheel velocity to angular motor velocity
-        units::Distance wheel_radius = get_wheel_radius();
-
-        units::MotorAngularVelocity left_motor_vel =
-            units::MotorAngularVelocity(left_velocity.inches_per_sec / wheel_radius.inches);
-        units::MotorAngularVelocity right_motor_vel =
-            units::MotorAngularVelocity(right_velocity.inches_per_sec / wheel_radius.inches);
-
-        left_motors->move_velocity_pros(left_motor_vel);
-        right_motors->move_velocity_pros(right_motor_vel);
-
-        // Update telemetry
-        {
-            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-            auto &data = telemetry.get_write_buffer();
-            data.left_motor_target_velocity = left_motor_vel;
-            data.right_motor_target_velocity = right_motor_vel;
-        }
-        update_motor_velocity_telemetry();
-    }
-
     void Chassis::stop_motors()
     {
         // Stop any running velocity control tasks

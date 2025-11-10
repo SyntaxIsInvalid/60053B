@@ -184,7 +184,7 @@ namespace abclib::hardware
 
             move_left_motors(left_voltage);
             move_right_motors(right_voltage);
-
+            telemetry.swap();
             pros::delay(10);
         }
 

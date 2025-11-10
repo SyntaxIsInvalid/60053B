@@ -116,11 +116,9 @@ namespace abclib::hardware
             }
         }
 
-        {
-            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-            telemetry.voltage_compensation_active = compensation_active;
-            telemetry.voltage_compensation_scale = compensation_scale;
-        }
+        auto &data = telemetry.get_write_buffer();
+        data.voltage_compensation_active = compensation_active;
+        data.voltage_compensation_scale = compensation_scale;
 
         motor_->move(voltage.to_pros_units());
     }

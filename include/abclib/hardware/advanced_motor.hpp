@@ -27,7 +27,7 @@ namespace abclib::hardware
         double max_integral_velocity = 100;
 
         pros::Rotation *rotation = nullptr;
-        pros::motor_brake_mode_e_t brake_mode = pros::E_MOTOR_BRAKE_BRAKE;
+        pros::motor_brake_mode_e_t brake_mode = pros::E_MOTOR_BRAKE_COAST;
 
         bool enable_voltage_compensation = false;
         units::Voltage compensation_nominal = units::Voltage::from_volts(12.0);

@@ -206,11 +206,7 @@ namespace abclib
             return;
 
         // Thread-safe copy of telemetry data
-        TelemetryData data;
-        {
-            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-            data = telemetry;
-        }
+        const TelemetryData &data = telemetry.get_read_buffer();
 
         // Timestamp columns (always included)
         fprintf(file_, "%u,%.3f", absolute_time, elapsed_time);

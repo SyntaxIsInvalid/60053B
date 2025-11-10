@@ -124,12 +124,13 @@ namespace abclib::estimation
                 alpha * omega_raw + (1.0 - alpha) * current_pose_.omega.rad_per_sec);
 
             {
-                std::lock_guard<pros::Mutex> telem_lock(abclib::telemetry_mutex);
-                abclib::telemetry.pose = current_pose_.pose;
-                abclib::telemetry.pose_v = current_pose_.v;
-                abclib::telemetry.pose_omega = current_pose_.omega;
-                abclib::telemetry.pose_v_raw = units::BodyLinearVelocity(v_raw);
-                abclib::telemetry.pose_omega_raw = units::BodyAngularVelocity(omega_raw);
+                auto &telem = abclib::telemetry.get_write_buffer();
+                telem.pose = current_pose_.pose;
+                telem.pose_v = current_pose_.v;
+                telem.pose_omega = current_pose_.omega;
+                telem.pose_v_raw = units::BodyLinearVelocity(v_raw);
+                telem.pose_omega_raw = units::BodyAngularVelocity(omega_raw);
+                abclib::telemetry.swap();
             }
         }
         else

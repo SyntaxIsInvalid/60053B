@@ -266,11 +266,7 @@ namespace abclib::characterization
             chassis.move_velocity(wheel_vel, wheel_vel);
 
             // Read from telemetry
-            TelemetryData local_telem;
-            {
-                std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-                local_telem = telemetry;
-            }
+            const TelemetryData &local_telem = telemetry.get_read_buffer();
 
             // Convert velocities to RPM for logging
             double left_vel_rpm = units::RPM::from_rad_per_sec(

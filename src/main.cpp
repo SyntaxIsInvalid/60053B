@@ -130,20 +130,17 @@ void initialize()
     pros::Task screen_task([&]()
                            {
          while (1) {
-             {
-                 std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-                 telemetry.battery_voltage = units::Voltage::from_millivolts(
-                     pros::battery::get_voltage()
-                 );
-                 telemetry.battery_capacity_percent = pros::battery::get_capacity();
-             }
+             // Update battery info in the write buffer (no mutex needed!)
+             auto& write_buf = abclib::telemetry.get_write_buffer();
+             write_buf.battery_voltage = units::Voltage::from_millivolts(
+                 pros::battery::get_voltage()
+             );
+             write_buf.battery_capacity_percent = pros::battery::get_capacity();
+             abclib::telemetry.swap();  // Swap buffers after update
 
-             // Access through telemetry
-             TelemetryData local_telem;
-             {
-                 std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-                 local_telem = telemetry;
-             }
+             // Read from the read buffer (no mutex needed!)
+             const TelemetryData& local_telem = abclib::telemetry.get_read_buffer();
+             
 #if TELEMETRY_LEVEL >= TELEMETRY_LEVEL_MINIMAL
              // Line 0: X, Y, and Theta
              pros::lcd::print(0, "X:%.2f Y:%.2f Th:%.1f",
@@ -176,12 +173,12 @@ void initialize()
 
              // Line 5: Path status and progress
              pros::lcd::print(5, "Status:%s Prog:%.0f%%",
-                            path_status_to_string(local_telem.path_status),
+                            abclib::path_status_to_string(local_telem.path_status),
                             local_telem.trajectory_progress * 100.0);
 
              // Line 6: Settlement status
              pros::lcd::print(6, "Settle:%s Cnt:%d",
-                            settlement_reason_to_string(local_telem.settlement_reason),
+                            abclib::settlement_reason_to_string(local_telem.settlement_reason),
                             local_telem.settle_count);
 
              // Line 7: Trajectory timing

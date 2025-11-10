@@ -1,4 +1,3 @@
-using namespace abclib;
 #include "abclib/hardware/chassis.hpp"
 #include "api.h"
 #include <mutex>
@@ -14,6 +13,8 @@ using namespace abclib;
 #include "abclib/trajectory/trajectory.hpp"
 #include "abclib/control/profiled_pid.hpp"
 #include "abclib/math/point.hpp"
+
+using namespace abclib;
 
 namespace abclib::hardware
 {
@@ -58,7 +59,6 @@ namespace abclib::hardware
 
     void Chassis::reset_telemetry_accumulators()
     {
-        std::lock_guard<pros::Mutex> lock(telemetry_mutex);
         auto& data = telemetry.get_write_buffer();
         data.max_lateral_error = units::Distance::from_inches(0);
         data.max_angular_error = units::Radians(0);
@@ -73,7 +73,6 @@ namespace abclib::hardware
         units::Distance actual,
         double dt)
     {
-        std::lock_guard<pros::Mutex> lock(telemetry_mutex);
         auto& data = telemetry.get_write_buffer();
 
         data.lateral_error = error;
@@ -98,7 +97,6 @@ namespace abclib::hardware
         double actual_rad,
         double dt)
     {
-        std::lock_guard<pros::Mutex> lock(telemetry_mutex);
         auto& data = telemetry.get_write_buffer();
 
         data.angular_error = units::Radians(error_rad);
@@ -118,7 +116,6 @@ namespace abclib::hardware
 
     void Chassis::update_pose_telemetry(const estimation::Pose &pose)
     {
-        std::lock_guard<pros::Mutex> lock(telemetry_mutex);
         auto& data = telemetry.get_write_buffer();
         data.pose = pose.pose;
         data.pose_v = pose.v;
@@ -129,7 +126,6 @@ namespace abclib::hardware
         units::Voltage left_voltage,
         units::Voltage right_voltage)
     {
-        std::lock_guard<pros::Mutex> lock(telemetry_mutex);
         auto& data = telemetry.get_write_buffer();
         data.left_motor_voltage = left_voltage;
         data.right_motor_voltage = right_voltage;
@@ -137,7 +133,6 @@ namespace abclib::hardware
 
     void Chassis::update_motor_velocity_telemetry()
     {
-        std::lock_guard<pros::Mutex> lock(telemetry_mutex);
         auto& data = telemetry.get_write_buffer();
 
         // Left motor
@@ -165,7 +160,6 @@ namespace abclib::hardware
         SettlementReason reason,
         uint32_t start_time)
     {
-        std::lock_guard<pros::Mutex> lock(telemetry_mutex);
         auto& data = telemetry.get_write_buffer();
         data.is_settled = is_settled;
         data.settle_count = settle_count;

@@ -34,12 +34,13 @@ namespace abclib::trajectory
 
         // Reset telemetry
         {
-            std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
-            abclib::telemetry = TelemetryData{};
-            abclib::telemetry.max_cross_track_error = units::Distance::from_inches(0);
-            abclib::telemetry.cumulative_xte = units::Distance::from_inches(0);
-            abclib::telemetry.max_along_track_error = units::Distance::from_inches(0);
-            abclib::telemetry.cumulative_ate = units::Distance::from_inches(0);
+            auto &telem = abclib::telemetry.get_write_buffer();
+            telem = TelemetryData{};
+            telem.max_cross_track_error = units::Distance::from_inches(0);
+            telem.cumulative_xte = units::Distance::from_inches(0);
+            telem.max_along_track_error = units::Distance::from_inches(0);
+            telem.cumulative_ate = units::Distance::from_inches(0);
+            abclib::telemetry.swap();
         }
 
         ramsete_.set_constants(config.ramsete_constants);
@@ -60,12 +61,13 @@ namespace abclib::trajectory
 
         // Reset telemetry for entire path
         {
-            std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
-            abclib::telemetry = TelemetryData{};
-            abclib::telemetry.max_cross_track_error = units::Distance::from_inches(0);
-            abclib::telemetry.cumulative_xte = units::Distance::from_inches(0);
-            abclib::telemetry.max_along_track_error = units::Distance::from_inches(0);
-            abclib::telemetry.cumulative_ate = units::Distance::from_inches(0);
+            auto &telem = abclib::telemetry.get_write_buffer();
+            telem = TelemetryData{};
+            telem.max_cross_track_error = units::Distance::from_inches(0);
+            telem.cumulative_xte = units::Distance::from_inches(0);
+            telem.max_along_track_error = units::Distance::from_inches(0);
+            telem.cumulative_ate = units::Distance::from_inches(0);
+            abclib::telemetry.swap();
         }
 
         // Follow each profile group sequentially
@@ -79,10 +81,11 @@ namespace abclib::trajectory
 
             if (elapsed >= timeout)
             {
-                std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
-                abclib::telemetry.settlement_reason = abclib::SettlementReason::TIMEOUT;
-                abclib::telemetry.time_to_settle = elapsed;
-                abclib::telemetry.path_status = abclib::PathFollowerStatus::COMPLETE;
+                auto &telem = abclib::telemetry.get_write_buffer();
+                telem.settlement_reason = abclib::SettlementReason::TIMEOUT;
+                telem.time_to_settle = elapsed;
+                telem.path_status = abclib::PathFollowerStatus::COMPLETE;
+                abclib::telemetry.swap();
                 return;
             }
 
@@ -106,8 +109,9 @@ namespace abclib::trajectory
 
         // Mark path as complete
         {
-            std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
-            abclib::telemetry.path_status = abclib::PathFollowerStatus::COMPLETE;
+            auto &telem = abclib::telemetry.get_write_buffer();
+            telem.path_status = abclib::PathFollowerStatus::COMPLETE;
+            abclib::telemetry.swap();
         }
     }
 
@@ -128,10 +132,11 @@ namespace abclib::trajectory
             // Check timeout
             if (elapsed_time >= config.timeout)
             {
-                std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
-                abclib::telemetry.settlement_reason = abclib::SettlementReason::TIMEOUT;
-                abclib::telemetry.time_to_settle = elapsed_time;
-                abclib::telemetry.path_status = abclib::PathFollowerStatus::COMPLETE;
+                auto &telem = abclib::telemetry.get_write_buffer();
+                telem.settlement_reason = abclib::SettlementReason::TIMEOUT;
+                telem.time_to_settle = elapsed_time;
+                telem.path_status = abclib::PathFollowerStatus::COMPLETE;
+                abclib::telemetry.swap();
                 break;
             }
 
@@ -211,13 +216,14 @@ namespace abclib::trajectory
 
                 // Update turn-specific telemetry
                 {
-                    std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
-                    abclib::telemetry.omega_reference = units::BodyAngularVelocity(omega_ref);
-                    abclib::telemetry.omega_error = units::BodyAngularVelocity(omega_ref - current_pose_body.omega.rad_per_sec);
-                    abclib::telemetry.omega_pid_output = omega_feedback;
-                    abclib::telemetry.omega_commanded = omega_command;
-                    abclib::telemetry.left_wheel_cmd = wheel_vels.left;
-                    abclib::telemetry.right_wheel_cmd = wheel_vels.right;
+                    auto &telem = abclib::telemetry.get_write_buffer();
+                    telem.omega_reference = units::BodyAngularVelocity(omega_ref);
+                    telem.omega_error = units::BodyAngularVelocity(omega_ref - current_pose_body.omega.rad_per_sec);
+                    telem.omega_pid_output = omega_feedback;
+                    telem.omega_commanded = omega_command;
+                    telem.left_wheel_cmd = wheel_vels.left;
+                    telem.right_wheel_cmd = wheel_vels.right;
+                    abclib::telemetry.swap();
                 }
 
                 // Approximate voltages for telemetry
@@ -278,11 +284,12 @@ namespace abclib::trajectory
                 if (check_settlement(current_pose_body, reference_state, config,
                                      ramsete_output, settle_count, current_seg))
                 {
-                    std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
-                    abclib::telemetry.is_settled = true;
-                    abclib::telemetry.settlement_reason = abclib::SettlementReason::WITHIN_THRESHOLD;
-                    abclib::telemetry.time_to_settle = elapsed_time;
-                    abclib::telemetry.path_status = abclib::PathFollowerStatus::COMPLETE;
+                    auto &telem = abclib::telemetry.get_write_buffer();
+                    telem.is_settled = true;
+                    telem.settlement_reason = abclib::SettlementReason::WITHIN_THRESHOLD;
+                    telem.time_to_settle = elapsed_time;
+                    telem.path_status = abclib::PathFollowerStatus::COMPLETE;
+                    abclib::telemetry.swap();
                     break;
                 }
             }
@@ -303,61 +310,9 @@ namespace abclib::trajectory
         chassis_->stop_motors();
 
         {
-            std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
-            abclib::telemetry.path_status = abclib::PathFollowerStatus::IDLE;
-        }
-    }
-
-    bool PathFollower::check_settlement(
-        const estimation::Pose &current_pose,
-        const TrajectoryState &reference_state,
-        const FollowerConfig &config,
-        const control::RamseteOutput &ramsete_output, // ADD THIS PARAMETER
-        int &settle_count,
-        const path::IPathSegment *segment) const
-    {
-        // Detect turn-in-place from reference state velocities
-        if (segment->is_turn_in_place())
-        {
-            // Turn-in-place settlement criteria
-            double angular_error = math::normalize_angle(
-                reference_state.theta - current_pose.theta());
-
-            bool heading_ok = std::abs(angular_error) < 0.017; // ~1 degree
-            bool angular_velocity_ok = std::abs(current_pose.omega.rad_per_sec) < 0.1;
-
-            if (heading_ok && angular_velocity_ok)
-            {
-                settle_count++;
-                return settle_count >= config.settle_count_required;
-            }
-            else
-            {
-                settle_count = 0;
-                return false;
-            }
-        }
-        else
-        {
-            // Normal path settlement criteria
-            units::Distance position_error = units::Distance::from_inches(
-                std::sqrt(ramsete_output.e_x.inches * ramsete_output.e_x.inches +
-                          ramsete_output.e_y.inches * ramsete_output.e_y.inches));
-
-            bool position_ok = position_error.inches < config.position_threshold.inches;
-            bool velocity_ok = std::abs(current_pose.v.inches_per_sec) <
-                               config.velocity_threshold.inches_per_sec;
-
-            if (position_ok && velocity_ok)
-            {
-                settle_count++;
-                return settle_count >= config.settle_count_required;
-            }
-            else
-            {
-                settle_count = 0;
-                return false;
-            }
+            auto &telem = abclib::telemetry.get_write_buffer();
+            telem.path_status = abclib::PathFollowerStatus::IDLE;
+            abclib::telemetry.swap();
         }
     }
 
@@ -390,79 +345,6 @@ namespace abclib::trajectory
         {
             return abclib::PathFollowerStatus::CRUISING;
         }
-    }
-
-    void PathFollower::update_telemetry(
-        const estimation::Pose &current_pose,
-        const TrajectoryState &reference_state,
-        const control::RamseteOutput &ramsete_output,
-        units::Voltage left_voltage,
-        units::Voltage right_voltage,
-        PathFollowerStatus status,
-        units::Time elapsed_time,
-        units::Time total_time) const
-    {
-        std::lock_guard<pros::Mutex> lock(abclib::telemetry_mutex);
-
-        // Path status and timing
-        abclib::telemetry.path_status = status;
-        abclib::telemetry.trajectory_time = elapsed_time;
-        abclib::telemetry.trajectory_progress = std::clamp(
-            elapsed_time.seconds / total_time.seconds, 0.0, 1.0);
-        abclib::telemetry.trajectory_total_time = total_time;
-
-        // Reference values
-        abclib::telemetry.reference_velocity = reference_state.arc_velocity;
-        abclib::telemetry.reference_arc_position = units::Distance::from_inches(
-            reference_state.arc_length);
-
-        // Current pose
-        abclib::telemetry.pose = current_pose.pose;
-        abclib::telemetry.pose_v = current_pose.v;
-        abclib::telemetry.pose_omega = current_pose.omega;
-
-        // Tracking errors
-        abclib::telemetry.lateral_error = ramsete_output.e_y;
-        abclib::telemetry.angular_error = ramsete_output.e_theta;
-
-        // Target and actual values
-        abclib::telemetry.lateral_target = units::Distance::from_inches(
-            reference_state.arc_length);
-        abclib::telemetry.lateral_actual = units::Distance::from_inches(
-            reference_state.arc_length - ramsete_output.e_x.inches);
-
-        abclib::telemetry.angular_target = units::Radians(reference_state.theta);
-        abclib::telemetry.angular_actual = units::Radians(current_pose.theta());
-
-        // Motor voltages
-        abclib::telemetry.left_motor_voltage = left_voltage;
-        abclib::telemetry.right_motor_voltage = right_voltage;
-
-        // Cross-track error
-        double abs_e_y = std::abs(ramsete_output.e_y.inches);
-        abclib::telemetry.cross_track_error = units::Distance::from_inches(abs_e_y);
-        abclib::telemetry.max_cross_track_error = units::Distance::from_inches(
-            std::max(abclib::telemetry.max_cross_track_error.inches, abs_e_y));
-        abclib::telemetry.cumulative_xte = units::Distance::from_inches(
-            abclib::telemetry.cumulative_xte.inches + abs_e_y * 0.01);
-
-        // Along-track error
-        double abs_e_x = std::abs(ramsete_output.e_x.inches);
-        abclib::telemetry.along_track_error = units::Distance::from_inches(abs_e_x);
-        abclib::telemetry.max_along_track_error = units::Distance::from_inches(
-            std::max(abclib::telemetry.max_along_track_error.inches, abs_e_x));
-        abclib::telemetry.cumulative_ate = units::Distance::from_inches(
-            abclib::telemetry.cumulative_ate.inches + abs_e_x * 0.01);
-
-        // Zero out PID terms (RAMSETE doesn't use them)
-        abclib::telemetry.lateral_p_term = 0;
-        abclib::telemetry.lateral_i_term = 0;
-        abclib::telemetry.lateral_d_term = 0;
-        abclib::telemetry.angular_p_term = 0;
-        abclib::telemetry.angular_i_term = 0;
-        abclib::telemetry.angular_d_term = 0;
-        abclib::telemetry.lateral_output = units::Voltage::from_volts(0);
-        abclib::telemetry.angular_output = units::Voltage::from_volts(0);
     }
 
     TrajectoryState PathFollower::get_state_at(const path::Path &path, units::Time time) const
