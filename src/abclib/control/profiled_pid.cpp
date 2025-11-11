@@ -5,7 +5,7 @@
 
 namespace abclib::control
 {
-    ProfiledPID::ProfiledPID(const ProfiledPIDConstants& constants)
+    ProfiledPID::ProfiledPID(const ProfiledPIDConstants &constants)
         : pid_(constants.pid_constants),
           profile_(profiling::ProfileConstraints(constants.max_velocity, constants.max_acceleration)),
           current_setpoint_(0.0, 0.0),
@@ -23,21 +23,21 @@ namespace abclib::control
         return compute(measurement, goal_state, dt);
     }
 
-    double ProfiledPID::compute(double measurement, const profiling::ProfileState& goal, double dt)
+    double ProfiledPID::compute(double measurement, const profiling::ProfileState &goal, double dt)
     {
         last_measurement_ = measurement;
-        
+
         if (!initialized_)
         {
             current_setpoint_.position = measurement;
             current_setpoint_.velocity = 0.0;
             initialized_ = true;
         }
-        
+
         goal_ = goal;
-        
+
         current_setpoint_ = profile_.calculate(dt, current_setpoint_, goal_);
-        
+
         double error = current_setpoint_.position - measurement;
         return pid_.compute(error, dt);
     }
@@ -70,15 +70,21 @@ namespace abclib::control
     bool ProfiledPID::at_goal() const
     {
         if (!initialized_)
-        {
             return false;
-        }
-        
-        double position_error = std::abs(goal_.position - last_measurement_);
-        double velocity_error = std::abs(current_setpoint_.velocity);
-        
-        return position_error <= position_tolerance_ && 
-               velocity_error <= velocity_tolerance_;
+
+        // Check if the setpoint has converged to the goal
+        double setpoint_to_goal_error = std::abs(goal_.position - current_setpoint_.position);
+        bool setpoint_at_goal = setpoint_to_goal_error <= position_tolerance_;
+
+        // Check if the setpoint velocity has reached goal velocity (typically 0)
+        double setpoint_velocity_error = std::abs(current_setpoint_.velocity - goal_.velocity);
+        bool setpoint_stopped = setpoint_velocity_error <= velocity_tolerance_;
+
+        // Check if measurement is tracking the setpoint
+        double tracking_error = std::abs(current_setpoint_.position - last_measurement_);
+        bool tracking_setpoint = tracking_error <= position_tolerance_;
+
+        return setpoint_at_goal && setpoint_stopped && tracking_setpoint;
     }
 
     void ProfiledPID::reset()
@@ -95,7 +101,7 @@ namespace abclib::control
         reset(profiling::ProfileState(initial_position, 0.0));
     }
 
-    void ProfiledPID::reset(const profiling::ProfileState& initial_state)
+    void ProfiledPID::reset(const profiling::ProfileState &initial_state)
     {
         pid_.reset();
         current_setpoint_ = initial_state;
@@ -115,12 +121,12 @@ namespace abclib::control
         velocity_tolerance_ = velocity_tolerance;
     }
 
-    PID& ProfiledPID::get_pid()
+    PID &ProfiledPID::get_pid()
     {
         return pid_;
     }
 
-    const PID& ProfiledPID::get_pid() const
+    const PID &ProfiledPID::get_pid() const
     {
         return pid_;
     }

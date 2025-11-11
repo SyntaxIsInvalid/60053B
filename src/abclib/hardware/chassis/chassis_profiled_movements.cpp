@@ -111,7 +111,7 @@ namespace abclib::hardware
         units::BodyHeading initial_heading = get_heading();
         double initial_rad = initial_heading.angle.value;
         double last_wrapped_rad = initial_rad;
-        double cumulative_unwrapped_rad = initial_rad; // Track unwrapped position
+        double cumulative_unwrapped_rad = initial_rad;
 
         // Unwrap target to be close to initial
         double angle_diff = target_rad - initial_rad;
@@ -132,6 +132,10 @@ namespace abclib::hardware
         // Reset telemetry
         reset_telemetry_accumulators();
 
+        // Settlement tracking
+        int settle_count = 0;
+        const int REQUIRED_SETTLE_COUNT = 3;
+
         while ((pros::millis() - start_time) < timeout.to_millis_uint())
         {
             // Get current wrapped heading
@@ -140,35 +144,48 @@ namespace abclib::hardware
 
             // Calculate the delta and unwrap it
             double delta_rad = current_wrapped_rad - last_wrapped_rad;
-            delta_rad = math::normalize_angle(delta_rad); // Handle wrapping
+            delta_rad = math::normalize_angle(delta_rad);
             cumulative_unwrapped_rad += delta_rad;
             last_wrapped_rad = current_wrapped_rad;
 
             estimation::Pose current_pose = get_pose();
 
-            // Compute profiled PID output using unwrapped measurement
+            // Compute profiled PID output
             double angular_output = profiled_pid.compute(cumulative_unwrapped_rad, unwrapped_target, dt);
 
+            // Calculate feedforward with deadband
             double target_velocity = profiled_pid.get_setpoint_velocity();
             double target_acceleration = profiled_pid.get_setpoint().acceleration;
-            double ff = config_.turn_in_place_kS * math::sgn(target_velocity) + config_.turn_in_place_kV * target_velocity + config_.turn_in_place_kA * target_acceleration;
+            double ff_sign = (std::abs(target_velocity) < 0.01) ? 0.0 : math::sgn(target_velocity);
+            double ff = config_.turn_in_place_kS * ff_sign +
+                        config_.turn_in_place_kV * target_velocity +
+                        config_.turn_in_place_kA * target_acceleration;
 
             angular_output += ff;
+
             // Clamp output
             angular_output = std::clamp(angular_output, -12.0, 12.0);
 
             // Calculate wrapped error for telemetry
             double angular_error_rad = unwrapped_target - cumulative_unwrapped_rad;
             angular_error_rad = math::normalize_angle(angular_error_rad);
-            units::Radians angular_error(angular_error_rad);
-            // Check settlement
+
+            // Check settlement with counter
             if (profiled_pid.at_goal())
             {
-                update_settlement_telemetry(true, 0, // update to acctually account for settle count eventually
-                                            SettlementReason::WITHIN_THRESHOLD, start_time);
-                left_motors->brake();
-                right_motors->brake();
-                break;
+                settle_count++;
+                if (settle_count >= REQUIRED_SETTLE_COUNT)
+                {
+                    update_settlement_telemetry(true, settle_count,
+                                                SettlementReason::WITHIN_THRESHOLD, start_time);
+                    left_motors->brake();
+                    right_motors->brake();
+                    break;
+                }
+            }
+            else
+            {
+                settle_count = 0;
             }
 
             // Motor voltages
@@ -180,7 +197,7 @@ namespace abclib::hardware
                                      unwrapped_target, cumulative_unwrapped_rad, dt);
             update_pose_telemetry(current_pose);
             update_motor_voltage_telemetry(left_voltage, right_voltage);
-            update_settlement_telemetry(false, 0, SettlementReason::NOT_SETTLED, start_time);
+            update_settlement_telemetry(false, settle_count, SettlementReason::NOT_SETTLED, start_time);
 
             move_left_motors(left_voltage);
             move_right_motors(right_voltage);
@@ -195,12 +212,11 @@ namespace abclib::hardware
             const auto &current_data = telemetry.get_read_buffer();
             if (!current_data.is_settled)
             {
-                update_settlement_telemetry(false, 0, SettlementReason::TIMEOUT, start_time);
+                update_settlement_telemetry(false, settle_count, SettlementReason::TIMEOUT, start_time);
             }
         }
 
         left_motors->brake();
         right_motors->brake();
     }
-
 }
