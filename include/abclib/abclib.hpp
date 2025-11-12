@@ -68,6 +68,9 @@
 #include "abclib/builder/path_builder.hpp"
 #include "abclib/builder/path_logger.hpp"
 
+// screen manager
+#include "abclib/screen_management/screen_manager.hpp"
+
 // subsystems - real or dummy based on robot config
 #if HAS_INTAKE
     #include "abclib/subsystems/intake.hpp"

@@ -9,7 +9,7 @@
 #define TELEMETRY_LEVEL_MINIMAL 1
 #define TELEMETRY_LEVEL_FULL 2
 
-#define TELEMETRY_LEVEL TELEMETRY_LEVEL_MINIMAL 
+#define TELEMETRY_LEVEL TELEMETRY_LEVEL_NONE
 
 #define SHOW_TELEOP_IMAGE false
 #define SHOW_AUTON_IMAGE false
@@ -101,16 +101,19 @@ subsystems::Intake bottom_intake(
 subsystems::DummyIntake top_intake;
 subsystems::DummyIntake bottom_intake;
 #endif
-static lv_obj_t *teleop_image = nullptr;
-
+// static lv_obj_t *teleop_image = nullptr;
+abclib::ScreenManager screen_manager;
+#if 0
 void initialize()
 {
     pros::lcd::initialize();
     chassis.calibrate();
+    /*
     teleop_image = lv_image_create(lv_screen_active());
-    // lv_image_set_src(teleop_image, "S:/deft.bin");
-    // lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
-    // lv_obj_add_flag(teleop_image, LV_OBJ_FLAG_HIDDEN); // Hide it initially
+    lv_image_set_src(teleop_image, "S:/images/deft.bin");
+    lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_flag(teleop_image, LV_OBJ_FLAG_HIDDEN); // Hide it initially
+    */
     // leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     // rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
     using namespace abclib::auton;
@@ -137,7 +140,7 @@ void initialize()
 
              // Read from the read buffer (no mutex needed!)
              const TelemetryData& local_telem = abclib::telemetry.get_read_buffer();
-             
+
 #if TELEMETRY_LEVEL >= TELEMETRY_LEVEL_MINIMAL
              // Line 0: X, Y, and Theta
              pros::lcd::print(0, "X:%.2f Y:%.2f Th:%.1f",
@@ -187,6 +190,43 @@ void initialize()
          } });
 #endif
 }
+#endif
+
+void initialize()
+{
+    lv_init();
+
+    pros::lcd::initialize();
+    chassis.calibrate();
+    screen_manager.initialize();
+    using namespace abclib::auton;
+    register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red);
+    register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test);
+    register_auton(AutonRoutine::RED_LEFT, red_left);
+    register_auton(AutonRoutine::NONE, none);
+    register_auton(AutonRoutine::TEST_BOT_AUTON, test_bot_auton);
+#if HAS_PNEUMATICS
+    match_load_ramp.retract();
+    intake_lift.retract();
+#endif
+    pros::Task screen_task([&]()
+                           {
+        while (1) {
+            // Update battery info in the write buffer
+            auto& write_buf = abclib::telemetry.get_write_buffer();
+            write_buf.battery_voltage = units::Voltage::from_millivolts(
+                pros::battery::get_voltage()
+            );
+            write_buf.battery_capacity_percent = pros::battery::get_capacity();
+            abclib::telemetry.swap();
+            
+            // Update screen with read buffer
+            const TelemetryData& data = abclib::telemetry.get_read_buffer();
+            screen_manager.update_telemetry(data);
+            
+            pros::delay(100);
+        } });
+}
 
 /**
  * Runs while the robot is in the disabled state of Field Management System or
@@ -230,8 +270,7 @@ void autonomous()
         top_intake,
         bottom_intake,
         match_load_ramp,
-        intake_lift
-    };
+        intake_lift};
     run_selected_auton(robot);
 
     controller.print(0, 0, "done");
@@ -241,7 +280,8 @@ void opcontrol()
 {
 #if SHOW_TELEOP_IMAGE && (TELEMETRY_LEVEL == TELEMETRY_LEVEL_NONE)
     // Only show image if: image display is enabled AND telemetry is off
-    if (teleop_image) {
+    if (teleop_image)
+    {
         lv_obj_remove_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
     }
 #endif
