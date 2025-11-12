@@ -13,3 +13,4 @@
 - [ ] add battery voltage compensation
 - [ ] update all the telemetry on what would be useful to log
 - [ ] update move straight profiled to just a straight not segment 
+- [ ] add a dead band maybe to fix the small jiggle at the end eventually like if angular error < deadband make it force 0 for the profiled pid
