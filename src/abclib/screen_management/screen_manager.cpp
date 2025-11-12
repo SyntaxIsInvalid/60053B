@@ -80,10 +80,32 @@ void ScreenManager::create_image_tab() {
     lv_obj_set_style_border_width(image_obj, 0, 0);
     lv_obj_set_style_pad_all(image_obj, 0, 0);
     
-    // Create the actual image inside the container
-    lv_obj_t* img = lv_image_create(image_obj);
-    lv_image_set_src(img, "S:/images/deft.bin");
-    lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
+    // Check if the image file exists
+    FILE* test_file = fopen("/usd/images/deft.bin", "r");
+    bool image_exists = (test_file != nullptr);
+    if (test_file) {
+        fclose(test_file);
+    }
+    
+    if (image_exists) {
+        // Image exists - create and display it
+        lv_obj_t* img = lv_image_create(image_obj);
+        lv_image_set_src(img, "S:/images/deft.bin");
+        lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
+    } else {
+        // Image doesn't exist - show error message
+        lv_obj_t* error_label = lv_label_create(image_obj);
+        lv_label_set_text(error_label, 
+            "ERROR:\n"
+            "SD Card not found\n"
+            "or\n"
+            "Image file missing\n\n"
+            "Expected:\n"
+            "S:/images/deft.bin");
+        lv_obj_set_style_text_color(error_label, lv_color_white(), 0);
+        lv_obj_set_style_text_align(error_label, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(error_label, LV_ALIGN_CENTER, 0, 0);
+    }
     
     // Make it clickable to close
     lv_obj_add_flag(image_obj, LV_OBJ_FLAG_CLICKABLE);
