@@ -248,5 +248,47 @@ namespace abclib::hardware
             int settle_count,
             SettlementReason reason,
             uint32_t start_time);
+
+        void set_lateral_pid_constants(const control::PIDConstants &constants)
+        {
+            lateral_pid.set_constants(constants);
+        }
+
+        void set_angular_pid_constants(const control::PIDConstants &constants)
+        {
+            angular_pid.set_constants(constants);
+        }
+
+        void set_profiled_turn_pid_constants(const control::PIDConstants &constants)
+        {
+            config_.profiled_turn_pid_constants = constants;
+        }
+
+        void set_ramsete_constants(const control::RamseteConstants &constants)
+        {
+            config_.ramsete_constants = constants;
+        }
+
+        void set_turn_in_place_feedforward(double kS, double kV, double kA)
+        {
+            config_.turn_in_place_kS = kS;
+            config_.turn_in_place_kV = kV;
+            config_.turn_in_place_kA = kA;
+        }
+
+        void set_motor_feedforward(double kS, double kV, double kA)
+        {
+            auto left_config = left_motors->get_config();
+            left_config.kS = kS;
+            left_config.kV = kV;
+            left_config.kA = kA;
+            left_motors->set_config(left_config);
+
+            auto right_config = right_motors->get_config();
+            right_config.kS = kS;
+            right_config.kV = kV;
+            right_config.kA = kA;
+            right_motors->set_config(right_config);
+        }
     };
 }

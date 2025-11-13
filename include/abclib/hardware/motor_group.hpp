@@ -112,5 +112,40 @@ namespace abclib::hardware
         void stop_all_tasks();
         void move_velocity_pros(units::MotorAngularVelocity target_velocity);
         void move_velocity_pros_task(units::MotorAngularVelocity target_velocity);
+        void set_config(const motor_group_config &config)
+        {
+            // Update config members individually (skip rotation sensor)
+            group_config.kS = config.kS;
+            group_config.kV = config.kV;
+            group_config.kA = config.kA;
+
+            group_config.kPs = config.kPs;
+            group_config.kIs = config.kIs;
+            group_config.kDs = config.kDs;
+            group_config.max_integral_position = config.max_integral_position;
+
+            group_config.kPv = config.kPv;
+            group_config.kIv = config.kIv;
+            group_config.kDv = config.kDv;
+            group_config.max_integral_velocity = config.max_integral_velocity;
+
+            group_config.enable_voltage_compensation = config.enable_voltage_compensation;
+            group_config.compensation_nominal = config.compensation_nominal;
+            group_config.compensation_min_battery = config.compensation_min_battery;
+
+            // Update PID controllers with new constants
+            position_pid.set_constants({config.kPs,
+                                        config.kIs,
+                                        config.kDs,
+                                        config.max_integral_position});
+
+            velocity_pid.set_constants({config.kPv,
+                                        config.kIv,
+                                        config.kDv,
+                                        config.max_integral_velocity});
+
+            // Update feedforward flag
+            use_feedforward = (config.kS != 0 || config.kV != 0 || config.kA != 0);
+        }
     };
 }

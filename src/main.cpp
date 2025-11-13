@@ -191,7 +191,7 @@ void initialize()
 #endif
 }
 #endif
-
+#if 0
 void initialize()
 {
     lv_init();
@@ -227,6 +227,77 @@ void initialize()
             pros::delay(100);
         } });
 }
+#endif
+
+void initialize()
+{
+    lv_init();
+    pros::lcd::initialize();
+    
+    // Wait for SD card to mount
+    pros::delay(2000);
+    abclib::config::ConfigLoader::clear_cache();
+
+    // Reload config from SD card
+    #ifdef ROBOT_TEST_DRIVE
+    bool success = abclib::config::ConfigLoader::reload_from_sd("test_robot");
+    #elif defined(ROBOT_COMPETITION)
+    bool success = abclib::config::ConfigLoader::reload_from_sd("competition_robot");
+    #endif
+    
+    // Update all objects with new config
+    if (success) {
+        // Update motor configs
+        leftMotors.set_config(robot_config::get_left_motor_config());
+        rightMotors.set_config(robot_config::get_right_motor_config());
+        
+        // Update chassis PIDs
+        chassis.set_lateral_pid_constants(robot_config::get_lateral_pid());
+        chassis.set_angular_pid_constants(robot_config::get_angular_pid());
+        chassis.set_profiled_turn_pid_constants(robot_config::get_profiled_turn_pid());
+        
+        // Update turn-in-place feedforward
+        auto& config = robot_config::get_tuning_config();
+        chassis.set_turn_in_place_feedforward(
+            config.turn_in_place_ff.kS,
+            config.turn_in_place_ff.kV,
+            config.turn_in_place_ff.kA
+        );
+    }
+    
+    chassis.calibrate();
+    screen_manager.initialize();
+    
+    using namespace abclib::auton;
+    register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red);
+    register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test);
+    register_auton(AutonRoutine::RED_LEFT, red_left);
+    register_auton(AutonRoutine::NONE, none);
+    register_auton(AutonRoutine::TEST_BOT_AUTON, test_bot_auton);
+    
+#if HAS_PNEUMATICS
+    match_load_ramp.retract();
+    intake_lift.retract();
+#endif
+    
+    pros::Task screen_task([&]()
+    {
+        while (1) {
+            auto& write_buf = abclib::telemetry.get_write_buffer();
+            write_buf.battery_voltage = units::Voltage::from_millivolts(
+                pros::battery::get_voltage()
+            );
+            write_buf.battery_capacity_percent = pros::battery::get_capacity();
+            abclib::telemetry.swap();
+            
+            const TelemetryData& data = abclib::telemetry.get_read_buffer();
+            screen_manager.update_telemetry(data);
+            
+            pros::delay(100);
+        }
+    });
+}
+
 
 /**
  * Runs while the robot is in the disabled state of Field Management System or
