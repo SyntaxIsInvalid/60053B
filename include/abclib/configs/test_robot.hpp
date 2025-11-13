@@ -2,13 +2,10 @@
 #include "abclib/hardware/motor_group.hpp"
 #include "abclib/hardware/motor_tracking_wheel.hpp"
 #include "abclib/units/units.hpp"
-#include "abclib/configs/config_loader.hpp"
 #include "api.h"
 
 namespace abclib::robot_config {
         
-    // ========== HARDWARE CONSTANTS (Never change) ==========
-    
     // Motor ports
     inline const std::vector<int8_t> LEFT_MOTOR_PORTS = {-10, 4};
     inline const std::vector<int8_t> RIGHT_MOTOR_PORTS = {6, -11};
@@ -16,54 +13,58 @@ namespace abclib::robot_config {
     // Sensor ports
     constexpr int8_t IMU_PORT = 9;
     
-    // Physical dimensions (measured once, never change)
-    inline constexpr units::Distance WHEEL_DIAMETER = 
-        units::Distance::from_inches(3.25);
-    inline constexpr units::Distance TRACK_WIDTH = 
-        units::Distance::from_inches(14.0);
-    inline constexpr units::Distance Y_TRACKER_OFFSET = 
-        units::Distance::from_inches(7.0);
-    
-    
-    // ========== TUNABLE VALUES (from config system) ==========
-    
-    // Get the loaded config (tries SD card, falls back to hardcoded)
-    inline config::RobotConfig& get_tuning_config() {
-        static config::RobotConfig config = 
-            config::ConfigLoader::load("test_robot");
-        return config;
-    }
+    // Physical dimensions (using typed units)
+    inline constexpr units::Distance WHEEL_DIAMETER = units::Distance::from_inches(3.25);
+    inline constexpr units::Distance TRACK_WIDTH = units::Distance::from_inches(14.0);
+    inline constexpr units::Distance Y_TRACKER_OFFSET = units::Distance::from_inches(7.0);
     
     // Motor configurations
     inline hardware::motor_group_config get_left_motor_config() {
-        return get_tuning_config().left_motor.to_motor_group_config();
+        return hardware::motor_group_config{
+            .kS = 0.919850,
+            .kV = 0.1594417,
+            .kA = 0.012848,
+            .kPv = 0.18,
+            .kIv = 0.25,
+            .kDv = 0.00,
+            .enable_voltage_compensation = true,
+            .compensation_nominal = units::Voltage::from_volts(12.0),
+            .compensation_min_battery = units::Voltage::from_volts(11.5)
+        };
     }
     
     inline hardware::motor_group_config get_right_motor_config() {
-        return get_tuning_config().right_motor.to_motor_group_config();
+        return hardware::motor_group_config{
+            .kS = 0.919850,
+            .kV = 0.1594417,
+            .kA = 0.012848,
+            .kPv = 0.18,
+            .kIv = 0.25,
+            .kDv = 0.00,
+            .enable_voltage_compensation = true,
+            .compensation_nominal = units::Voltage::from_volts(12.0),
+            .compensation_min_battery = units::Voltage::from_volts(11.5)
+        };
     }
     
     // PID constants
     inline control::PIDConstants get_lateral_pid() {
-        return get_tuning_config().lateral_pid.to_pid_constants();
+        return control::PIDConstants(0.5, 0, 0);
     }
     
     inline control::PIDConstants get_angular_pid() {
-        return get_tuning_config().angular_pid.to_pid_constants();
+        return control::PIDConstants(5, 0, 0);
     }
     
-    inline control::PIDConstants get_profiled_turn_pid() {
-        return get_tuning_config().profiled_turn_pid.to_pid_constants();
-    }
-    
-    // Turn-in-place feedforward constants
+    // Turn-in-place feedforward constants (for turn_to_heading_profiled)
     constexpr double TURN_IN_PLACE_KS = 1.278592;
     constexpr double TURN_IN_PLACE_KV = 0.170242;
     constexpr double TURN_IN_PLACE_KA = 0.012877;
-    
-    // Or get from config if you prefer:
-    // inline double get_turn_kS() { return get_tuning_config().turn_in_place_ff.kS; }
-    // inline double get_turn_kV() { return get_tuning_config().turn_in_place_ff.kV; }
-    // inline double get_turn_kA() { return get_tuning_config().turn_in_place_ff.kA; }
 
-} // namespace abclib::robot_config
+    // profiled turn pid constants
+    inline control::PIDConstants get_profiled_turn_pid() {
+        return control::PIDConstants(25, 0.0, 0.0);  // Tune these values
+    }
+
+    // Ramsete controller constants (for path following)
+}

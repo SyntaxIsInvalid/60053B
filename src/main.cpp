@@ -5,14 +5,6 @@
 #include <mutex>
 #include "liblvgl/lvgl.h"
 #include "abclib/autonomous_routines/autons.hpp"
-#define TELEMETRY_LEVEL_NONE 0
-#define TELEMETRY_LEVEL_MINIMAL 1
-#define TELEMETRY_LEVEL_FULL 2
-
-#define TELEMETRY_LEVEL TELEMETRY_LEVEL_NONE
-
-#define SHOW_TELEOP_IMAGE false
-#define SHOW_AUTON_IMAGE false
 
 using namespace abclib;
 
@@ -103,95 +95,7 @@ subsystems::DummyIntake bottom_intake;
 #endif
 // static lv_obj_t *teleop_image = nullptr;
 abclib::ScreenManager screen_manager;
-#if 0
-void initialize()
-{
-    pros::lcd::initialize();
-    chassis.calibrate();
-    /*
-    teleop_image = lv_image_create(lv_screen_active());
-    lv_image_set_src(teleop_image, "S:/images/deft.bin");
-    lv_obj_align(teleop_image, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_add_flag(teleop_image, LV_OBJ_FLAG_HIDDEN); // Hide it initially
-    */
-    // leftMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-    // rightMotors.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-    using namespace abclib::auton;
-    register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red);
-    register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test);
-    register_auton(AutonRoutine::RED_LEFT, red_left);
-    register_auton(AutonRoutine::NONE, none);
-    register_auton(AutonRoutine::TEST_BOT_AUTON, test_bot_auton);
-#if HAS_PNEUMATICS
-    match_load_ramp.retract();
-    intake_lift.retract();
-#endif
-#if TELEMETRY_LEVEL > TELEMETRY_LEVEL_NONE
-    pros::Task screen_task([&]()
-                           {
-         while (1) {
-             // Update battery info in the write buffer (no mutex needed!)
-             auto& write_buf = abclib::telemetry.get_write_buffer();
-             write_buf.battery_voltage = units::Voltage::from_millivolts(
-                 pros::battery::get_voltage()
-             );
-             write_buf.battery_capacity_percent = pros::battery::get_capacity();
-             abclib::telemetry.swap();  // Swap buffers after update
 
-             // Read from the read buffer (no mutex needed!)
-             const TelemetryData& local_telem = abclib::telemetry.get_read_buffer();
-
-#if TELEMETRY_LEVEL >= TELEMETRY_LEVEL_MINIMAL
-             // Line 0: X, Y, and Theta
-             pros::lcd::print(0, "X:%.2f Y:%.2f Th:%.1f",
-                            local_telem.pose.x(),
-                            local_telem.pose.y(),
-                            local_telem.pose.theta() * 180.0 / M_PI);
-
-             // Line 1: Linear and Angular velocity
-             pros::lcd::print(1, "V:%.2f W:%.2f",
-                            local_telem.pose_v.inches_per_sec,
-                            local_telem.pose_omega.rad_per_sec);
-
-             // Line 2: Battery
-             pros::lcd::print(2, "%.2fV %.0f%% [%s%.2fx]",
-               local_telem.battery_voltage.volts,
-               local_telem.battery_capacity_percent,
-               local_telem.voltage_compensation_active ? "C" : "-",
-               local_telem.voltage_compensation_scale);
-#endif
-#if TELEMETRY_LEVEL >= TELEMETRY_LEVEL_FULL
-             // Line 3: Cross-track and Along-track errors
-             pros::lcd::print(3, "XTE:%.2f ATE:%.2f",
-                            local_telem.cross_track_error.inches,
-                            local_telem.along_track_error.inches);
-                
-             // Line 4: Max tracking errors
-             pros::lcd::print(4, "MaxXTE:%.2f MaxATE:%.2f",
-                            local_telem.max_cross_track_error.inches,
-                            local_telem.max_along_track_error.inches);
-
-             // Line 5: Path status and progress
-             pros::lcd::print(5, "Status:%s Prog:%.0f%%",
-                            abclib::path_status_to_string(local_telem.path_status),
-                            local_telem.trajectory_progress * 100.0);
-
-             // Line 6: Settlement status
-             pros::lcd::print(6, "Settle:%s Cnt:%d",
-                            abclib::settlement_reason_to_string(local_telem.settlement_reason),
-                            local_telem.settle_count);
-
-             // Line 7: Trajectory timing
-             pros::lcd::print(7, "Time:%.2f/%.2fs",
-                            local_telem.trajectory_time.seconds,
-                            local_telem.trajectory_total_time.seconds);
-#endif
-             pros::delay(100);
-         } });
-#endif
-}
-#endif
-#if 0
 void initialize()
 {
     lv_init();
@@ -227,76 +131,6 @@ void initialize()
             pros::delay(100);
         } });
 }
-#endif
-
-void initialize()
-{
-    lv_init();
-    pros::lcd::initialize();
-    
-    // Wait for SD card to mount
-    pros::delay(2000);
-    abclib::config::ConfigLoader::clear_cache();
-
-    // Reload config from SD card
-    #ifdef ROBOT_TEST_DRIVE
-    bool success = abclib::config::ConfigLoader::reload_from_sd("test_robot");
-    #elif defined(ROBOT_COMPETITION)
-    bool success = abclib::config::ConfigLoader::reload_from_sd("competition_robot");
-    #endif
-    
-    // Update all objects with new config
-    if (success) {
-        // Update motor configs
-        leftMotors.set_config(robot_config::get_left_motor_config());
-        rightMotors.set_config(robot_config::get_right_motor_config());
-        
-        // Update chassis PIDs
-        chassis.set_lateral_pid_constants(robot_config::get_lateral_pid());
-        chassis.set_angular_pid_constants(robot_config::get_angular_pid());
-        chassis.set_profiled_turn_pid_constants(robot_config::get_profiled_turn_pid());
-        
-        // Update turn-in-place feedforward
-        auto& config = robot_config::get_tuning_config();
-        chassis.set_turn_in_place_feedforward(
-            config.turn_in_place_ff.kS,
-            config.turn_in_place_ff.kV,
-            config.turn_in_place_ff.kA
-        );
-    }
-    
-    chassis.calibrate();
-    screen_manager.initialize();
-    
-    using namespace abclib::auton;
-    register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red);
-    register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test);
-    register_auton(AutonRoutine::RED_LEFT, red_left);
-    register_auton(AutonRoutine::NONE, none);
-    register_auton(AutonRoutine::TEST_BOT_AUTON, test_bot_auton);
-    
-#if HAS_PNEUMATICS
-    match_load_ramp.retract();
-    intake_lift.retract();
-#endif
-    
-    pros::Task screen_task([&]()
-    {
-        while (1) {
-            auto& write_buf = abclib::telemetry.get_write_buffer();
-            write_buf.battery_voltage = units::Voltage::from_millivolts(
-                pros::battery::get_voltage()
-            );
-            write_buf.battery_capacity_percent = pros::battery::get_capacity();
-            abclib::telemetry.swap();
-            
-            const TelemetryData& data = abclib::telemetry.get_read_buffer();
-            screen_manager.update_telemetry(data);
-            
-            pros::delay(100);
-        }
-    });
-}
 
 
 /**
@@ -321,14 +155,6 @@ using namespace abclib::path;
 
 void autonomous()
 {
-#if SHOW_AUTON_IMAGE && (TELEMETRY_LEVEL == TELEMETRY_LEVEL_NONE)
-    // Only show image if: image display is enabled AND telemetry is off
-    if (teleop_image)
-    {
-        lv_obj_remove_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
-    }
-#endif
-
     chassis.set_pose(
         units::Distance::from_inches(0),
         units::Distance::from_inches(0),
@@ -349,13 +175,6 @@ void autonomous()
 
 void opcontrol()
 {
-#if SHOW_TELEOP_IMAGE && (TELEMETRY_LEVEL == TELEMETRY_LEVEL_NONE)
-    // Only show image if: image display is enabled AND telemetry is off
-    if (teleop_image)
-    {
-        lv_obj_remove_flag(teleop_image, LV_OBJ_FLAG_HIDDEN);
-    }
-#endif
     while (1)
     {
         int turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
