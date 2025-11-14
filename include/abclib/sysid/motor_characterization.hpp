@@ -7,7 +7,7 @@ namespace abclib::hardware
     class Chassis;
 }
 
-namespace abclib::characterization
+namespace abclib::sysid
 {
     void measure_ks_kv(
         hardware::AdvancedMotorGroup &left,

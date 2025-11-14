@@ -1,9 +1,10 @@
 #pragma once
 #include "api.h"
 #include "abclib/units/units.hpp"
+#include "abclib/estimation/pose.hpp"
 #include <atomic>
 
-namespace abclib
+namespace abclib::telemetry
 {
 
     enum class SettlementReason
@@ -30,35 +31,33 @@ namespace abclib
         units::Time timestamp = units::Time::from_seconds(0);
 
         // Lateral control (drive straight)
-        units::Distance lateral_error = units::Distance::from_inches(0);
+        units::Length lateral_error = units::Length::from_inches(0);
         units::Voltage lateral_output = units::Voltage::from_volts(0);
-        units::Distance lateral_target = units::Distance::from_inches(0);
-        units::Distance lateral_actual = units::Distance::from_inches(0);
+        units::Length lateral_target = units::Length::from_inches(0);
+        units::Length lateral_actual = units::Length::from_inches(0);
         double lateral_p_term = 0;
         double lateral_i_term = 0;
         double lateral_d_term = 0;
-        units::Distance max_lateral_error = units::Distance::from_inches(0);
-        units::Distance cumulative_lateral_error = units::Distance::from_inches(0);
+        units::Length max_lateral_error = units::Length::from_inches(0);
+        units::Length cumulative_lateral_error = units::Length::from_inches(0);
 
         // Angular control (turning)
-        units::Radians angular_error = units::Radians(0);
+        units::Angle angular_error = units::Angle::from_radians(0);
         units::Voltage angular_output = units::Voltage::from_volts(0);
-        units::Radians angular_target = units::Radians(0);
-        units::Radians angular_actual = units::Radians(0);
+        units::Angle angular_target = units::Angle::from_radians(0);
+        units::Angle angular_actual = units::Angle::from_radians(0);
         double angular_p_term = 0;
         double angular_i_term = 0;
         double angular_d_term = 0;
-        units::Radians max_angular_error = units::Radians(0);
-        units::Radians cumulative_angular_error = units::Radians(0);
+        units::Angle max_angular_error = units::Angle::from_radians(0);
+        units::Angle cumulative_angular_error = units::Angle::from_radians(0);
 
         // Pose (from odometry)
-        units::BodyPose pose = units::BodyPose();
-        units::BodyLinearVelocity pose_v = units::BodyLinearVelocity(0);
-        units::BodyAngularVelocity pose_omega = units::BodyAngularVelocity(0);
-
+        estimation::Pose pose;
+        
         // Raw velocities (before filtering)
-        units::BodyLinearVelocity pose_v_raw = units::BodyLinearVelocity(0);
-        units::BodyAngularVelocity pose_omega_raw = units::BodyAngularVelocity(0);
+        units::Velocity pose_v_raw = units::Velocity::from_ips(0);
+        units::AngularVelocity pose_omega_raw = units::AngularVelocity::from_rad_per_sec(0);
 
         // Settlement tracking
         bool is_settled = false;
@@ -71,39 +70,39 @@ namespace abclib
         units::Voltage right_motor_voltage = units::Voltage::from_volts(0);
 
         // Path tracking errors
-        units::Distance cross_track_error = units::Distance::from_inches(0);
-        units::Distance along_track_error = units::Distance::from_inches(0);
-        units::Distance max_cross_track_error = units::Distance::from_inches(0);
-        units::Distance cumulative_xte = units::Distance::from_inches(0);
-        units::Distance max_along_track_error = units::Distance::from_inches(0);
-        units::Distance cumulative_ate = units::Distance::from_inches(0);
+        units::Length cross_track_error = units::Length::from_inches(0);
+        units::Length along_track_error = units::Length::from_inches(0);
+        units::Length max_cross_track_error = units::Length::from_inches(0);
+        units::Length cumulative_xte = units::Length::from_inches(0);
+        units::Length max_along_track_error = units::Length::from_inches(0);
+        units::Length cumulative_ate = units::Length::from_inches(0);
 
         // Final pose error
-        units::Distance final_pose_error_x = units::Distance::from_inches(0);
-        units::Distance final_pose_error_y = units::Distance::from_inches(0);
-        units::Radians final_pose_error_theta = units::Radians(0);
+        units::Length final_pose_error_x = units::Length::from_inches(0);
+        units::Length final_pose_error_y = units::Length::from_inches(0);
+        units::Angle final_pose_error_theta = units::Angle::from_radians(0);
 
         // Path follower status
         PathFollowerStatus path_status = PathFollowerStatus::IDLE;
         units::Time trajectory_time = units::Time::from_seconds(0);
         double trajectory_progress = 0.0;
         units::Time trajectory_total_time = units::Time::from_seconds(0);
-        units::BodyLinearVelocity reference_velocity = units::BodyLinearVelocity(0);
-        units::Distance reference_arc_position = units::Distance::from_inches(0);
+        units::Velocity reference_velocity = units::Velocity::from_ips(0);
+        units::Length reference_arc_position = units::Length::from_inches(0);
 
         // Turn-in-place specific tracking
-        units::BodyAngularVelocity omega_reference = units::BodyAngularVelocity(0);
-        units::BodyAngularVelocity omega_error = units::BodyAngularVelocity(0);
+        units::AngularVelocity omega_reference = units::AngularVelocity::from_rad_per_sec(0);
+        units::AngularVelocity omega_error = units::AngularVelocity::from_rad_per_sec(0);
         double omega_pid_output = 0.0;
-        units::BodyAngularVelocity omega_commanded = units::BodyAngularVelocity(0);
+        units::AngularVelocity omega_commanded = units::AngularVelocity::from_rad_per_sec(0);
 
         // Wheel velocity commands
-        units::WheelLinearVelocity left_wheel_cmd = units::WheelLinearVelocity(0);
-        units::WheelLinearVelocity right_wheel_cmd = units::WheelLinearVelocity(0);
+        units::Velocity left_wheel_cmd = units::Velocity::from_ips(0);
+        units::Velocity right_wheel_cmd = units::Velocity::from_ips(0);
 
         // Individual wheel velocities
-        units::WheelAngularVelocity left_wheel_velocity = units::WheelAngularVelocity(0);
-        units::WheelAngularVelocity right_wheel_velocity = units::WheelAngularVelocity(0);
+        units::AngularVelocity left_wheel_velocity = units::AngularVelocity::from_rad_per_sec(0);
+        units::AngularVelocity right_wheel_velocity = units::AngularVelocity::from_rad_per_sec(0);
 
         // Loop timing metrics
         units::Time loop_time = units::Time::from_seconds(0);
@@ -112,7 +111,7 @@ namespace abclib
         units::Time avg_loop_time = units::Time::from_seconds(0);
         uint32_t timing_violations = 0;
         uint32_t total_loop_count = 0;
-        units::Time target_loop_time = units::Time::from_millis(10.0);
+        units::Time target_loop_time = units::Time::from_milliseconds(10.0);
 
         // Battery monitoring
         units::Voltage battery_voltage = units::Voltage::from_volts(0);
@@ -120,18 +119,18 @@ namespace abclib
         bool voltage_compensation_active = false;
         double voltage_compensation_scale = 1.0;
 
-        // Left motor velocity control
-        units::MotorAngularVelocity left_motor_target_velocity = units::MotorAngularVelocity(0);
-        units::MotorAngularVelocity left_motor_actual_velocity = units::MotorAngularVelocity(0);
+        // Motor velocity control (left)
+        units::AngularVelocity left_motor_target_velocity = units::AngularVelocity::from_rad_per_sec(0);
+        units::AngularVelocity left_motor_actual_velocity = units::AngularVelocity::from_rad_per_sec(0);
         double left_motor_velocity_error_rpm = 0;
         double left_motor_velocity_p_term = 0;
         double left_motor_velocity_i_term = 0;
         double left_motor_velocity_d_term = 0;
         units::Voltage left_motor_velocity_output = units::Voltage::from_volts(0);
 
-        // Right motor velocity control
-        units::MotorAngularVelocity right_motor_target_velocity = units::MotorAngularVelocity(0);
-        units::MotorAngularVelocity right_motor_actual_velocity = units::MotorAngularVelocity(0);
+        // Motor velocity control (right)
+        units::AngularVelocity right_motor_target_velocity = units::AngularVelocity::from_rad_per_sec(0);
+        units::AngularVelocity right_motor_actual_velocity = units::AngularVelocity::from_rad_per_sec(0);
         double right_motor_velocity_error_rpm = 0;
         double right_motor_velocity_p_term = 0;
         double right_motor_velocity_i_term = 0;
@@ -169,10 +168,10 @@ namespace abclib
     };
 
     // Global telemetry instance (double-buffered)
-    inline TelemetryBuffer telemetry;
+    inline TelemetryBuffer g_telemetry;
 
     // Helper function to convert enum to string for display
-    inline const char *settlement_reason_to_string(SettlementReason reason)
+    inline const char* settlement_reason_to_string(SettlementReason reason)
     {
         switch (reason)
         {
@@ -189,7 +188,7 @@ namespace abclib
         }
     }
 
-    inline const char *path_status_to_string(PathFollowerStatus status)
+    inline const char* path_status_to_string(PathFollowerStatus status)
     {
         switch (status)
         {
@@ -210,4 +209,4 @@ namespace abclib
         }
     }
 
-}
+} // namespace abclib::telemetry

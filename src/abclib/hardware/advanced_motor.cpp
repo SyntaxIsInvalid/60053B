@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <mutex>
 #include "abclib/telemetry/telemetry.hpp"
+
 namespace abclib::hardware
 {
 
@@ -110,17 +111,17 @@ namespace abclib::hardware
 
             if (battery < config_.compensation_min_battery)
             {
-                compensation_scale = config_.compensation_nominal.volts / battery.volts;
+                compensation_scale = config_.compensation_nominal.to_volts() / battery.to_volts();
                 voltage = voltage * compensation_scale;
                 compensation_active = true;
             }
         }
 
-        auto &data = telemetry.get_write_buffer();
+        auto &data = telemetry::g_telemetry.get_write_buffer();
         data.voltage_compensation_active = compensation_active;
         data.voltage_compensation_scale = compensation_scale;
 
-        motor_->move(voltage.to_pros_units());
+        motor_->move(voltage.to_volts() * 1000.0); // PROS uses millivolts
     }
 
     void AdvancedMotor::brake()
@@ -133,24 +134,23 @@ namespace abclib::hardware
         motor_->set_brake_mode(brake_mode);
     }
 
-    units::MotorAngularVelocity AdvancedMotor::get_raw_velocity() const
+    units::AngularVelocity AdvancedMotor::get_raw_velocity() const
     {
         if (using_encoder_)
         {
             // Rotation sensor returns centidegrees/s
             // Convert: centideg/s -> deg/s -> rad/s
             double deg_per_sec = rotation_sensor_->get_velocity() / 100.0;
-            double rad_per_sec = units::Degrees(deg_per_sec).to_radians().value;
-            return units::MotorAngularVelocity(rad_per_sec);
+            return units::AngularVelocity::from_deg_per_sec(deg_per_sec);
         }
         else
         {
             // Motor returns RPM, convert to rad/s
-            return units::MotorAngularVelocity::from_rpm(motor_->get_actual_velocity());
+            return units::AngularVelocity::from_rpm(motor_->get_actual_velocity());
         }
     }
 
-    units::MotorPosition AdvancedMotor::get_raw_position() const
+    units::Angle AdvancedMotor::get_raw_position() const
     {
         if (using_encoder_)
         {
@@ -158,32 +158,32 @@ namespace abclib::hardware
             // Convert: centideg -> deg -> rad
             double centidegrees = rotation_sensor_->get_position();
             double degrees = centidegrees / 100.0;
-            return units::MotorPosition(units::Degrees(degrees));
+            return units::Angle::from_degrees(degrees);
         }
         else
         {
             // Motor returns degrees
             double degrees = motor_->get_position();
-            return units::MotorPosition(units::Degrees(degrees));
+            return units::Angle::from_degrees(degrees);
         }
     }
 
-    units::Degrees AdvancedMotor::get_position() const
+    units::Angle AdvancedMotor::get_position() const
     {
-        return get_raw_position().angle.to_degrees();
+        return get_raw_position();
     }
 
-    void AdvancedMotor::rotate_to(units::Degrees target, units::Time timeout,
+    void AdvancedMotor::rotate_to(units::Angle target, units::Time timeout,
                                   units::Voltage min_voltage, units::Voltage max_voltage)
     {
         reset_position();
         uint32_t start = pros::millis();
-        const units::Degrees threshold(1.0);
+        units::Angle threshold = units::Angle::from_degrees(1.0);
 
         const double dt = 0.01;
         position_pid_.reset();
 
-        while ((pros::millis() - start) < timeout.to_millis_uint())
+        while ((pros::millis() - start) < timeout.to_milliseconds())
         {
             // Check if we should stop (for task cancellation)
             if (pros::Task::notify_take(true, 0) > 0)
@@ -191,25 +191,29 @@ namespace abclib::hardware
                 break;
             }
 
-            units::Degrees pos = get_position();
-            units::MotorAngularVelocity vel = get_raw_velocity();
+            units::Angle pos = get_position();
+            units::AngularVelocity vel = get_raw_velocity();
 
-            if (std::fabs((target - pos).value) <= threshold.value &&
+            // Convert the subtraction result back to Angle type
+            units::Angle error(target - pos);
+
+            if (std::fabs(error.to_degrees()) <= threshold.to_degrees() &&
                 std::fabs(vel.to_rpm()) < 5)
                 break;
 
-            double err = (target - pos).value;
+            double err = error.to_degrees();
             double out = position_pid_.compute(err, dt);
 
-            units::Voltage output_voltage(out);
-            output_voltage = units::Voltage(std::clamp(output_voltage.volts, min_voltage.volts, max_voltage.volts));
+            units::Voltage output_voltage = units::Voltage::from_volts(out);
+            output_voltage = units::Voltage::from_volts(
+                std::clamp(output_voltage.to_volts(), min_voltage.to_volts(), max_voltage.to_volts()));
             move_voltage(output_voltage);
             pros::delay(10);
         }
         brake();
     }
 
-    void AdvancedMotor::rotate_to_task(units::Degrees target, units::Time timeout,
+    void AdvancedMotor::rotate_to_task(units::Angle target, units::Time timeout,
                                        units::Voltage min_voltage, units::Voltage max_voltage)
     {
         std::lock_guard<pros::Mutex> lock(task_mutex_);
@@ -225,42 +229,41 @@ namespace abclib::hardware
                                    { this->rotate_to(target, timeout, min_voltage, max_voltage); });
     }
 
-    void AdvancedMotor::hold_velocity(units::RPM target_rpm, units::Time timeout,
+    void AdvancedMotor::hold_velocity(units::AngularVelocity target_vel, units::Time timeout,
                                       units::Voltage min_voltage, units::Voltage max_voltage)
     {
         uint32_t start = pros::millis();
         const double dt = 0.01;
         velocity_pid_.reset();
 
-        units::MotorAngularVelocity target_velocity = units::MotorAngularVelocity::from_rpm(target_rpm.value);
-
-        while ((pros::millis() - start) < timeout.to_millis_uint())
+        while ((pros::millis() - start) < timeout.to_milliseconds())
         {
             if (pros::Task::notify_take(true, 0) > 0)
             {
                 break;
             }
 
-            units::MotorAngularVelocity vel = get_raw_velocity();
+            units::AngularVelocity vel = get_raw_velocity();
 
-            double err = target_velocity.rad_per_sec - vel.rad_per_sec;
+            double err = target_vel.to_rad_per_sec() - vel.to_rad_per_sec();
             double out = velocity_pid_.compute(err, dt);
 
             if (use_feedforward_)
             {
-                double ff = config_.kS * ((target_velocity.rad_per_sec > 0) - (target_velocity.rad_per_sec < 0));
-                ff += config_.kV * target_velocity.rad_per_sec;
+                double ff = config_.kS * ((target_vel.to_rad_per_sec() > 0) - (target_vel.to_rad_per_sec() < 0));
+                ff += config_.kV * target_vel.to_rad_per_sec();
                 out += ff;
             }
 
-            units::Voltage output_voltage(out);
-            output_voltage = units::Voltage(std::clamp(output_voltage.volts, min_voltage.volts, max_voltage.volts));
+            units::Voltage output_voltage = units::Voltage::from_volts(out);
+            output_voltage = units::Voltage::from_volts(
+                std::clamp(output_voltage.to_volts(), min_voltage.to_volts(), max_voltage.to_volts()));
             move_voltage(output_voltage);
             pros::delay(10);
         }
     }
 
-    void AdvancedMotor::hold_velocity_task(units::RPM target_rpm, units::Time timeout,
+    void AdvancedMotor::hold_velocity_task(units::AngularVelocity target_vel, units::Time timeout,
                                            units::Voltage min_voltage, units::Voltage max_voltage)
     {
         std::lock_guard<pros::Mutex> lock(task_mutex_);
@@ -272,32 +275,33 @@ namespace abclib::hardware
         }
 
         // Create new task
-        current_task_ = pros::Task([this, target_rpm, timeout, min_voltage, max_voltage]()
-                                   { this->hold_velocity(target_rpm, timeout, min_voltage, max_voltage); });
+        current_task_ = pros::Task([this, target_vel, timeout, min_voltage, max_voltage]()
+                                   { this->hold_velocity(target_vel, timeout, min_voltage, max_voltage); });
     }
 
-    void AdvancedMotor::move_velocity_continuous(units::MotorAngularVelocity target_velocity)
+    void AdvancedMotor::move_velocity_continuous(units::AngularVelocity target_velocity)
     {
         const double dt = 0.01; // Assumes 100Hz calls
 
-        units::MotorAngularVelocity vel = get_raw_velocity();
-        double err = target_velocity.rad_per_sec - vel.rad_per_sec;
+        units::AngularVelocity vel = get_raw_velocity();
+        double err = target_velocity.to_rad_per_sec() - vel.to_rad_per_sec();
         double out = velocity_pid_.compute(err, dt);
 
         // Add feedforward if enabled
         if (use_feedforward_)
         {
-            double ff = config_.kS * ((target_velocity.rad_per_sec > 0) - (target_velocity.rad_per_sec < 0));
-            ff += config_.kV * target_velocity.rad_per_sec;
+            double ff = config_.kS * ((target_velocity.to_rad_per_sec() > 0) - (target_velocity.to_rad_per_sec() < 0));
+            ff += config_.kV * target_velocity.to_rad_per_sec();
             out += ff;
         }
 
-        units::Voltage output_voltage(out);
-        output_voltage = units::Voltage(std::clamp(output_voltage.volts, -12.0, 12.0));
+        units::Voltage output_voltage = units::Voltage::from_volts(out);
+        output_voltage = units::Voltage::from_volts(
+            std::clamp(output_voltage.to_volts(), -12.0, 12.0));
         move_voltage(output_voltage);
     }
 
-    void AdvancedMotor::move_velocity_continuous_task(units::MotorAngularVelocity target_velocity)
+    void AdvancedMotor::move_velocity_continuous_task(units::AngularVelocity target_velocity)
     {
         std::lock_guard<pros::Mutex> lock(task_mutex_);
 
@@ -327,42 +331,43 @@ namespace abclib::hardware
         return use_feedforward_;
     }
 
-    units::RPM AdvancedMotor::get_velocity() const
+    units::AngularVelocity AdvancedMotor::get_velocity() const
     {
-        return units::RPM::from_rad_per_sec(get_raw_velocity().rad_per_sec);
+        return get_raw_velocity();
     }
 
-    void AdvancedMotor::move_velocity_continuous(units::MotorAngularVelocity target_velocity,
+    void AdvancedMotor::move_velocity_continuous(units::AngularVelocity target_velocity,
                                                  double override_kS,
                                                  double override_kV)
     {
         const double dt = 0.01; // Assumes 100Hz calls
 
-        units::MotorAngularVelocity vel = get_raw_velocity();
-        double err = target_velocity.rad_per_sec - vel.rad_per_sec;
+        units::AngularVelocity vel = get_raw_velocity();
+        double err = target_velocity.to_rad_per_sec() - vel.to_rad_per_sec();
         double out = velocity_pid_.compute(err, dt);
 
         // Use override constants instead of config_
         if (use_feedforward_)
         {
-            double ff = override_kS * ((target_velocity.rad_per_sec > 0) - (target_velocity.rad_per_sec < 0));
-            ff += override_kV * target_velocity.rad_per_sec;
+            double ff = override_kS * ((target_velocity.to_rad_per_sec() > 0) - (target_velocity.to_rad_per_sec() < 0));
+            ff += override_kV * target_velocity.to_rad_per_sec();
             out += ff;
         }
 
-        units::Voltage output_voltage(out);
-        output_voltage = units::Voltage(std::clamp(output_voltage.volts, -12.0, 12.0));
+        units::Voltage output_voltage = units::Voltage::from_volts(out);
+        output_voltage = units::Voltage::from_volts(
+            std::clamp(output_voltage.to_volts(), -12.0, 12.0));
         move_voltage(output_voltage);
     }
 
-    void AdvancedMotor::move_velocity_pros(units::MotorAngularVelocity target_velocity)
+    void AdvancedMotor::move_velocity_pros(units::AngularVelocity target_velocity)
     {
         // Convert rad/s to RPM for PROS
-        units::RPM target_rpm = units::RPM::from_rad_per_sec(target_velocity.rad_per_sec);
-        motor_->move_velocity(target_rpm.value);
+        double target_rpm = target_velocity.to_rpm();
+        motor_->move_velocity(target_rpm);
     }
 
-    void AdvancedMotor::move_velocity_pros_task(units::MotorAngularVelocity target_velocity)
+    void AdvancedMotor::move_velocity_pros_task(units::AngularVelocity target_velocity)
     {
         std::lock_guard<pros::Mutex> lock(task_mutex_);
 

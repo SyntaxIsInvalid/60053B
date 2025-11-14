@@ -11,16 +11,16 @@ namespace abclib::hardware
     {
     private:
         AdvancedMotorGroup *motor_group_;
-        units::Distance wheel_diameter_;
-        units::Distance offset_;
+        units::Length wheel_diameter_;
+        units::Length offset_;
 
     public:
         MotorTrackingWheel(AdvancedMotorGroup *motors,
-                           units::Distance diameter,
-                           units::Distance wheel_offset = units::Distance::from_inches(0.0));
+                           units::Length diameter,
+                           units::Length wheel_offset = units::Length::from_inches(0.0));
 
-        units::Distance get_distance() override;
-        units::Distance get_offset() override;
+        units::Length get_distance() override;
+        units::Length get_offset() override;
         void reset() override;
     };
 }

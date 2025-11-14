@@ -3,7 +3,7 @@
 #include "api.h"
 #include <mutex>
 
-namespace abclib
+namespace abclib::telemetry
 {
     Logger::Logger(const std::string &name, bool auto_segment, const LogFields &fields)
         : base_name_(name),
@@ -206,7 +206,7 @@ namespace abclib
             return;
 
         // Thread-safe copy of telemetry data
-        const TelemetryData &data = telemetry.get_read_buffer();
+        const TelemetryData &data = g_telemetry.get_read_buffer();
 
         // Timestamp columns (always included)
         fprintf(file_, "%u,%.3f", absolute_time, elapsed_time);
@@ -222,42 +222,42 @@ namespace abclib
         if (fields_.pose)
         {
             fprintf(file_, ",%.3f,%.3f,%.3f",
-                    data.pose.x(), data.pose.y(), data.pose.theta() * 180.0 / M_PI);
+                    data.pose.x_inches(), data.pose.y_inches(), data.pose.theta_deg());
         }
 
         // Velocity data
         if (fields_.velocity)
         {
             fprintf(file_, ",%.3f,%.3f",
-                    data.pose_v.inches_per_sec, data.pose_omega.rad_per_sec);
+                    data.pose.v.to_ips(), data.pose.omega.to_rad_per_sec());
             fprintf(file_, ",%.3f,%.3f",
-                    data.pose_v_raw.inches_per_sec, data.pose_omega_raw.rad_per_sec);
+                    data.pose_v_raw.to_ips(), data.pose_omega_raw.to_rad_per_sec());
         }
 
         // Lateral control
         if (fields_.lateral_pid)
         {
             fprintf(file_, ",%.3f,%.3f",
-                    data.lateral_error.inches, data.lateral_output.volts);
+                    data.lateral_error.to_inches(), data.lateral_output.to_volts());
             fprintf(file_, ",%.3f,%.3f",
-                    data.lateral_target.inches, data.lateral_actual.inches);
+                    data.lateral_target.to_inches(), data.lateral_actual.to_inches());
             fprintf(file_, ",%.3f,%.3f,%.3f",
                     data.lateral_p_term, data.lateral_i_term, data.lateral_d_term);
             fprintf(file_, ",%.3f,%.3f",
-                    data.max_lateral_error.inches, data.cumulative_lateral_error.inches);
+                    data.max_lateral_error.to_inches(), data.cumulative_lateral_error.to_inches());
         }
 
         // Angular control
         if (fields_.angular_pid)
         {
             fprintf(file_, ",%.3f,%.3f",
-                    data.angular_error.value, data.angular_output.volts);
+                    data.angular_error.to_radians(), data.angular_output.to_volts());
             fprintf(file_, ",%.3f,%.3f",
-                    data.angular_target.value, data.angular_actual.value);
+                    data.angular_target.to_radians(), data.angular_actual.to_radians());
             fprintf(file_, ",%.3f,%.3f,%.3f",
                     data.angular_p_term, data.angular_i_term, data.angular_d_term);
             fprintf(file_, ",%.3f,%.3f",
-                    data.max_angular_error.value, data.cumulative_angular_error.value);
+                    data.max_angular_error.to_radians(), data.cumulative_angular_error.to_radians());
         }
 
         // Settlement tracking
@@ -267,29 +267,29 @@ namespace abclib
                     data.is_settled ? 1 : 0,
                     data.settle_count,
                     settlement_reason_to_string(data.settlement_reason));
-            fprintf(file_, ",%.3f", data.time_to_settle.seconds);
+            fprintf(file_, ",%.3f", data.time_to_settle.to_seconds());
         }
 
         // Motor voltages
         if (fields_.motors)
         {
             fprintf(file_, ",%.3f,%.3f",
-                    data.left_motor_voltage.volts, data.right_motor_voltage.volts);
+                    data.left_motor_voltage.to_volts(), data.right_motor_voltage.to_volts());
         }
 
         // Path tracking errors
         if (fields_.path_tracking)
         {
             fprintf(file_, ",%.3f,%.3f",
-                    data.cross_track_error.inches, data.along_track_error.inches);
+                    data.cross_track_error.to_inches(), data.along_track_error.to_inches());
             fprintf(file_, ",%.3f,%.3f",
-                    data.max_cross_track_error.inches, data.cumulative_xte.inches);
+                    data.max_cross_track_error.to_inches(), data.cumulative_xte.to_inches());
             fprintf(file_, ",%.3f,%.3f",
-                    data.max_along_track_error.inches, data.cumulative_ate.inches);
+                    data.max_along_track_error.to_inches(), data.cumulative_ate.to_inches());
             fprintf(file_, ",%.3f,%.3f,%.3f",
-                    data.final_pose_error_x.inches,
-                    data.final_pose_error_y.inches,
-                    data.final_pose_error_theta.value);
+                    data.final_pose_error_x.to_inches(),
+                    data.final_pose_error_y.to_inches(),
+                    data.final_pose_error_theta.to_radians());
         }
 
         // Path follower status
@@ -297,56 +297,56 @@ namespace abclib
         {
             fprintf(file_, ",%s,%.3f,%.3f",
                     path_status_to_string(data.path_status),
-                    data.trajectory_time.seconds,
+                    data.trajectory_time.to_seconds(),
                     data.trajectory_progress);
             fprintf(file_, ",%.3f",
-                    data.trajectory_total_time.seconds);
+                    data.trajectory_total_time.to_seconds());
             fprintf(file_, ",%.3f,%.3f",
-                    data.reference_velocity.inches_per_sec,
-                    data.reference_arc_position.inches);
+                    data.reference_velocity.to_ips(),
+                    data.reference_arc_position.to_inches());
         }
 
         // Individual wheel velocities
         if (fields_.wheels)
         {
             fprintf(file_, ",%.3f,%.3f",
-                    data.left_wheel_velocity.rad_per_sec,
-                    data.right_wheel_velocity.rad_per_sec);
+                    data.left_wheel_velocity.to_rad_per_sec(),
+                    data.right_wheel_velocity.to_rad_per_sec());
         }
 
         // Turn-in-place tracking
         if (fields_.turn_in_place)
         {
             fprintf(file_, ",%.3f,%.3f",
-                    data.omega_reference.rad_per_sec,
-                    data.omega_error.rad_per_sec);
+                    data.omega_reference.to_rad_per_sec(),
+                    data.omega_error.to_rad_per_sec());
             fprintf(file_, ",%.3f,%.3f",
                     data.omega_pid_output,
-                    data.omega_commanded.rad_per_sec);
+                    data.omega_commanded.to_rad_per_sec());
             fprintf(file_, ",%.3f,%.3f",
-                    data.left_wheel_cmd.inches_per_sec,
-                    data.right_wheel_cmd.inches_per_sec);
+                    data.left_wheel_cmd.to_ips(),
+                    data.right_wheel_cmd.to_ips());
         }
 
         // Loop timing metrics
         if (fields_.timing)
         {
             fprintf(file_, ",%.3f,%.3f,%.3f",
-                    data.loop_time.to_millis(),
-                    data.max_loop_time.to_millis(),
-                    data.min_loop_time.to_millis());
+                    data.loop_time.to_milliseconds(),
+                    data.max_loop_time.to_milliseconds(),
+                    data.min_loop_time.to_milliseconds());
             fprintf(file_, ",%.3f,%u,%u",
-                    data.avg_loop_time.to_millis(),
+                    data.avg_loop_time.to_milliseconds(),
                     data.timing_violations,
                     data.total_loop_count);
-            fprintf(file_, ",%.3f", data.target_loop_time.to_millis());
+            fprintf(file_, ",%.3f", data.target_loop_time.to_milliseconds());
         }
 
         // Battery monitoring
         if (fields_.battery)
         {
             fprintf(file_, ",%.3f,%.1f,%.2f,%d",
-                    data.battery_voltage.volts,
+                    data.battery_voltage.to_volts(),
                     data.battery_capacity_percent,
                     data.voltage_compensation_scale,
                     data.voltage_compensation_active ? 1 : 0);
@@ -374,4 +374,4 @@ namespace abclib
         return filename;
     }
 
-} // namespace abclib
+} // namespace abclib::telemetry

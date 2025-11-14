@@ -9,17 +9,17 @@ namespace abclib::hardware
     {
     private:
         pros::Rotation *rotation_sensor;
-        units::Distance diameter;
-        units::Distance radius;
-        units::Distance offset;
+        units::Length diameter;
+        units::Length radius;
+        units::Length offset;
 
     public:
         TrackingWheel(pros::Rotation *rotation_sensor,
-                      units::Distance diameter,
-                      units::Distance offset);
+                      units::Length diameter,
+                      units::Length offset);
 
-        units::Distance get_distance() override;
-        units::Distance get_offset() override;
+        units::Length get_distance() override;
+        units::Length get_offset() override;
         void reset() override;
     };
 }

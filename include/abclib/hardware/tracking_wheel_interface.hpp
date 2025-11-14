@@ -7,8 +7,8 @@ namespace abclib::hardware
     {
     public:
         virtual ~ITrackingWheel() = default;
-        virtual units::Distance get_distance() = 0;
-        virtual units::Distance get_offset() = 0;
+        virtual units::Length get_distance() = 0;
+        virtual units::Length get_offset() = 0;
         virtual void reset() = 0;
     };
 }

@@ -1,22 +1,25 @@
 #include "abclib/hardware/tracking_wheel.hpp"
-#include <cmath>
 
 namespace abclib::hardware {
     TrackingWheel::TrackingWheel(pros::Rotation* rotation_sensor, 
-                                units::Distance diameter, 
-                                units::Distance offset)
+                                units::Length diameter, 
+                                units::Length offset)
         : rotation_sensor(rotation_sensor),
           diameter(diameter),
-          radius(diameter / 2.0),
+          radius(diameter / 2.0),  // No explicit construction needed!
           offset(offset)
     {}
 
-    units::Distance TrackingWheel::get_distance() {
-        double angle_rad = (rotation_sensor->get_position() / 100.0) * M_PI / 180.0;
-        return units::Distance::from_inches(radius.inches * angle_rad);
+    units::Length TrackingWheel::get_distance() {
+        // Rotation sensor returns centidegrees
+        double centidegrees = rotation_sensor->get_position();
+        units::Angle angle = units::Angle::from_degrees(centidegrees / 100.0);
+        
+        // arc length = radius * angle (in radians)
+        return radius * angle.to_radians();  // No explicit construction needed!
     }
 
-    units::Distance TrackingWheel::get_offset() {
+    units::Length TrackingWheel::get_offset() {
         return offset;
     }
 

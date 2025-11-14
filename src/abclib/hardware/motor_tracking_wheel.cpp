@@ -3,22 +3,25 @@
 namespace abclib::hardware
 {
     MotorTrackingWheel::MotorTrackingWheel(AdvancedMotorGroup *motors,
-                                           units::Distance diameter,
-                                           units::Distance wheel_offset)
+                                           units::Length diameter,
+                                           units::Length wheel_offset)
         : motor_group_(motors),
           wheel_diameter_(diameter),
           offset_(wheel_offset)
     {
     }
 
-    units::Distance MotorTrackingWheel::get_distance()
+    units::Length MotorTrackingWheel::get_distance()
     {
-        units::Degrees degrees = motor_group_->get_position();
-        double angle_rad = degrees.to_radians().value;
-        return units::Distance::from_inches((wheel_diameter_.inches / 2.0) * angle_rad);
+        // Get position returns the new Angle type
+        units::Angle angle = motor_group_->get_position();
+        
+        // arc length = radius * angle (in radians)
+        units::Length radius = wheel_diameter_ / 2.0;  // Clean!
+        return radius * angle.to_radians();            // Clean!
     }
 
-    units::Distance MotorTrackingWheel::get_offset()
+    units::Length MotorTrackingWheel::get_offset()
     {
         return offset_;
     }

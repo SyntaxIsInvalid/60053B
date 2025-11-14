@@ -72,46 +72,46 @@ namespace abclib::hardware
         void set_brake_mode(pros::motor_brake_mode_e_t brake_mode);
         void brake();
         double get_ticks();
-        units::RPM get_velocity() const;
-        units::Degrees get_position() const;
+        units::AngularVelocity get_velocity() const;
+        units::Angle get_position() const;
         void set_feedforward(bool enable);
         bool is_using_feedforward() const;
         units::Current get_current_draw() const;
         units::Current get_average_current_draw() const;
         std::vector<units::Current> get_individual_current_draws() const;
 
-        void rotate_to(units::Degrees target,
-                       units::Time timeout = units::DEFAULT_TIMEOUT,
-                       units::Voltage min_voltage = units::DEFAULT_MIN_VOLTAGE,
-                       units::Voltage max_voltage = units::DEFAULT_MAX_VOLTAGE);
-        void rotate_to_task(units::Degrees target,
-                            units::Time timeout = units::DEFAULT_TIMEOUT,
-                            units::Voltage min_voltage = units::DEFAULT_MIN_VOLTAGE,
-                            units::Voltage max_voltage = units::DEFAULT_MAX_VOLTAGE);
-        void hold_velocity(units::RPM target_rpm,
-                           units::Time timeout = units::DEFAULT_TIMEOUT,
-                           units::Voltage min_voltage = units::DEFAULT_MIN_VOLTAGE,
-                           units::Voltage max_voltage = units::DEFAULT_MAX_VOLTAGE);
-        void hold_velocity_task(units::RPM target_rpm,
-                                units::Time timeout = units::DEFAULT_TIMEOUT,
-                                units::Voltage min_voltage = units::DEFAULT_MIN_VOLTAGE,
-                                units::Voltage max_voltage = units::DEFAULT_MAX_VOLTAGE);
-        void move_velocity_continuous(units::MotorAngularVelocity target_velocity,
+        void rotate_to(units::Angle target,
+                       units::Time timeout = units::Time::from_seconds(3.0),
+                       units::Voltage min_voltage = units::Voltage::from_volts(-12.0),
+                       units::Voltage max_voltage = units::Voltage::from_volts(12.0));
+        void rotate_to_task(units::Angle target,
+                            units::Time timeout = units::Time::from_seconds(3.0),
+                            units::Voltage min_voltage = units::Voltage::from_volts(-12.0),
+                            units::Voltage max_voltage = units::Voltage::from_volts(12.0));
+        void hold_velocity(units::AngularVelocity target_velocity,
+                           units::Time timeout = units::Time::from_seconds(3.0),
+                           units::Voltage min_voltage = units::Voltage::from_volts(-12.0),
+                           units::Voltage max_voltage = units::Voltage::from_volts(12.0));
+        void hold_velocity_task(units::AngularVelocity target_velocity,
+                                units::Time timeout = units::Time::from_seconds(3.0),
+                                units::Voltage min_voltage = units::Voltage::from_volts(-12.0),
+                                units::Voltage max_voltage = units::Voltage::from_volts(12.0));
+        void move_velocity_continuous(units::AngularVelocity target_velocity,
                                       double target_acceleration);
 
-        void move_velocity_continuous(units::MotorAngularVelocity target_velocity,
+        void move_velocity_continuous(units::AngularVelocity target_velocity,
                                       double target_acceleration,
                                       double override_kS,
                                       double override_kV,
                                       double override_kA);
-        void move_velocity_continuous_task(units::MotorAngularVelocity target_velocity);
+        void move_velocity_continuous_task(units::AngularVelocity target_velocity);
 
-        units::MotorAngularVelocity get_raw_velocity() const;
-        units::MotorPosition get_raw_position() const;
+        units::AngularVelocity get_raw_velocity() const;
+        units::Angle get_raw_position() const;
         motor_group_config get_config() const { return group_config; }
         void stop_all_tasks();
-        void move_velocity_pros(units::MotorAngularVelocity target_velocity);
-        void move_velocity_pros_task(units::MotorAngularVelocity target_velocity);
+        void move_velocity_pros(units::AngularVelocity target_velocity);
+        void move_velocity_pros_task(units::AngularVelocity target_velocity);
         void set_config(const motor_group_config &config)
         {
             // Update config members individually (skip rotation sensor)
