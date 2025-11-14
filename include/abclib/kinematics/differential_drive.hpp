@@ -21,14 +21,15 @@ namespace abclib::kinematics
         units::AngularVelocity omega, 
         units::Length track_width)
     {
-        // Calculate half track width
-        units::Length half_track = track_width / 2.0;
+        double half_track_inches = track_width.to_inches() / 2.0;
+        double omega_rad_per_sec = omega.to_rad_per_sec();
+        double tangential_velocity = half_track_inches * omega_rad_per_sec;
         
-        // v_left = v - (track_width/2) * omega
-        // v_right = v + (track_width/2) * omega
+        units::Velocity wheel_offset = units::Velocity::from_ips(tangential_velocity);
+        
         return WheelVelocities{
-            v - half_track * omega,
-            v + half_track * omega
+            v - wheel_offset,
+            v + wheel_offset
         };
     }
 
@@ -37,11 +38,14 @@ namespace abclib::kinematics
         units::Velocity v_right,
         units::Length track_width)
     {
-        // v = (v_left + v_right) / 2
-        // omega = (v_right - v_left) / track_width
+        units::Velocity v = (v_left + v_right) / 2.0;
+        
+        units::Velocity delta_v(v_right - v_left);
+        double omega_rad_per_sec = delta_v.to_ips() / track_width.to_inches();
+        
         return BodyVelocities{
-            (v_left + v_right) / 2.0,
-            (v_right - v_left) / track_width
+            v,
+            units::AngularVelocity::from_rad_per_sec(omega_rad_per_sec)
         };
     }
 }

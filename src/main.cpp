@@ -98,7 +98,7 @@ subsystems::DummyIntake top_intake;
 subsystems::DummyIntake bottom_intake;
 #endif
 // static lv_obj_t *teleop_image = nullptr;
-abclib::ScreenManager screen_manager;
+ui::ScreenManager screen_manager;
 
 void initialize()
 {
@@ -121,21 +121,20 @@ void initialize()
                            {
         while (1) {
             // Update battery info in the write buffer
-            auto& write_buf = abclib::telemetry.get_write_buffer();
+            auto& write_buf = abclib::telemetry::g_telemetry.get_write_buffer();
             write_buf.battery_voltage = units::Voltage::from_millivolts(
                 pros::battery::get_voltage()
             );
             write_buf.battery_capacity_percent = pros::battery::get_capacity();
-            abclib::telemetry.swap();
+            abclib::telemetry::g_telemetry.swap();
             
             // Update screen with read buffer
-            const TelemetryData& data = abclib::telemetry.get_read_buffer();
+            const abclib::telemetry::TelemetryData& data = abclib::telemetry::g_telemetry.get_read_buffer();
             screen_manager.update_telemetry(data);
             
             pros::delay(100);
         } });
 }
-
 
 /**
  * Runs while the robot is in the disabled state of Field Management System or

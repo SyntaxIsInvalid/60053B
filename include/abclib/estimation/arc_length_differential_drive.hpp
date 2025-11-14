@@ -7,38 +7,42 @@ namespace abclib::estimation
 {
     struct LocalMotion
     {
-        units::Distance x;
-        units::Distance y;
-        units::Radians theta;
+        units::Length x;
+        units::Length y;
+        units::Angle theta;
     };
     
     class ArcLengthDifferentialDrive
     {
     public:
         static LocalMotion compute_local_motion(
-            units::Distance delta_vertical,
-            units::Distance delta_horizontal,
-            units::Radians delta_heading,
-            units::Distance vertical_offset,
-            units::Distance horizontal_offset)
+            units::Length delta_vertical,
+            units::Length delta_horizontal,
+            units::Angle delta_heading,
+            units::Length vertical_offset,
+            units::Length horizontal_offset)
         {
             LocalMotion motion;
             motion.theta = delta_heading;
             
-            if (std::abs(delta_heading.value) < 1e-6)
+            // Use .value() to get the SI value (radians)
+            if (std::abs(delta_heading.value()) < 1e-6)
             {
                 motion.x = delta_horizontal;
                 motion.y = delta_vertical;
             }
             else
             {
-                double sin_half = std::sin(delta_heading.value / 2.0);
-                double arc_factor = 2.0 * sin_half / delta_heading.value;
+                double sin_half = std::sin(delta_heading.value() / 2.0);
+                double arc_factor = 2.0 * sin_half / delta_heading.value();
                 
-                motion.x = units::Distance::from_inches(
-                    arc_factor * (delta_horizontal.inches + horizontal_offset.inches * delta_heading.value));
-                motion.y = units::Distance::from_inches(
-                    arc_factor * (delta_vertical.inches + vertical_offset.inches * delta_heading.value));
+                // Convert to inches, do calculation, then convert back
+                motion.x = units::Length::from_inches(
+                    arc_factor * (delta_horizontal.to_inches() + 
+                                  horizontal_offset.to_inches() * delta_heading.value()));
+                motion.y = units::Length::from_inches(
+                    arc_factor * (delta_vertical.to_inches() + 
+                                  vertical_offset.to_inches() * delta_heading.value()));
             }
             
             return motion;

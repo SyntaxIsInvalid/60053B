@@ -7,34 +7,34 @@
 
 namespace abclib::estimation
 {
-    class IMUMeasurementModel : public IMeasurementModel<units::Radians>
+    class IMUMeasurementModel : public IMeasurementModel<units::Angle>
     {
     private:
         pros::IMU* imu_;
-        units::Radians prev_reading_;
+        units::Angle prev_reading_;
         
     public:
         explicit IMUMeasurementModel(pros::IMU* imu)
-            : imu_(imu), prev_reading_(units::Radians(0.0))
+            : imu_(imu), prev_reading_(units::Angle::from_radians(0.0))
         {
             if (imu_) {
                 double imu_reading = imu_->get_rotation();
                 prev_reading_ = std::isnan(imu_reading) ? 
-                    units::Radians(0.0) : 
-                    units::Degrees(-imu_reading).to_radians();
+                    units::Angle::from_radians(0.0) : 
+                    units::Angle::from_degrees(-imu_reading);
             }
         }
         
-        units::Radians get_measurement() override
+        units::Angle get_measurement() override
         {
-            if (!imu_) return units::Radians(0.0);
+            if (!imu_) return units::Angle::from_radians(0.0);
             
             double imu_reading = imu_->get_rotation();
-            units::Radians current = std::isnan(imu_reading) ? 
-                units::Radians(0.0) : 
-                units::Degrees(-imu_reading).to_radians();
+            units::Angle current = std::isnan(imu_reading) ? 
+                units::Angle::from_radians(0.0) : 
+                units::Angle::from_degrees(-imu_reading);
             
-            units::Radians delta = units::Radians(current.value - prev_reading_.value);
+            units::Angle delta = current - prev_reading_;
             prev_reading_ = current;
             return delta;
         }
@@ -44,8 +44,8 @@ namespace abclib::estimation
             if (imu_) {
                 double imu_reading = imu_->get_rotation();
                 prev_reading_ = std::isnan(imu_reading) ? 
-                    units::Radians(0.0) : 
-                    units::Degrees(-imu_reading).to_radians();
+                    units::Angle::from_radians(0.0) : 
+                    units::Angle::from_degrees(-imu_reading);
             }
         }
     };

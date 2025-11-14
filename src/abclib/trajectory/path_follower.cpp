@@ -34,13 +34,13 @@ namespace abclib::trajectory
 
         // Reset telemetry
         {
-            auto &telem = abclib::telemetry.get_write_buffer();
-            telem = TelemetryData{};
-            telem.max_cross_track_error = units::Distance::from_inches(0);
-            telem.cumulative_xte = units::Distance::from_inches(0);
-            telem.max_along_track_error = units::Distance::from_inches(0);
-            telem.cumulative_ate = units::Distance::from_inches(0);
-            abclib::telemetry.swap();
+            auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
+            telem = telemetry::TelemetryData{};
+            telem.max_cross_track_error = units::Length::from_inches(0);
+            telem.cumulative_xte = units::Length::from_inches(0);
+            telem.max_along_track_error = units::Length::from_inches(0);
+            telem.cumulative_ate = units::Length::from_inches(0);
+            abclib::telemetry::g_telemetry.swap();
         }
 
         ramsete_.set_constants(config.ramsete_constants);
@@ -61,13 +61,13 @@ namespace abclib::trajectory
 
         // Reset telemetry for entire path
         {
-            auto &telem = abclib::telemetry.get_write_buffer();
-            telem = TelemetryData{};
-            telem.max_cross_track_error = units::Distance::from_inches(0);
-            telem.cumulative_xte = units::Distance::from_inches(0);
-            telem.max_along_track_error = units::Distance::from_inches(0);
-            telem.cumulative_ate = units::Distance::from_inches(0);
-            abclib::telemetry.swap();
+            auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
+            telem = telemetry::TelemetryData{};
+            telem.max_cross_track_error = units::Length::from_inches(0);
+            telem.cumulative_xte = units::Length::from_inches(0);
+            telem.max_along_track_error = units::Length::from_inches(0);
+            telem.cumulative_ate = units::Length::from_inches(0);
+            abclib::telemetry::g_telemetry.swap();
         }
 
         // Follow each profile group sequentially
@@ -77,15 +77,15 @@ namespace abclib::trajectory
 
             // Check if we've exceeded total timeout
             const uint32_t current_time = pros::millis();
-            const units::Time elapsed = units::Time::from_millis(current_time - start_time);
+            const units::Time elapsed = units::Time::from_milliseconds(current_time - start_time);
 
             if (elapsed >= timeout)
             {
-                auto &telem = abclib::telemetry.get_write_buffer();
-                telem.settlement_reason = abclib::SettlementReason::TIMEOUT;
+                auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
+                telem.settlement_reason = abclib::telemetry::SettlementReason::TIMEOUT;
                 telem.time_to_settle = elapsed;
-                telem.path_status = abclib::PathFollowerStatus::COMPLETE;
-                abclib::telemetry.swap();
+                telem.path_status = abclib::telemetry::PathFollowerStatus::COMPLETE;
+                abclib::telemetry::g_telemetry.swap();
                 return;
             }
 
@@ -94,7 +94,7 @@ namespace abclib::trajectory
 
             // Calculate remaining time for this group
             units::Time remaining_time = units::Time::from_seconds(
-                timeout.seconds - elapsed.seconds);
+                timeout.to_seconds() - elapsed.to_seconds());
 
             // Create config for this group
             FollowerConfig config;
@@ -109,9 +109,9 @@ namespace abclib::trajectory
 
         // Mark path as complete
         {
-            auto &telem = abclib::telemetry.get_write_buffer();
-            telem.path_status = abclib::PathFollowerStatus::COMPLETE;
-            abclib::telemetry.swap();
+            auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
+            telem.path_status = abclib::telemetry::PathFollowerStatus::COMPLETE;
+            abclib::telemetry::g_telemetry.swap();
         }
     }
 
@@ -127,16 +127,16 @@ namespace abclib::trajectory
         while (true)
         {
             const uint32_t current_time = pros::millis();
-            const units::Time elapsed_time = units::Time::from_millis(current_time - start_time);
+            const units::Time elapsed_time = units::Time::from_milliseconds(current_time - start_time);
 
             // Check timeout
             if (elapsed_time >= config.timeout)
             {
-                auto &telem = abclib::telemetry.get_write_buffer();
-                telem.settlement_reason = abclib::SettlementReason::TIMEOUT;
+                auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
+                telem.settlement_reason = abclib::telemetry::SettlementReason::TIMEOUT;
                 telem.time_to_settle = elapsed_time;
-                telem.path_status = abclib::PathFollowerStatus::COMPLETE;
-                abclib::telemetry.swap();
+                telem.path_status = abclib::telemetry::PathFollowerStatus::COMPLETE;
+                abclib::telemetry::g_telemetry.swap();
                 break;
             }
 
@@ -171,22 +171,22 @@ namespace abclib::trajectory
 
                 // Feedback: proportional control on heading error
                 double heading_error = math::normalize_angle(
-                    reference_state.theta - current_pose_body.theta());
+                    reference_state.theta - current_pose_body.theta_rad());
                 double omega_feedback = config.turn_kP * heading_error;
 
                 // Combined command
-                units::BodyAngularVelocity omega_command =
-                    units::BodyAngularVelocity(omega_ref + omega_feedback);
+                units::AngularVelocity omega_command =
+                    units::AngularVelocity::from_rad_per_sec(omega_ref + omega_feedback);
 
                 // Convert to wheel velocities (v = 0 for turn-in-place)
-                units::Distance track_width = chassis_->get_track_width();
+                units::Length track_width = chassis_->get_track_width();
                 wheel_vels = kinematics::diff_drive_ik(
-                    units::BodyLinearVelocity(0),
+                    units::Velocity::from_mps(0),
                     omega_command,
                     track_width);
 
                 // Calculate wheel accelerations for feedforward
-                double half_track = track_width.inches / 2.0;
+                double half_track = track_width.to_inches() / 2.0;
                 double body_angular_accel = reference_state.alpha;
                 double left_accel = -half_track * body_angular_accel;
                 double right_accel = half_track * body_angular_accel;
@@ -208,22 +208,23 @@ namespace abclib::trajectory
 
                 // Populate ramsete_output for settlement checking and telemetry
                 // For turn-in-place, position errors are not meaningful
-                ramsete_output.e_x = units::Distance::from_inches(0);
-                ramsete_output.e_y = units::Distance::from_inches(0);
-                ramsete_output.e_theta = units::Radians(heading_error);
-                ramsete_output.v = units::BodyLinearVelocity(0);
+                ramsete_output.e_x = units::Length::from_inches(0);
+                ramsete_output.e_y = units::Length::from_inches(0);
+                ramsete_output.e_theta = units::Angle::from_radians(heading_error);
+                ramsete_output.v = units::Velocity::from_mps(0);
                 ramsete_output.omega = omega_command;
 
                 // Update turn-specific telemetry
                 {
-                    auto &telem = abclib::telemetry.get_write_buffer();
-                    telem.omega_reference = units::BodyAngularVelocity(omega_ref);
-                    telem.omega_error = units::BodyAngularVelocity(omega_ref - current_pose_body.omega.rad_per_sec);
+                    auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
+                    telem.omega_reference = units::AngularVelocity::from_rad_per_sec(omega_ref);
+                    telem.omega_error = units::AngularVelocity::from_rad_per_sec(
+                        omega_ref - current_pose_body.omega.to_rad_per_sec());
                     telem.omega_pid_output = omega_feedback;
                     telem.omega_commanded = omega_command;
                     telem.left_wheel_cmd = wheel_vels.left;
                     telem.right_wheel_cmd = wheel_vels.right;
-                    abclib::telemetry.swap();
+                    abclib::telemetry::g_telemetry.swap();
                 }
 
                 // Approximate voltages for telemetry
@@ -235,13 +236,24 @@ namespace abclib::trajectory
                 // ===== NORMAL PATH CONTROL: RAMSETE =====
 
                 // Convert current pose from body frame (REP-103) to math frame for RAMSETE
-                double current_x_math, current_y_math, current_theta_math;
-                math::body_to_math_frame(current_pose_body.pose,
-                                         current_x_math, current_y_math, current_theta_math);
+                units::Length current_x_math;
+                units::Length current_y_math;
+                units::Angle current_theta_math;
+
+                // Create BodyPose from current pose
+                math::BodyPose body_pose = math::BodyPose::from_inches_radians(
+                    current_pose_body.x_inches(),
+                    current_pose_body.y_inches(),
+                    current_pose_body.theta_rad());
+
+                // Convert to math frame
+                math::body_to_math_frame(body_pose, current_x_math, current_y_math, current_theta_math);
 
                 // Create math-frame pose for RAMSETE
-                estimation::Pose current_pose_math;
-                current_pose_math.pose = units::BodyPose::from_radians(current_x_math, current_y_math, current_theta_math);
+                estimation::Pose current_pose_math(
+                    current_x_math.to_inches(),
+                    current_y_math.to_inches(),
+                    current_theta_math.to_radians());
                 current_pose_math.v = current_pose_body.v;
                 current_pose_math.omega = current_pose_body.omega;
 
@@ -249,13 +261,13 @@ namespace abclib::trajectory
                 ramsete_output = ramsete_.compute(current_pose_math, reference_state);
 
                 // Convert to wheel velocities
-                units::Distance track_width = chassis_->get_track_width();
+                units::Length track_width = chassis_->get_track_width();
                 wheel_vels = kinematics::diff_drive_ik(
                     ramsete_output.v, ramsete_output.omega, track_width);
 
-                // Calculate wheel accelerations
-                double half_track = track_width.inches / 2.0;
-                double body_linear_accel = reference_state.arc_acceleration;
+                // Calculate wheel accelerations - convert from SI to inches/s²
+                double half_track = track_width.to_inches() / 2.0;
+                double body_linear_accel = reference_state.arc_acceleration.to_mps2() / units::constants::INCH_TO_METER;
                 double body_angular_accel = reference_state.alpha;
                 double left_accel = body_linear_accel - half_track * body_angular_accel;
                 double right_accel = body_linear_accel + half_track * body_angular_accel;
@@ -284,19 +296,19 @@ namespace abclib::trajectory
                 if (check_settlement(current_pose_body, reference_state, config,
                                      ramsete_output, settle_count, current_seg))
                 {
-                    auto &telem = abclib::telemetry.get_write_buffer();
+                    auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
                     telem.is_settled = true;
-                    telem.settlement_reason = abclib::SettlementReason::WITHIN_THRESHOLD;
+                    telem.settlement_reason = abclib::telemetry::SettlementReason::WITHIN_THRESHOLD;
                     telem.time_to_settle = elapsed_time;
-                    telem.path_status = abclib::PathFollowerStatus::COMPLETE;
-                    abclib::telemetry.swap();
+                    telem.path_status = abclib::telemetry::PathFollowerStatus::COMPLETE;
+                    abclib::telemetry::g_telemetry.swap();
                     break;
                 }
             }
 
             // ===== STATUS AND TELEMETRY (common for both modes) =====
 
-            PathFollowerStatus current_status = determine_trajectory_status(
+            telemetry::PathFollowerStatus current_status = determine_trajectory_status(
                 trajectory, elapsed_time, settle_count > 0);
 
             update_telemetry(current_pose_body, reference_state, ramsete_output,
@@ -310,40 +322,41 @@ namespace abclib::trajectory
         chassis_->stop_motors();
 
         {
-            auto &telem = abclib::telemetry.get_write_buffer();
-            telem.path_status = abclib::PathFollowerStatus::IDLE;
-            abclib::telemetry.swap();
+            auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
+            telem.path_status = abclib::telemetry::PathFollowerStatus::IDLE;
+            abclib::telemetry::g_telemetry.swap();
         }
     }
 
-    PathFollowerStatus PathFollower::determine_trajectory_status(
+    telemetry::PathFollowerStatus PathFollower::determine_trajectory_status(
         const Trajectory &trajectory,
         units::Time elapsed_time,
         bool is_settling) const
     {
         if (is_settling)
         {
-            return abclib::PathFollowerStatus::SETTLING;
+            return abclib::telemetry::PathFollowerStatus::SETTLING;
         }
 
         if (trajectory.is_complete(elapsed_time))
         {
-            return abclib::PathFollowerStatus::COMPLETE;
+            return abclib::telemetry::PathFollowerStatus::COMPLETE;
         }
 
         auto state = trajectory.get_state(elapsed_time);
 
-        if (state.arc_acceleration > 0.01)
+        // Compare with typed units
+        if (state.arc_acceleration > units::Acceleration::from_mps2(0.01))
         {
-            return abclib::PathFollowerStatus::ACCELERATING;
+            return abclib::telemetry::PathFollowerStatus::ACCELERATING;
         }
-        else if (state.arc_acceleration < -0.01)
+        else if (state.arc_acceleration < units::Acceleration::from_mps2(-0.01))
         {
-            return abclib::PathFollowerStatus::DECELERATING;
+            return abclib::telemetry::PathFollowerStatus::DECELERATING;
         }
         else
         {
-            return abclib::PathFollowerStatus::CRUISING;
+            return abclib::telemetry::PathFollowerStatus::CRUISING;
         }
     }
 
@@ -370,7 +383,7 @@ namespace abclib::trajectory
             {
                 // Time is within this group - calculate relative time
                 units::Time relative_time = units::Time::from_seconds(
-                    time.seconds - cumulative_time.seconds);
+                    time.to_seconds() - cumulative_time.to_seconds());
 
                 // Return state from this group's trajectory
                 TrajectoryState state = trajectory.get_state(relative_time);
@@ -380,7 +393,7 @@ namespace abclib::trajectory
 
             // Move to next group
             cumulative_time = units::Time::from_seconds(
-                cumulative_time.seconds + group_duration.seconds);
+                cumulative_time.to_seconds() + group_duration.to_seconds());
         }
 
         // Time is beyond path end - return final state

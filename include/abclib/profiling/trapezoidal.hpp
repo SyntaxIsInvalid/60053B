@@ -173,7 +173,7 @@ namespace abclib::profiling
         // Check if we can reach max velocity
         // Using v² = 2ad, so d = v²/(2a)
         auto vel_squared = units::Qsq(max_velocity_);
-        auto distance_to_reach_max_vel = vel_squared / (max_acceleration_ * 2.0);
+        units::Length distance_to_reach_max_vel = units::Length(vel_squared / (max_acceleration_ * 2.0));
 
         if (distance_to_reach_max_vel.to_meters() <= total_distance_.to_meters())
         {
@@ -182,8 +182,8 @@ namespace abclib::profiling
             peak_velocity_ = max_velocity_;
 
             // t = v / a
-            accel_time_ = units::Time::from_seconds(
-                max_velocity_.to_mps() / max_acceleration_.to_mps2());
+            units::Time accel_time = units::Time(max_velocity_ / max_acceleration_);
+            accel_time_ = accel_time;
 
             // d = 0.5 * a * t²
             double accel_time_s = accel_time_.to_seconds();
@@ -214,8 +214,8 @@ namespace abclib::profiling
             peak_velocity_ = units::Velocity::from_mps(peak_vel_mps);
 
             // t = v / a
-            accel_time_ = units::Time::from_seconds(
-                peak_velocity_.to_mps() / max_acceleration_.to_mps2());
+            units::Time accel_time = units::Time(peak_velocity_ / max_acceleration_);
+            accel_time_ = accel_time;
 
             accel_distance_ = units::Length::from_meters(total_distance_.to_meters() / 2.0);
             decel_distance_ = accel_distance_;

@@ -6,17 +6,18 @@
 #include "arc_length_differential_drive.hpp"
 #include "abclib/units/units.hpp"
 #include "pose.hpp"
+
 namespace abclib::estimation
 {
     class GeometricOdometryEstimator : public IStateEstimator
     {
     private:
-        IMeasurementModel<units::Distance>* vertical_model_;
-        IMeasurementModel<units::Distance>* horizontal_model_;
-        IMeasurementModel<units::Radians>* imu_model_;
+        IMeasurementModel<units::Length>* vertical_model_;
+        IMeasurementModel<units::Length>* horizontal_model_;
+        IMeasurementModel<units::Angle>* imu_model_;
         
-        units::Distance vertical_offset_;
-        units::Distance horizontal_offset_;
+        units::Length vertical_offset_;
+        units::Length horizontal_offset_;
 
         Pose current_pose_{};
 
@@ -26,11 +27,11 @@ namespace abclib::estimation
 
     public:
         GeometricOdometryEstimator(
-            IMeasurementModel<units::Distance>* vertical_model,
-            IMeasurementModel<units::Distance>* horizontal_model,
-            IMeasurementModel<units::Radians>* imu_model,
-            units::Distance vertical_offset,
-            units::Distance horizontal_offset);
+            IMeasurementModel<units::Length>* vertical_model,
+            IMeasurementModel<units::Length>* horizontal_model,
+            IMeasurementModel<units::Angle>* imu_model,
+            units::Length vertical_offset,
+            units::Length horizontal_offset);
             
         ~GeometricOdometryEstimator();
 

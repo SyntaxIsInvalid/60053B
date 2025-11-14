@@ -6,27 +6,27 @@
 
 namespace abclib::estimation
 {
-    class WheelMeasurementModel : public IMeasurementModel<units::Distance>
+    class WheelMeasurementModel : public IMeasurementModel<units::Length>
     {
     private:
         hardware::ITrackingWheel* wheel_;
-        units::Distance prev_reading_;
+        units::Length prev_reading_;
         
     public:
         explicit WheelMeasurementModel(hardware::ITrackingWheel* wheel)
-            : wheel_(wheel), prev_reading_(units::Distance::from_inches(0.0))
+            : wheel_(wheel), prev_reading_(units::Length::from_inches(0.0))
         {
             if (wheel_) {
                 prev_reading_ = wheel_->get_distance();
             }
         }
         
-        units::Distance get_measurement() override
+        units::Length get_measurement() override
         {
-            if (!wheel_) return units::Distance::from_inches(0.0);
+            if (!wheel_) return units::Length::from_inches(0.0);
             
-            units::Distance current = wheel_->get_distance();
-            units::Distance delta = current - prev_reading_;
+            units::Length current = wheel_->get_distance();
+            units::Length delta = current - prev_reading_;
             prev_reading_ = current;
             return delta;
         }

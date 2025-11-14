@@ -32,7 +32,7 @@ namespace abclib::path
         {
             double total = 0.0;
             for (const auto& group : groups_) {
-                total += group.total_arc_length;
+                total += group.total_arc_length.to_inches();
             }
             return total;
         }

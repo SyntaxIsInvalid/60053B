@@ -3,7 +3,7 @@
 
 namespace abclib::auton {
     inline void path_builder_test(RobotSubsystems& robot) {
-        // Add path:: namespace qualifier
+        /*
         path::PathBuilder builder(units::Distance::from_inches(14.0));
         path::Path test_complex = builder
             .start(0, 0, 0)
@@ -39,5 +39,6 @@ namespace abclib::auton {
         path::PathLogger::log_path(test_complex, "test_complex_path");
         trajectory::TrajectoryLogger::log_path_trajectories(test_complex, "test_complex_trajectories");
         pros::lcd::print(0, "All path tests logged!");
+        */
     }
 }

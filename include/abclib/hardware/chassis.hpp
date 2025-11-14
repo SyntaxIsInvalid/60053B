@@ -16,8 +16,8 @@ namespace abclib::hardware
     {
         hardware::AdvancedMotorGroup *left;
         hardware::AdvancedMotorGroup *right;
-        units::Distance diameter;
-        units::Distance track_width;
+        units::Length diameter;    // Changed from Distance
+        units::Length track_width; // Changed from Distance
         control::RamseteConstants ramsete_constants = {2.0, 0.7};
         bool use_pros_controller = false;
         double turn_in_place_kS = 0.0;
@@ -68,36 +68,34 @@ namespace abclib::hardware
 
         control::PID lateral_pid;
         control::PID angular_pid;
-        // estimation::Odometry odom;
         std::unique_ptr<estimation::IStateEstimator> estimator_;
 
-        units::Distance track_width;
-        units::Distance wheel_diameter;
+        units::Length track_width;    // Changed from Distance
+        units::Length wheel_diameter; // Changed from Distance
         ChassisConfig config_;
 
         double ticks;
-        units::Distance get_wheel_radius() const { return wheel_diameter / 2.0; }
         std::unique_ptr<trajectory::PathFollower> path_follower_;
 
         struct SettlementConfig
         {
-            units::Radians angular_threshold = units::Radians(1 * M_PI / 180.0);
-            units::Distance position_threshold = units::Distance::from_inches(0.5);
-            units::BodyAngularVelocity angular_velocity_threshold =
-                units::BodyAngularVelocity(0.1);
-            units::BodyLinearVelocity linear_velocity_threshold =
-                units::BodyLinearVelocity(0.15);
+            units::Angle angular_threshold = units::Angle::from_degrees(1);     // Changed from Radians
+            units::Length position_threshold = units::Length::from_inches(0.5); // Changed from Distance
+            units::AngularVelocity angular_velocity_threshold =
+                units::AngularVelocity::from_rad_per_sec(0.1); // Changed from BodyAngularVelocity
+            units::Velocity linear_velocity_threshold =
+                units::Velocity::from_ips(0.15); // Changed from BodyLinearVelocity
             int settle_count_required = 3;
         };
 
         SettlementConfig settlement_config_;
 
-        bool check_angular_settlement(units::Radians error,
-                                      units::BodyAngularVelocity omega,
+        bool check_angular_settlement(units::Angle error,           // Changed from Radians
+                                      units::AngularVelocity omega, // Changed from BodyAngularVelocity
                                       int &settle_count) const;
 
-        bool check_linear_settlement(units::Distance error,
-                                     units::BodyLinearVelocity velocity,
+        bool check_linear_settlement(units::Length error,      // Changed from Distance
+                                     units::Velocity velocity, // Changed from BodyLinearVelocity
                                      int &settle_count) const;
 
     public:
@@ -106,18 +104,18 @@ namespace abclib::hardware
                 const control::PIDConstants angular_constants);
         ~Chassis();
         void drive(int throttle, int turn, double throttle_coefficient, double turn_coefficient);
-
+        units::Length get_wheel_radius() const { return wheel_diameter / 2.0; } // Changed return type
         void move_left_motors(units::Voltage voltage);
         void move_right_motors(units::Voltage voltage);
 
         void calibrate();
         void reset_chassis_position();
-        units::BodyHeading get_heading();
+        units::Angle get_heading(); // Changed return type from BodyHeading
 
         estimation::Pose get_pose() const;
         const ChassisConfig &get_config() const { return config_; }
 
-        void drive_straight_relative(units::Distance target_distance,
+        void drive_straight_relative(units::Length target_distance, // Changed from Distance
                                      units::Time timeout = units::Time::from_seconds(5),
                                      units::Voltage lateral_min = units::Voltage::from_volts(0),
                                      units::Voltage lateral_max = units::Voltage::from_volts(12),
@@ -125,20 +123,21 @@ namespace abclib::hardware
                                      units::Voltage angular_max = units::Voltage::from_volts(0),
                                      bool reset_position = false);
 
-        void turn_to_heading(units::Degrees target_heading,
+        void turn_to_heading(units::Angle target_heading, // Changed from Degrees
                              units::Time timeout = units::Time::from_seconds(3),
                              units::Voltage angular_min = units::Voltage::from_volts(0),
                              units::Voltage angular_max = units::Voltage::from_volts(6),
                              bool reset_position = false);
-        void turn_relative(units::Degrees angle_delta,
+
+        void turn_relative(units::Angle angle_delta, // Changed from Degrees
                            units::Time timeout = units::Time::from_seconds(3),
                            units::Voltage angular_min = units::Voltage::from_volts(0),
                            units::Voltage angular_max = units::Voltage::from_volts(6));
 
         void euclidean_move_to_pose(
-            units::Distance target_x,
-            units::Distance target_y,
-            units::Degrees target_heading,
+            units::Length target_x,      // Changed from Distance
+            units::Length target_y,      // Changed from Distance
+            units::Angle target_heading, // Changed from Degrees
             units::Time total_timeout = units::Time::from_seconds(15),
             units::Time turn1_timeout = units::Time::from_seconds(5),
             units::Time drive_timeout = units::Time::from_seconds(5),
@@ -149,42 +148,41 @@ namespace abclib::hardware
             units::Voltage angular_max = units::Voltage::from_volts(6));
 
         void move_voltage(units::Voltage left_voltage, units::Voltage right_voltage);
-        void move_velocity(units::WheelLinearVelocity left_velocity,
-                           units::WheelLinearVelocity right_velocity,
+
+        void move_velocity(units::Velocity left_velocity,  // Changed from WheelLinearVelocity
+                           units::Velocity right_velocity, // Changed from WheelLinearVelocity
                            double left_acceleration = 0.0,
                            double right_acceleration = 0.0);
 
-        void move_velocity(units::WheelLinearVelocity left_velocity,
-                           units::WheelLinearVelocity right_velocity,
+        void move_velocity(units::Velocity left_velocity,  // Changed from WheelLinearVelocity
+                           units::Velocity right_velocity, // Changed from WheelLinearVelocity
                            double left_acceleration,
                            double right_acceleration,
                            double override_kS,
                            double override_kV,
                            double override_kA);
 
-        void set_pose(units::Distance x,
-                      units::Distance y,
-                      units::Radians heading);
-
-        void set_pose(units::Distance x,
-                      units::Distance y,
-                      units::Degrees heading);
+        void set_pose(units::Length x,       // Changed from Distance
+                      units::Length y,       // Changed from Distance
+                      units::Angle heading); // Changed from Radians
 
         void turn_to_heading_profiled_pid(
-            units::Degrees target_heading,
+            units::Angle target_heading, // Changed from Degrees
             double max_angular_velocity_deg_per_sec,
             double max_angular_acceleration_deg_per_sec2,
             units::Time timeout);
 
         void drive_straight_profiled_pid(
-            units::Distance target_distance,
+            units::Length target_distance, // Changed from Distance
             double max_velocity_inches_per_sec,
             double max_acceleration_inches_per_sec2,
             units::Time timeout = units::Time::from_seconds(5),
             bool reset_position = false);
 
-        units::Distance get_track_width() const { return track_width; }
+        units::Length get_track_width() const { return track_width; } // Changed return type
+
         void stop_motors();
+
         void follow_segment(const path::IPathSegment *segment,
                             const trajectory::FollowerConfig &config)
         {
@@ -197,24 +195,24 @@ namespace abclib::hardware
             path_follower_->follow_path(path, timeout);
         }
 
-        void move_velocity_pros(units::WheelLinearVelocity left_velocity,
-                                units::WheelLinearVelocity right_velocity);
+        void move_velocity_pros(units::Velocity left_velocity,   // Changed from WheelLinearVelocity
+                                units::Velocity right_velocity); // Changed from WheelLinearVelocity
 
         void move_straight_profiled(
-            units::Distance distance,
-            units::BodyLinearVelocity max_velocity,
+            units::Length distance,       // Changed from Distance
+            units::Velocity max_velocity, // Changed from BodyLinearVelocity
             double max_acceleration,
             units::Time timeout = units::Time::from_seconds(5),
             double heading_tolerance = 0.1 // ~5.7 degrees tolerance for IMU drift
         );
 
         void turn_to_heading_profiled(
-            units::Degrees target_heading,
+            units::Angle target_heading, // Changed from Degrees
             double max_body_angular_velocity_deg_per_sec,
-            double max_bodyangular_acceleration_deg_per_sec2,
+            double max_body_angular_acceleration_deg_per_sec2,
             units::Time timeout = units::Time::from_seconds(3));
 
-        void turn_to_heading_test(units::Degrees target_heading,
+        void turn_to_heading_test(units::Angle target_heading, // Changed from Degrees
                                   units::Time timeout,
                                   units::Voltage angular_min,
                                   units::Voltage angular_max,
@@ -233,10 +231,10 @@ namespace abclib::hardware
         void reset_telemetry_accumulators();
 
         void update_lateral_telemetry(
-            units::Distance error,
+            units::Length error, // Changed from Distance
             double output_volts,
-            units::Distance target,
-            units::Distance actual,
+            units::Length target, // Changed from Distance
+            units::Length actual, // Changed from Distance
             double dt);
 
         void update_angular_telemetry(
@@ -257,7 +255,7 @@ namespace abclib::hardware
         void update_settlement_telemetry(
             bool is_settled,
             int settle_count,
-            SettlementReason reason,
+            telemetry::SettlementReason reason,
             uint32_t start_time);
 
         void set_lateral_pid_constants(const control::PIDConstants &constants)

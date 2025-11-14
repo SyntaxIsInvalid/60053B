@@ -1,403 +1,274 @@
+#include "abclib/sysid/motor_characterization.hpp"
 #include "abclib/hardware/motor_group.hpp"
-#include <algorithm>
-#include <cmath>
-#include <mutex>
+#include "abclib/hardware/chassis.hpp"
 #include "abclib/units/units.hpp"
+#include "api.h"
+#include <fstream>
+#include <vector>
+#include <cmath>
 
-namespace abclib::hardware
+namespace abclib::sysid
 {
+    using namespace units;
 
-    AdvancedMotorGroup::AdvancedMotorGroup(
-        const std::vector<AdvancedMotor *> &motors_list,
-        const motor_group_config &config,
-        bool enable_feedforward)
-        : motors(motors_list),
-          rotation_sensor(config.rotation),
-          further_gearing(config.group_gearing),
-          group_config(config),
-          using_encoder(config.rotation != nullptr),
-          position_pid(control::PIDConstants{config.kPs, config.kIs, config.kDs, config.max_integral_position}),
-          velocity_pid(control::PIDConstants{config.kPv, config.kIv, config.kDv, config.max_integral_velocity}),
-          use_feedforward(enable_feedforward)
+    void measure_ks_kv(
+        hardware::AdvancedMotorGroup &left,
+        hardware::AdvancedMotorGroup &right,
+        bool forward,
+        const char *filename,
+        double max_voltage,
+        double voltage_step,
+        int step_duration_ms)
     {
-        if (!motors.empty())
+        std::ofstream file(filename);
+        file << "voltage,left_velocity_rpm,right_velocity_rpm,avg_velocity_rpm\n";
+
+        left.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+        right.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+
+        double direction = forward ? 1.0 : -1.0;
+
+        for (double voltage = 0.0; voltage <= max_voltage; voltage += voltage_step)
         {
-            ticks = motors[0]->get_ticks() * further_gearing;
-        }
-        else
-        {
-            ticks = 0;
-        }
-    }
+            Voltage applied_voltage = Voltage::from_volts(direction * voltage);
 
-    AdvancedMotorGroup::AdvancedMotorGroup(
-        const std::vector<int8_t> &ports,
-        pros::MotorGearset gearset,
-        const motor_group_config &config,
-        bool enable_feedforward)
-        : rotation_sensor(config.rotation),
-          further_gearing(config.group_gearing),
-          group_config(config),
-          using_encoder(config.rotation != nullptr),
-          position_pid(control::PIDConstants{config.kPs, config.kIs, config.kDs, config.max_integral_position}),
-          velocity_pid(control::PIDConstants{config.kPv, config.kIv, config.kDv, config.max_integral_velocity}),
-          use_feedforward(enable_feedforward)
-    {
-        owned_motors_.reserve(ports.size());
-        owned_advanced_motors_.reserve(ports.size());
-        motors.reserve(ports.size());
+            left.move_voltage(applied_voltage);
+            right.move_voltage(applied_voltage);
 
-        for (int8_t port : ports)
-        {
-            owned_motors_.push_back(std::make_unique<pros::Motor>(port, gearset));
+            pros::delay(step_duration_ms);
 
-            MotorConfig motor_cfg{};
-            motor_cfg.brake_mode = pros::E_MOTOR_BRAKE_COAST;
-            motor_cfg.enable_voltage_compensation = config.enable_voltage_compensation;
-            motor_cfg.compensation_nominal = config.compensation_nominal;
-            motor_cfg.compensation_min_battery = config.compensation_min_battery;
+            AngularVelocity left_vel = left.get_raw_velocity();
+            AngularVelocity right_vel = right.get_raw_velocity();
 
-            owned_advanced_motors_.push_back(
-                std::make_unique<AdvancedMotor>(owned_motors_.back().get(), motor_cfg));
+            double left_rpm = left_vel.to_rpm();
+            double right_rpm = right_vel.to_rpm();
+            double avg_rpm = (left_rpm + right_rpm) / 2.0;
 
-            motors.push_back(owned_advanced_motors_.back().get());
+            file << voltage << ","
+                 << left_rpm << ","
+                 << right_rpm << ","
+                 << avg_rpm << "\n";
         }
 
-        if (!motors.empty())
+        left.brake();
+        right.brake();
+        file.close();
+    }
+
+    void measure_ks_kv_turn(
+        hardware::AdvancedMotorGroup &left,
+        hardware::AdvancedMotorGroup &right,
+        bool ccw_rotation,
+        const char *filename,
+        double max_voltage,
+        double voltage_step,
+        int step_duration_ms)
+    {
+        std::ofstream file(filename);
+        file << "voltage,left_velocity_rpm,right_velocity_rpm,avg_velocity_rpm\n";
+
+        left.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+        right.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+
+        double direction = ccw_rotation ? 1.0 : -1.0;
+
+        for (double voltage = 0.0; voltage <= max_voltage; voltage += voltage_step)
         {
-            ticks = motors[0]->get_ticks() * further_gearing;
+            Voltage left_voltage = Voltage::from_volts(direction * voltage);
+            Voltage right_voltage = Voltage::from_volts(-direction * voltage);
+
+            left.move_voltage(left_voltage);
+            right.move_voltage(right_voltage);
+
+            pros::delay(step_duration_ms);
+
+            AngularVelocity left_vel = left.get_raw_velocity();
+            AngularVelocity right_vel = right.get_raw_velocity();
+
+            double left_rpm = left_vel.to_rpm();
+            double right_rpm = right_vel.to_rpm();
+            double avg_rpm = (std::abs(left_rpm) + std::abs(right_rpm)) / 2.0;
+
+            file << voltage << ","
+                 << left_rpm << ","
+                 << right_rpm << ","
+                 << avg_rpm << "\n";
         }
-        else
+
+        left.brake();
+        right.brake();
+        file.close();
+    }
+
+    void measure_velocity_pid(
+        hardware::Chassis &chassis,
+        bool forward,
+        const char *filename,
+        double target_rpm,
+        int settle_duration_ms)
+    {
+        std::ofstream file(filename);
+        file << "time_ms,target_rpm,left_rpm,right_rpm,left_voltage,right_voltage\n";
+
+        AngularVelocity target_velocity = AngularVelocity::from_rpm(forward ? target_rpm : -target_rpm);
+
+        uint32_t start_time = pros::millis();
+        uint32_t current_time = 0;
+
+        // Get the wheel radius to convert linear velocity to angular velocity
+        Length wheel_radius = chassis.get_wheel_radius();
+
+        // Convert RPM to linear velocity (ips) then back to angular velocity for the motors
+        Velocity linear_velocity = Velocity::from_ips(
+            (target_velocity.to_rpm() / 60.0) * 2.0 * constants::PI * wheel_radius.to_inches());
+
+        while (current_time < static_cast<uint32_t>(settle_duration_ms))
         {
-            ticks = 0;
-        }
-    }
+            current_time = pros::millis() - start_time;
 
-    AdvancedMotorGroup::~AdvancedMotorGroup()
-    {
-        std::lock_guard<pros::Mutex> lock(task_mutex_);
-        if (current_task_.has_value())
-        {
-            current_task_->notify();
-        }
-    }
+            // Use the chassis move_velocity method directly
+            chassis.move_velocity_pros(linear_velocity, linear_velocity);
 
-    void AdvancedMotorGroup::reset_position()
-    {
-        for (auto m : motors)
-            m->reset_position();
-        if (using_encoder)
-            rotation_sensor->reset_position();
-    }
+            // Get velocities from telemetry
+            const auto &telem = telemetry::g_telemetry.get_read_buffer();
+            double left_rpm = telem.left_motor_actual_velocity.to_rpm();
+            double right_rpm = telem.right_motor_actual_velocity.to_rpm();
 
-    void AdvancedMotorGroup::move_voltage(units::Voltage voltage)
-    {
-        for (auto m : motors)
-            m->move_voltage(voltage);
-    }
+            file << current_time << ","
+                 << target_rpm << ","
+                 << left_rpm << ","
+                 << right_rpm << ",0,0\n"; // Voltage values from telemetry if needed
 
-    void AdvancedMotorGroup::set_brake_mode(pros::motor_brake_mode_e_t mode)
-    {
-        for (auto m : motors)
-            m->set_brake_mode(mode);
-    }
-
-    void AdvancedMotorGroup::brake()
-    {
-        for (auto m : motors)
-            m->brake();
-    }
-
-    double AdvancedMotorGroup::get_ticks()
-    {
-        return ticks;
-    }
-
-    units::AngularVelocity AdvancedMotorGroup::get_raw_velocity() const
-    {
-        if (using_encoder)
-        {
-            // Rotation sensor returns centidegrees/s, convert to rad/s
-            double deg_per_sec = rotation_sensor->get_velocity() / 100.0;
-            return units::AngularVelocity::from_deg_per_sec(deg_per_sec);
-        }
-        if (motors.empty())
-            return units::AngularVelocity::from_rad_per_sec(0.0);
-
-        double sum = 0.0;
-        for (auto m : motors)
-            sum += m->get_raw_velocity().to_rad_per_sec();
-
-        return units::AngularVelocity::from_rad_per_sec(sum / motors.size());
-    }
-
-    units::Angle AdvancedMotorGroup::get_raw_position() const
-    {
-        if (using_encoder)
-        {
-            // Rotation sensor returns centidegrees
-            double centidegrees = rotation_sensor->get_position();
-            double degrees = centidegrees / 100.0;
-            return units::Angle::from_degrees(degrees);
-        }
-        if (motors.empty())
-            return units::Angle::from_radians(0.0);
-
-        double sum_rad = 0.0;
-        for (auto m : motors)
-            sum_rad += m->get_raw_position().to_radians();
-
-        return units::Angle::from_radians(sum_rad / motors.size());
-    }
-
-    units::Angle AdvancedMotorGroup::get_position() const
-    {
-        return get_raw_position();
-    }
-
-    units::AngularVelocity AdvancedMotorGroup::get_velocity() const
-    {
-        return get_raw_velocity();
-    }
-
-    void AdvancedMotorGroup::set_feedforward(bool enable)
-    {
-        use_feedforward = enable;
-    }
-
-    bool AdvancedMotorGroup::is_using_feedforward() const
-    {
-        return use_feedforward;
-    }
-
-    units::Current AdvancedMotorGroup::get_current_draw() const
-    {
-        double sum = 0.0;
-        for (auto m : motors)
-            sum += m->get_current_draw().to_amps();
-        return units::Current::from_amps(sum);
-    }
-
-    units::Current AdvancedMotorGroup::get_average_current_draw() const
-    {
-        if (motors.empty())
-            return units::Current::from_amps(0.0);
-        return units::Current::from_amps(get_current_draw().to_amps() / motors.size());
-    }
-
-    std::vector<units::Current> AdvancedMotorGroup::get_individual_current_draws() const
-    {
-        std::vector<units::Current> currents;
-        currents.reserve(motors.size());
-        for (auto m : motors)
-            currents.push_back(m->get_current_draw());
-        return currents;
-    }
-
-    void AdvancedMotorGroup::rotate_to(units::Angle target, units::Time timeout,
-                                       units::Voltage min_voltage, units::Voltage max_voltage)
-    {
-        reset_position();
-        uint32_t start = pros::millis();
-        const double threshold = 1.0; // degrees
-        const double dt = 0.01;
-        position_pid.reset();
-
-        while ((pros::millis() - start) < timeout.to_milliseconds())
-        {
-            if (pros::Task::notify_take(true, 0) > 0)
-            {
-                break;
-            }
-
-            units::Angle pos = get_position();
-            units::AngularVelocity vel = get_raw_velocity();
-
-            double pos_deg = pos.to_degrees();
-            double target_deg = target.to_degrees();
-
-            if (std::fabs(target_deg - pos_deg) <= threshold &&
-                std::fabs(vel.to_rad_per_sec()) < 0.1)
-                break;
-
-            double err = target_deg - pos_deg;
-            double out = position_pid.compute(err, dt);
-
-            units::Voltage output_voltage = units::Voltage::from_volts(
-                std::clamp(out, min_voltage.to_volts(), max_voltage.to_volts()));
-            move_voltage(output_voltage);
             pros::delay(10);
         }
-        brake();
+
+        chassis.stop_motors();
+        file.close();
     }
 
-    void AdvancedMotorGroup::rotate_to_task(units::Angle target, units::Time timeout,
-                                            units::Voltage min_voltage, units::Voltage max_voltage)
+    void measure_ka(
+        hardware::AdvancedMotorGroup &left,
+        hardware::AdvancedMotorGroup &right,
+        bool forward,
+        const char *filename,
+        double constant_voltage,
+        int test_duration_ms)
     {
-        std::lock_guard<pros::Mutex> lock(task_mutex_);
+        std::ofstream file(filename);
+        file << "time_ms,left_velocity_rpm,right_velocity_rpm,left_acceleration,right_acceleration\n";
 
-        if (current_task_.has_value())
+        left.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+        right.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+        left.reset_position();
+        right.reset_position();
+
+        double direction = forward ? 1.0 : -1.0;
+        Voltage applied_voltage = Voltage::from_volts(direction * constant_voltage);
+
+        uint32_t start_time = pros::millis();
+        AngularVelocity prev_left_vel = AngularVelocity::from_rpm(0.0);
+        AngularVelocity prev_right_vel = AngularVelocity::from_rpm(0.0);
+        uint32_t prev_time = start_time;
+
+        left.move_voltage(applied_voltage);
+        right.move_voltage(applied_voltage);
+
+        while ((pros::millis() - start_time) < static_cast<uint32_t>(test_duration_ms))
         {
-            current_task_->notify();
-        }
+            uint32_t current_time = pros::millis();
+            double dt = (current_time - prev_time) / 1000.0;
 
-        current_task_ = pros::Task([this, target, timeout, min_voltage, max_voltage]()
-                                   { this->rotate_to(target, timeout, min_voltage, max_voltage); });
-    }
+            AngularVelocity left_vel = left.get_raw_velocity();
+            AngularVelocity right_vel = right.get_raw_velocity();
 
-    void AdvancedMotorGroup::hold_velocity(units::AngularVelocity target_velocity, units::Time timeout,
-                                           units::Voltage min_voltage, units::Voltage max_voltage)
-    {
-        uint32_t start = pros::millis();
-        const double dt = 0.01;
-        velocity_pid.reset();
+            double left_accel = 0.0;
+            double right_accel = 0.0;
 
-        while ((pros::millis() - start) < timeout.to_milliseconds())
-        {
-            if (pros::Task::notify_take(true, 0) > 0)
+            if (dt > 0.0)
             {
-                break;
+                left_accel = (left_vel.to_rad_per_sec() - prev_left_vel.to_rad_per_sec()) / dt;
+                right_accel = (right_vel.to_rad_per_sec() - prev_right_vel.to_rad_per_sec()) / dt;
             }
 
-            units::AngularVelocity vel = get_raw_velocity();
+            file << (current_time - start_time) << ","
+                 << left_vel.to_rpm() << ","
+                 << right_vel.to_rpm() << ","
+                 << left_accel << ","
+                 << right_accel << "\n";
 
-            double target_rad_s = target_velocity.to_rad_per_sec();
-            double vel_rad_s = vel.to_rad_per_sec();
-            double err = target_rad_s - vel_rad_s;
-            double out = velocity_pid.compute(err, dt);
+            prev_left_vel = left_vel;
+            prev_right_vel = right_vel;
+            prev_time = current_time;
 
-            if (use_feedforward)
-            {
-                double ff = group_config.kS * ((target_rad_s > 0) - (target_rad_s < 0));
-                ff += group_config.kV * target_rad_s;
-                out += ff;
-            }
-
-            units::Voltage output_voltage = units::Voltage::from_volts(
-                std::clamp(out, min_voltage.to_volts(), max_voltage.to_volts()));
-            move_voltage(output_voltage);
             pros::delay(10);
         }
+
+        left.brake();
+        right.brake();
+        file.close();
     }
 
-    void AdvancedMotorGroup::hold_velocity_task(units::AngularVelocity target_velocity, units::Time timeout,
-                                                units::Voltage min_voltage, units::Voltage max_voltage)
+    void measure_ka_turn(
+        hardware::AdvancedMotorGroup &left,
+        hardware::AdvancedMotorGroup &right,
+        bool ccw_rotation,
+        const char *filename,
+        double constant_voltage,
+        int test_duration_ms)
     {
-        std::lock_guard<pros::Mutex> lock(task_mutex_);
+        std::ofstream file(filename);
+        file << "time_ms,left_velocity_rpm,right_velocity_rpm,left_acceleration,right_acceleration\n";
 
-        if (current_task_.has_value())
+        left.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+        right.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+        left.reset_position();
+        right.reset_position();
+
+        double direction = ccw_rotation ? 1.0 : -1.0;
+        Voltage left_voltage = Voltage::from_volts(direction * constant_voltage);
+        Voltage right_voltage = Voltage::from_volts(-direction * constant_voltage);
+
+        uint32_t start_time = pros::millis();
+        AngularVelocity prev_left_vel = AngularVelocity::from_rpm(0.0);
+        AngularVelocity prev_right_vel = AngularVelocity::from_rpm(0.0);
+        uint32_t prev_time = start_time;
+
+        left.move_voltage(left_voltage);
+        right.move_voltage(right_voltage);
+
+        while ((pros::millis() - start_time) < static_cast<uint32_t>(test_duration_ms))
         {
-            current_task_->notify();
-        }
+            uint32_t current_time = pros::millis();
+            double dt = (current_time - prev_time) / 1000.0;
 
-        current_task_ = pros::Task([this, target_velocity, timeout, min_voltage, max_voltage]()
-                                   { this->hold_velocity(target_velocity, timeout, min_voltage, max_voltage); });
-    }
+            AngularVelocity left_vel = left.get_raw_velocity();
+            AngularVelocity right_vel = right.get_raw_velocity();
 
-    void AdvancedMotorGroup::move_velocity_continuous(units::AngularVelocity target_velocity,
-                                                      double target_acceleration)
-    {
-        const double dt = 0.01;
+            double left_accel = 0.0;
+            double right_accel = 0.0;
 
-        units::AngularVelocity vel = get_raw_velocity();
-        double target_rad_s = target_velocity.to_rad_per_sec();
-        double vel_rad_s = vel.to_rad_per_sec();
-        double err = target_rad_s - vel_rad_s;
-        double out = velocity_pid.compute(err, dt);
-
-        if (use_feedforward)
-        {
-            double ff = group_config.kS * ((target_rad_s > 0) - (target_rad_s < 0));
-            ff += group_config.kV * target_rad_s;
-            ff += group_config.kA * target_acceleration;
-            out += ff;
-        }
-
-        units::Voltage output_voltage = units::Voltage::from_volts(std::clamp(out, -12.0, 12.0));
-        move_voltage(output_voltage);
-    }
-
-    void AdvancedMotorGroup::move_velocity_continuous(units::AngularVelocity target_velocity, 
-                                                      double target_acceleration,
-                                                      double override_kS,
-                                                      double override_kV,
-                                                      double override_kA)
-    {
-        const double dt = 0.01;
-
-        units::AngularVelocity vel = get_raw_velocity();
-        double target_rad_s = target_velocity.to_rad_per_sec();
-        double vel_rad_s = vel.to_rad_per_sec();
-        double err = target_rad_s - vel_rad_s;
-        double out = velocity_pid.compute(err, dt);
-
-        if (use_feedforward)
-        {
-            double ff = override_kS * ((target_rad_s > 0) - (target_rad_s < 0));
-            ff += override_kV * target_rad_s;
-            ff += override_kA * target_acceleration;
-            out += ff;
-        }
-
-        units::Voltage output_voltage = units::Voltage::from_volts(std::clamp(out, -12.0, 12.0));
-        move_voltage(output_voltage);
-    }
-
-    void AdvancedMotorGroup::move_velocity_continuous_task(units::AngularVelocity target_velocity)
-    {
-        std::lock_guard<pros::Mutex> lock(task_mutex_);
-
-        if (current_task_.has_value())
-        {
-            current_task_->notify();
-        }
-
-        current_task_ = pros::Task([this, target_velocity]()
-                                   {
-            while (pros::Task::notify_take(true, 0) == 0) {
-                this->move_velocity_continuous(target_velocity, 0.0);
-                pros::delay(10);
+            if (dt > 0.0)
+            {
+                left_accel = (left_vel.to_rad_per_sec() - prev_left_vel.to_rad_per_sec()) / dt;
+                right_accel = (right_vel.to_rad_per_sec() - prev_right_vel.to_rad_per_sec()) / dt;
             }
-            this->brake(); });
-    }
 
-    void AdvancedMotorGroup::stop_all_tasks()
-    {
-        std::lock_guard<pros::Mutex> lock(task_mutex_);
+            file << (current_time - start_time) << ","
+                 << left_vel.to_rpm() << ","
+                 << right_vel.to_rpm() << ","
+                 << left_accel << ","
+                 << right_accel << "\n";
 
-        if (current_task_.has_value())
-        {
-            current_task_->notify();
-            current_task_ = std::nullopt;
+            prev_left_vel = left_vel;
+            prev_right_vel = right_vel;
+            prev_time = current_time;
+
+            pros::delay(10);
         }
 
-        brake();
+        left.brake();
+        right.brake();
+        file.close();
     }
 
-    void AdvancedMotorGroup::move_velocity_pros(units::AngularVelocity target_velocity)
-    {
-        for (auto m : motors)
-        {
-            m->move_velocity_pros(target_velocity);
-        }
-    }
-
-    void AdvancedMotorGroup::move_velocity_pros_task(units::AngularVelocity target_velocity)
-    {
-        std::lock_guard<pros::Mutex> lock(task_mutex_);
-
-        if (current_task_.has_value())
-        {
-            current_task_->notify();
-        }
-
-        current_task_ = pros::Task([this, target_velocity]()
-                                   {
-            while (pros::Task::notify_take(true, 0) == 0) {
-                this->move_velocity_pros(target_velocity);
-                pros::delay(10);
-            }
-            this->brake(); });
-    }
-
-} // namespace abclib::hardware
+} // namespace abclib::sysid

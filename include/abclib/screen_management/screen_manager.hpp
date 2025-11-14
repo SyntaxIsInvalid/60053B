@@ -3,7 +3,7 @@
 #include "abclib/telemetry/telemetry.hpp"
 #include <vector>
 
-namespace abclib
+namespace abclib::ui
 {
     class ScreenManager
     {
@@ -51,11 +51,11 @@ namespace abclib
         void update_navigation_buttons();
 
         // Update helpers
-        void update_overview_tab(const TelemetryData &data);
-        void update_pid_tab(const TelemetryData &data);
-        void update_trajectory_tab(const TelemetryData &data);
-        void update_performance_tab(const TelemetryData &data);
-        void update_config_tab(const TelemetryData &data);
+        void update_overview_tab(const telemetry::TelemetryData &data);
+        void update_pid_tab(const telemetry::TelemetryData &data);
+        void update_trajectory_tab(const telemetry::TelemetryData &data);
+        void update_performance_tab(const telemetry::TelemetryData &data);
+        void update_config_tab(const telemetry::TelemetryData &data);
 
         // Image display helpers
         void create_fullscreen_image();
@@ -69,7 +69,7 @@ namespace abclib
         void initialize();
 
         // Update telemetry display (called from loop)
-        void update_telemetry(const TelemetryData &data);
+        void update_telemetry(const telemetry::TelemetryData &data);
     };
 
 } // namespace abclib

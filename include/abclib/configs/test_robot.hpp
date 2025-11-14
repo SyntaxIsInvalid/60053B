@@ -14,9 +14,9 @@ namespace abclib::robot_config {
     constexpr int8_t IMU_PORT = 9;
     
     // Physical dimensions (using typed units)
-    inline constexpr units::Distance WHEEL_DIAMETER = units::Distance::from_inches(3.25);
-    inline constexpr units::Distance TRACK_WIDTH = units::Distance::from_inches(14.0);
-    inline constexpr units::Distance Y_TRACKER_OFFSET = units::Distance::from_inches(7.0);
+    inline constexpr units::Length WHEEL_DIAMETER = units::Length::from_inches(3.25);
+    inline constexpr units::Length TRACK_WIDTH = units::Length::from_inches(14.0);
+    inline constexpr units::Length Y_TRACKER_OFFSET = units::Length::from_inches(7.0);
     
     // Motor configurations
     inline hardware::motor_group_config get_left_motor_config() {

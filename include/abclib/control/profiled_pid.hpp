@@ -8,46 +8,53 @@
 
 namespace abclib::control
 {
+    template<typename QuantityType>
     struct ProfiledPIDConstants
     {
         PIDConstants pid_constants;
-        units::Velocity max_velocity;
-        units::Acceleration max_acceleration;
-        units::Length position_tolerance;
-        units::Velocity velocity_tolerance;
+        typename profiling::ProfileConstraints<QuantityType>::VelocityType max_velocity;
+        typename profiling::ProfileConstraints<QuantityType>::AccelerationType max_acceleration;
+        QuantityType position_tolerance;
+        typename profiling::ProfileConstraints<QuantityType>::VelocityType velocity_tolerance;
     };
 
+    template<typename QuantityType>
     class ProfiledPID
     {
+    public:
+        using VelocityType = decltype(QuantityType() / units::Time());
+        using AccelerationType = decltype(QuantityType() / units::Time() / units::Time());
+        using StateType = profiling::ProfileState<QuantityType>;
+        using ConstraintsType = profiling::ProfileConstraints<QuantityType>;
+        
     private:
         PID pid_;
-        profiling::IncrementalTrapezoidalProfile profile_;
-        profiling::ProfileState current_setpoint_;
-        profiling::ProfileState goal_;
-        units::Length position_tolerance_;
-        units::Velocity velocity_tolerance_;
-        units::Length last_measurement_;
+        profiling::IncrementalTrapezoidalProfile<QuantityType> profile_;
+        StateType current_setpoint_;
+        StateType goal_;
+        QuantityType position_tolerance_;
+        VelocityType velocity_tolerance_;
+        QuantityType last_measurement_;
         bool initialized_;
 
     public:
-        explicit ProfiledPID(const ProfiledPIDConstants& constants);
+        explicit ProfiledPID(const ProfiledPIDConstants<QuantityType>& constants);
         
-        // Compute using units::Length for measurement and goal
-        double compute(units::Length measurement, units::Length goal, units::Time dt);
-        double compute(units::Length measurement, const profiling::ProfileState& goal, units::Time dt);
+        double compute(QuantityType measurement, QuantityType goal, units::Time dt);
+        double compute(QuantityType measurement, const StateType& goal, units::Time dt);
         
-        profiling::ProfileState get_setpoint() const;
-        units::Length get_setpoint_position() const;
-        units::Velocity get_setpoint_velocity() const;
-        profiling::ProfileState get_goal() const;
-        units::Length get_error() const;
+        StateType get_setpoint() const;
+        QuantityType get_setpoint_position() const;
+        VelocityType get_setpoint_velocity() const;
+        StateType get_goal() const;
+        QuantityType get_error() const;
         bool at_goal() const;
         
         void reset();
-        void reset(units::Length initial_position);
-        void reset(const profiling::ProfileState& initial_state);
-        void set_constraints(units::Velocity max_vel, units::Acceleration max_accel);
-        void set_tolerance(units::Length position_tolerance, units::Velocity velocity_tolerance);
+        void reset(QuantityType initial_position);
+        void reset(const StateType& initial_state);
+        void set_constraints(VelocityType max_vel, AccelerationType max_accel);
+        void set_tolerance(QuantityType position_tolerance, VelocityType velocity_tolerance);
         
         PID& get_pid();
         const PID& get_pid() const;

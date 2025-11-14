@@ -27,8 +27,8 @@ namespace abclib::path
 
         // Begin a new profile group
         PathBuilder &begin_profile(const std::string &name,
-                                   units::BodyLinearVelocity max_velocity,
-                                   double max_acceleration)
+                                   units::Velocity max_velocity,         // Already correct
+                                   units::Acceleration max_acceleration) // Change from double
         {
             if (!has_start_)
             {
@@ -38,7 +38,7 @@ namespace abclib::path
             // Finalize previous group if exists
             finalize_current_group();
 
-            // Start new group
+            // Start new group - now types match!
             current_group_ = ProfileGroup(name, max_velocity, max_acceleration);
 
             return *this;

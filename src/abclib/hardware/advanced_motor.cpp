@@ -121,7 +121,9 @@ namespace abclib::hardware
         data.voltage_compensation_active = compensation_active;
         data.voltage_compensation_scale = compensation_scale;
 
-        motor_->move(voltage.to_volts() * 1000.0); // PROS uses millivolts
+        // Convert voltage (-12V to +12V) to motor units (-127 to +127)
+        int motor_command = static_cast<int>((voltage.to_volts() / 12.0) * 127.0);
+        motor_->move(motor_command);
     }
 
     void AdvancedMotor::brake()

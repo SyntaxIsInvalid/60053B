@@ -15,10 +15,10 @@ namespace abclib::trajectory
         {
             // Turn-in-place settlement criteria
             double angular_error = math::normalize_angle(
-                reference_state.theta - current_pose.theta());
+                reference_state.theta - current_pose.theta_rad());
 
             bool heading_ok = std::abs(angular_error) < 0.017; // ~1 degree
-            bool angular_velocity_ok = std::abs(current_pose.omega.rad_per_sec) < 0.1;
+            bool angular_velocity_ok = std::abs(current_pose.omega.to_rad_per_sec()) < 0.1;
 
             if (heading_ok && angular_velocity_ok)
             {
@@ -34,13 +34,12 @@ namespace abclib::trajectory
         else
         {
             // Normal path settlement criteria
-            units::Distance position_error = units::Distance::from_inches(
-                std::sqrt(ramsete_output.e_x.inches * ramsete_output.e_x.inches +
-                          ramsete_output.e_y.inches * ramsete_output.e_y.inches));
+            units::Length position_error = units::Length::from_inches(
+                std::sqrt(ramsete_output.e_x.to_inches() * ramsete_output.e_x.to_inches() +
+                          ramsete_output.e_y.to_inches() * ramsete_output.e_y.to_inches()));
 
-            bool position_ok = position_error.inches < config.position_threshold.inches;
-            bool velocity_ok = std::abs(current_pose.v.inches_per_sec) <
-                               config.velocity_threshold.inches_per_sec;
+            bool position_ok = position_error.to_inches() < config.position_threshold.to_inches();
+            bool velocity_ok = std::abs(current_pose.v.to_ips()) < config.velocity_threshold.to_ips();
 
             if (position_ok && velocity_ok)
             {
@@ -61,62 +60,58 @@ namespace abclib::trajectory
         const control::RamseteOutput &ramsete_output,
         units::Voltage left_voltage,
         units::Voltage right_voltage,
-        PathFollowerStatus status,
+        telemetry::PathFollowerStatus status,
         units::Time elapsed_time,
         units::Time total_time) const
     {
         // Get write buffer reference
-        auto& telem = abclib::telemetry.get_write_buffer();
+        auto& telem = abclib::telemetry::g_telemetry.get_write_buffer();
 
         // Path status and timing
         telem.path_status = status;
         telem.trajectory_time = elapsed_time;
         telem.trajectory_progress = std::clamp(
-            elapsed_time.seconds / total_time.seconds, 0.0, 1.0);
+            elapsed_time.to_seconds() / total_time.to_seconds(), 0.0, 1.0);
         telem.trajectory_total_time = total_time;
 
         // Reference values
         telem.reference_velocity = reference_state.arc_velocity;
-        telem.reference_arc_position = units::Distance::from_inches(
-            reference_state.arc_length);
+        telem.reference_arc_position = units::Length::from_inches(reference_state.arc_length);
 
         // Current pose
-        telem.pose = current_pose.pose;
-        telem.pose_v = current_pose.v;
-        telem.pose_omega = current_pose.omega;
+        telem.pose = current_pose;
 
         // Tracking errors
         telem.lateral_error = ramsete_output.e_y;
         telem.angular_error = ramsete_output.e_theta;
 
         // Target and actual values
-        telem.lateral_target = units::Distance::from_inches(
-            reference_state.arc_length);
-        telem.lateral_actual = units::Distance::from_inches(
-            reference_state.arc_length - ramsete_output.e_x.inches);
+        telem.lateral_target = units::Length::from_inches(reference_state.arc_length);
+        telem.lateral_actual = units::Length::from_inches(
+            reference_state.arc_length - ramsete_output.e_x.to_inches());
 
-        telem.angular_target = units::Radians(reference_state.theta);
-        telem.angular_actual = units::Radians(current_pose.theta());
+        telem.angular_target = units::Angle::from_radians(reference_state.theta);
+        telem.angular_actual = units::Angle::from_radians(current_pose.theta_rad());
 
         // Motor voltages
         telem.left_motor_voltage = left_voltage;
         telem.right_motor_voltage = right_voltage;
 
         // Cross-track error
-        double abs_e_y = std::abs(ramsete_output.e_y.inches);
-        telem.cross_track_error = units::Distance::from_inches(abs_e_y);
-        telem.max_cross_track_error = units::Distance::from_inches(
-            std::max(telem.max_cross_track_error.inches, abs_e_y));
-        telem.cumulative_xte = units::Distance::from_inches(
-            telem.cumulative_xte.inches + abs_e_y * 0.01);
+        double abs_e_y = std::abs(ramsete_output.e_y.to_inches());
+        telem.cross_track_error = units::Length::from_inches(abs_e_y);
+        telem.max_cross_track_error = units::Length::from_inches(
+            std::max(telem.max_cross_track_error.to_inches(), abs_e_y));
+        telem.cumulative_xte = units::Length::from_inches(
+            telem.cumulative_xte.to_inches() + abs_e_y * 0.01);
 
         // Along-track error
-        double abs_e_x = std::abs(ramsete_output.e_x.inches);
-        telem.along_track_error = units::Distance::from_inches(abs_e_x);
-        telem.max_along_track_error = units::Distance::from_inches(
-            std::max(telem.max_along_track_error.inches, abs_e_x));
-        telem.cumulative_ate = units::Distance::from_inches(
-            telem.cumulative_ate.inches + abs_e_x * 0.01);
+        double abs_e_x = std::abs(ramsete_output.e_x.to_inches());
+        telem.along_track_error = units::Length::from_inches(abs_e_x);
+        telem.max_along_track_error = units::Length::from_inches(
+            std::max(telem.max_along_track_error.to_inches(), abs_e_x));
+        telem.cumulative_ate = units::Length::from_inches(
+            telem.cumulative_ate.to_inches() + abs_e_x * 0.01);
 
         // Zero out PID terms (RAMSETE doesn't use them)
         telem.lateral_p_term = 0;
@@ -129,6 +124,6 @@ namespace abclib::trajectory
         telem.angular_output = units::Voltage::from_volts(0);
 
         // Swap buffers to make updates visible to readers
-        abclib::telemetry.swap();
+        abclib::telemetry::g_telemetry.swap();
     }
 }

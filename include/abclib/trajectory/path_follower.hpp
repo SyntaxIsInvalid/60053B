@@ -15,15 +15,15 @@ namespace abclib::trajectory
 {
     struct FollowerConfig
     {
-        units::Velocity max_velocity;             // Changed from BodyLinearVelocity
-        units::Acceleration max_acceleration;     // Changed from double (inches/s²)
+        units::Velocity max_velocity;         // Changed from BodyLinearVelocity
+        units::Acceleration max_acceleration; // Changed from double (inches/s²)
         control::RamseteConstants ramsete_constants = {2.0, 0.7};
 
         // Settlement criteria
         units::Time timeout = units::Time::from_seconds(15);
-        units::Length position_threshold = units::Length::from_inches(0.3); // Changed from Distance
+        units::Length position_threshold = units::Length::from_inches(0.3);  // Changed from Distance
         units::Velocity velocity_threshold = units::Velocity::from_ips(0.5); // Changed from BodyLinearVelocity
-        int settle_count_required = 10; // consecutive loops
+        int settle_count_required = 10;                                      // consecutive loops
 
         // Turn-in-place control gain
         double turn_kP = 0.04; // Proportional gain for heading feedback during turns
@@ -113,9 +113,9 @@ namespace abclib::trajectory
         /**
          * @brief Determine current trajectory phase status
          */
-        PathFollowerStatus determine_trajectory_status(const Trajectory &trajectory,
-                                                       units::Time elapsed_time,
-                                                       bool is_settling) const;
+        telemetry::PathFollowerStatus determine_trajectory_status(const Trajectory &trajectory,
+                                                                  units::Time elapsed_time,
+                                                                  bool is_settling) const;
 
         /**
          * @brief Update telemetry with tracking errors and status
@@ -125,7 +125,7 @@ namespace abclib::trajectory
                               const control::RamseteOutput &ramsete_output,
                               units::Voltage left_voltage,
                               units::Voltage right_voltage,
-                              PathFollowerStatus status,
+                              telemetry::PathFollowerStatus status,
                               units::Time elapsed_time,
                               units::Time total_time) const;
     };

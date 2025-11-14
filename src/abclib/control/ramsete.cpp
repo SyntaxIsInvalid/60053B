@@ -23,21 +23,21 @@ namespace abclib::control
     {
         RamseteOutput output;
 
-        // Compute pose error in global frame
-        const double e_x_global = reference_state.x - current_pose.x();
-        const double e_y_global = reference_state.y - current_pose.y();
-        const double e_theta = math::normalize_angle(reference_state.theta - current_pose.theta());
+        // Compute pose error in global frame (working in inches/radians)
+        const double e_x_global = reference_state.x - current_pose.x_inches();
+        const double e_y_global = reference_state.y - current_pose.y_inches();
+        const double e_theta = math::normalize_angle(reference_state.theta - current_pose.theta_rad());
 
         // Transform position error to robot's current body frame
         // This represents the error as seen from the robot's current perspective
-        const double cos_theta = std::cos(current_pose.theta());
-        const double sin_theta = std::sin(current_pose.theta());
+        const double cos_theta = std::cos(current_pose.theta_rad());
+        const double sin_theta = std::sin(current_pose.theta_rad());
 
         const double e_x_body = cos_theta * e_x_global + sin_theta * e_y_global;
         const double e_y_body = -sin_theta * e_x_global + cos_theta * e_y_global;
 
-        // Get reference velocities
-        const double v_ref = reference_state.arc_velocity.inches_per_sec;
+        // Get reference velocities (convert to inches/sec and rad/sec)
+        const double v_ref = reference_state.arc_velocity.to_ips();
         const double omega_ref = reference_state.omega;
 
         // Compute time-varying gain k
@@ -56,11 +56,11 @@ namespace abclib::control
                                      constants_.b * v_ref * sinc_e_theta * e_y_body;
 
         // Wrap results in typed units
-        output.v = units::BodyLinearVelocity(v_command);
-        output.omega = units::BodyAngularVelocity(omega_command);
-        output.e_x = units::Distance::from_inches(e_x_body);
-        output.e_y = units::Distance::from_inches(e_y_body);
-        output.e_theta = units::Radians(e_theta);
+        output.v = units::Velocity::from_ips(v_command);
+        output.omega = units::AngularVelocity::from_rad_per_sec(omega_command);
+        output.e_x = units::Length::from_inches(e_x_body);
+        output.e_y = units::Length::from_inches(e_y_body);
+        output.e_theta = units::Angle::from_radians(e_theta);
 
         return output;
     }

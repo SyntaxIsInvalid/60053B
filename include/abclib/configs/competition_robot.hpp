@@ -27,11 +27,11 @@ namespace abclib::robot_config
     constexpr char MATCH_LOAD_RAMP_PORT = 'G';
     constexpr char INTAKE_LIFT_PORT = 'H';
 
-    // Physical dimensions - now using units::Distance
-    inline const units::Distance WHEEL_DIAMETER = units::Distance::from_inches(2.75);
-    inline const units::Distance TRACK_WIDTH = units::Distance::from_inches(14.0);
-    inline const units::Distance Y_TRACKER_WHEEL_DIAMETER = units::Distance::from_inches(2.0);
-    inline const units::Distance Y_TRACKER_OFFSET = units::Distance::from_inches(0.0);
+    // Physical dimensions - now using units::Length
+    inline const units::Length WHEEL_DIAMETER = units::Length::from_inches(2.75);
+    inline const units::Length TRACK_WIDTH = units::Length::from_inches(14.0);
+    inline const units::Length Y_TRACKER_WHEEL_DIAMETER = units::Length::from_inches(2.0);
+    inline const units::Length Y_TRACKER_OFFSET = units::Length::from_inches(0.0);
 
     // Motor configurations (untuned)
     inline hardware::motor_group_config get_left_motor_config()

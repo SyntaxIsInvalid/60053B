@@ -142,13 +142,13 @@ namespace abclib::units
         const Quantity<M1, L1, T1, I1, Temp1, A1> &lhs,
         const Quantity<M2, L2, T2, I2, Temp2, A2> &rhs)
     {
-        using ResultType = Quantity
+        using ResultType = Quantity<
             std::ratio_add<M1, M2>,
-              std::ratio_add<L1, L2>,
-              std::ratio_add<T1, T2>,
-              std::ratio_add<I1, I2>,
-              std::ratio_add<Temp1, Temp2>,
-              std::ratio_add<A1, A2> > ;
+            std::ratio_add<L1, L2>,
+            std::ratio_add<T1, T2>,
+            std::ratio_add<I1, I2>,
+            std::ratio_add<Temp1, Temp2>,
+            std::ratio_add<A1, A2>>;
         return ResultType(lhs.value() * rhs.value());
     }
 
@@ -176,13 +176,13 @@ namespace abclib::units
         const Quantity<M1, L1, T1, I1, Temp1, A1> &lhs,
         const Quantity<M2, L2, T2, I2, Temp2, A2> &rhs)
     {
-        using ResultType = Quantity
+        using ResultType = Quantity<
             std::ratio_subtract<M1, M2>,
-              std::ratio_subtract<L1, L2>,
-              std::ratio_subtract<T1, T2>,
-              std::ratio_subtract<I1, I2>,
-              std::ratio_subtract<Temp1, Temp2>,
-              std::ratio_subtract<A1, A2> > ;
+            std::ratio_subtract<L1, L2>,
+            std::ratio_subtract<T1, T2>,
+            std::ratio_subtract<I1, I2>,
+            std::ratio_subtract<Temp1, Temp2>,
+            std::ratio_subtract<A1, A2>>;
         return ResultType(lhs.value() / rhs.value());
     }
 
@@ -200,13 +200,13 @@ namespace abclib::units
         double scalar,
         const Quantity<M, L, T, I, Temp, A> &q)
     {
-        using ResultType = Quantity
+        using ResultType = Quantity<
             std::ratio_subtract<std::ratio<0>, M>,
-              std::ratio_subtract<std::ratio<0>, L>,
-              std::ratio_subtract<std::ratio<0>, T>,
-              std::ratio_subtract<std::ratio<0>, I>,
-              std::ratio_subtract<std::ratio<0>, Temp>,
-              std::ratio_subtract<std::ratio<0>, A> > ;
+            std::ratio_subtract<std::ratio<0>, L>,
+            std::ratio_subtract<std::ratio<0>, T>,
+            std::ratio_subtract<std::ratio<0>, I>,
+            std::ratio_subtract<std::ratio<0>, Temp>,
+            std::ratio_subtract<std::ratio<0>, A>>;
         return ResultType(scalar / q.value());
     }
 
@@ -216,13 +216,13 @@ namespace abclib::units
     template <typename M, typename L, typename T, typename I, typename Temp, typename A>
     constexpr auto Qsqrt(const Quantity<M, L, T, I, Temp, A> &q)
     {
-        using ResultType = Quantity
+        using ResultType = Quantity<
             std::ratio_divide<M, std::ratio<2>>,
-              std::ratio_divide<L, std::ratio<2>>,
-              std::ratio_divide<T, std::ratio<2>>,
-              std::ratio_divide<I, std::ratio<2>>,
-              std::ratio_divide<Temp, std::ratio<2>>,
-              std::ratio_divide<A, std::ratio<2>> > ;
+            std::ratio_divide<L, std::ratio<2>>,
+            std::ratio_divide<T, std::ratio<2>>,
+            std::ratio_divide<I, std::ratio<2>>,
+            std::ratio_divide<Temp, std::ratio<2>>,
+            std::ratio_divide<A, std::ratio<2>>>;
         return ResultType(std::sqrt(q.value()));
     }
 
@@ -294,7 +294,7 @@ namespace abclib::units
     {
         using Mass_Base::Mass_Base;
         using Mass_Base::operator=;
-        constexpr Mass(const Mass_Base& base) : Mass_Base(base) {}  
+        constexpr Mass(const Mass_Base &base) : Mass_Base(base) {}
 
         static constexpr Mass from_kg(double kg) { return Mass(kg); }
         static constexpr Mass from_grams(double g) { return Mass(g * constants::GRAM_TO_KG); }
@@ -313,7 +313,7 @@ namespace abclib::units
     {
         using Length_Base::Length_Base;
         using Length_Base::operator=;
-        constexpr Length(const Length_Base& base) : Length_Base(base) {}
+        constexpr Length(const Length_Base &base) : Length_Base(base) {}
 
         static constexpr Length from_meters(double m) { return Length(m); }
         static constexpr Length from_inches(double in) { return Length(in * constants::INCH_TO_METER); }
@@ -334,7 +334,7 @@ namespace abclib::units
     {
         using Time_Base::Time_Base;
         using Time_Base::operator=;
-        constexpr Time(const Time_Base& base) : Time_Base(base) {}
+        constexpr Time(const Time_Base &base) : Time_Base(base) {}
 
         static constexpr Time from_seconds(double s) { return Time(s); }
         static constexpr Time from_milliseconds(double ms) { return Time(ms * constants::MS_TO_SEC); }
@@ -353,7 +353,7 @@ namespace abclib::units
     {
         using Angle_Base::Angle_Base;
         using Angle_Base::operator=;
-        constexpr Angle(const Angle_Base& base) : Angle_Base(base) {}
+        constexpr Angle(const Angle_Base &base) : Angle_Base(base) {}
 
         static constexpr Angle from_radians(double rad) { return Angle(rad); }
         static constexpr Angle from_degrees(double deg) { return Angle(deg * constants::DEG_TO_RAD); }
@@ -368,7 +368,7 @@ namespace abclib::units
     {
         using Velocity_Base::Velocity_Base;
         using Velocity_Base::operator=;
-        constexpr Velocity(const Velocity_Base& base) : Velocity_Base(base) {}
+        constexpr Velocity(const Velocity_Base &base) : Velocity_Base(base) {}
 
         static constexpr Velocity from_mps(double mps) { return Velocity(mps); }
         static constexpr Velocity from_ips(double ips) { return Velocity(ips * constants::IPS_TO_MPS); }
@@ -381,7 +381,7 @@ namespace abclib::units
     {
         using AngularVelocity_Base::AngularVelocity_Base;
         using AngularVelocity_Base::operator=;
-        constexpr AngularVelocity(const AngularVelocity_Base& base) : AngularVelocity_Base(base) {}
+        constexpr AngularVelocity(const AngularVelocity_Base &base) : AngularVelocity_Base(base) {}
 
         static constexpr AngularVelocity from_rad_per_sec(double rad_s) { return AngularVelocity(rad_s); }
         static constexpr AngularVelocity from_deg_per_sec(double deg_s)
@@ -402,7 +402,7 @@ namespace abclib::units
     {
         using Acceleration_Base::Acceleration_Base;
         using Acceleration_Base::operator=;
-        constexpr Acceleration(const Acceleration_Base& base) : Acceleration_Base(base) {}
+        constexpr Acceleration(const Acceleration_Base &base) : Acceleration_Base(base) {}
 
         static constexpr Acceleration from_mps2(double mps2) { return Acceleration(mps2); }
         static constexpr Acceleration from_G(double g) { return Acceleration(g * constants::G_TO_MPS2); }
@@ -415,7 +415,7 @@ namespace abclib::units
     {
         using AngularAcceleration_Base::AngularAcceleration_Base;
         using AngularAcceleration_Base::operator=;
-        constexpr AngularAcceleration(const AngularAcceleration_Base& base) : AngularAcceleration_Base(base) {}
+        constexpr AngularAcceleration(const AngularAcceleration_Base &base) : AngularAcceleration_Base(base) {}
 
         static constexpr AngularAcceleration from_rad_per_sec2(double rad_s2)
         {
@@ -434,7 +434,7 @@ namespace abclib::units
     {
         using Jerk_Base::Jerk_Base;
         using Jerk_Base::operator=;
-        constexpr Jerk(const Jerk_Base& base) : Jerk_Base(base) {}
+        constexpr Jerk(const Jerk_Base &base) : Jerk_Base(base) {}
 
         static constexpr Jerk from_mps3(double mps3) { return Jerk(mps3); }
 
@@ -445,7 +445,7 @@ namespace abclib::units
     {
         using Current_Base::Current_Base;
         using Current_Base::operator=;
-        constexpr Current(const Current_Base& base) : Current_Base(base) {}
+        constexpr Current(const Current_Base &base) : Current_Base(base) {}
 
         static constexpr Current from_amps(double a) { return Current(a); }
         static constexpr Current from_milliamps(double ma) { return Current(ma * constants::MILLI_UNIT); }
@@ -458,7 +458,7 @@ namespace abclib::units
     {
         using Voltage_Base::Voltage_Base;
         using Voltage_Base::operator=;
-        constexpr Voltage(const Voltage_Base& base) : Voltage_Base(base) {}  
+        constexpr Voltage(const Voltage_Base &base) : Voltage_Base(base) {}
 
         static constexpr Voltage from_volts(double v) { return Voltage(v); }
         static constexpr Voltage from_millivolts(double mv) { return Voltage(mv * constants::MILLI_UNIT); }
@@ -471,7 +471,7 @@ namespace abclib::units
     {
         using Resistance_Base::Resistance_Base;
         using Resistance_Base::operator=;
-        constexpr Resistance(const Resistance_Base& base) : Resistance_Base(base) {}
+        constexpr Resistance(const Resistance_Base &base) : Resistance_Base(base) {}
 
         static constexpr Resistance from_ohms(double ohm) { return Resistance(ohm); }
         static constexpr Resistance from_milliohms(double mohm) { return Resistance(mohm * constants::MILLI_UNIT); }
@@ -486,7 +486,7 @@ namespace abclib::units
     {
         using Charge_Base::Charge_Base;
         using Charge_Base::operator=;
-        constexpr Charge(const Charge_Base& base) : Charge_Base(base) {}
+        constexpr Charge(const Charge_Base &base) : Charge_Base(base) {}
 
         static constexpr Charge from_coulombs(double c) { return Charge(c); }
         static constexpr Charge from_milliamp_hours(double mah)
@@ -507,7 +507,7 @@ namespace abclib::units
     {
         using TemperatureDifference_Base::TemperatureDifference_Base;
         using TemperatureDifference_Base::operator=;
-        constexpr TemperatureDifference(const TemperatureDifference_Base& base) : TemperatureDifference_Base(base) {}
+        constexpr TemperatureDifference(const TemperatureDifference_Base &base) : TemperatureDifference_Base(base) {}
 
         static constexpr TemperatureDifference from_kelvin(double k) { return TemperatureDifference(k); }
         static constexpr TemperatureDifference from_celsius(double c) { return TemperatureDifference(c); } // Same for differences
@@ -515,6 +515,18 @@ namespace abclib::units
         constexpr double to_kelvin() const { return value(); }
         constexpr double to_celsius() const { return value(); } // Same for differences
     };
+
+    // ============= ADDITIONAL TYPE ALIASES =============
+
+    // Aliases used in other parts of the codebase
+
+    using Distance = Length;
+    using Radians = Angle;
+    using Degrees = Angle;
+    using BodyHeading = Angle;
+    using BodyAngularVelocity = AngularVelocity;
+    using BodyLinearVelocity = Velocity;
+    using WheelLinearVelocity = Velocity;
 
     // ============= AFFINE TEMPERATURE TYPE =============
 

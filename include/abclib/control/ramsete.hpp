@@ -14,12 +14,12 @@ namespace abclib::control
 
     struct RamseteOutput
     {
-        units::BodyLinearVelocity v;
-        units::BodyAngularVelocity omega;
+        units::Velocity v;
+        units::AngularVelocity omega;
         
-        units::Distance e_x;
-        units::Distance e_y;
-        units::Radians e_theta;
+        units::Length e_x;
+        units::Length e_y;
+        units::Angle e_theta;
     };
 
     class Ramsete

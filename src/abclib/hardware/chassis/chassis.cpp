@@ -42,8 +42,8 @@ namespace abclib::hardware
         auto imu_model = new estimation::IMUMeasurementModel(sensors.imu);
 
         // Get offsets
-        units::Distance vertical_offset = sensors.motor_y_encoder ? sensors.motor_y_encoder->get_offset() : sensors.y_encoder->get_offset();
-        units::Distance horizontal_offset = (sensors.x_encoder || sensors.motor_x_encoder) ? (sensors.motor_x_encoder ? sensors.motor_x_encoder->get_offset() : sensors.x_encoder->get_offset()) : units::Distance::from_inches(0.0);
+        units::Length vertical_offset = sensors.motor_y_encoder ? sensors.motor_y_encoder->get_offset() : sensors.y_encoder->get_offset();
+        units::Length horizontal_offset = (sensors.x_encoder || sensors.motor_x_encoder) ? (sensors.motor_x_encoder ? sensors.motor_x_encoder->get_offset() : sensors.x_encoder->get_offset()) : units::Length::from_inches(0.0);
 
         // Create estimator
         estimator_.reset(new estimation::GeometricOdometryEstimator(
@@ -74,17 +74,21 @@ namespace abclib::hardware
         else
         {
             // Convert from controller units (-127 to +127) to voltage (-12V to +12V)
-            left_motors->move_voltage(units::Voltage::from_pros_units(left_power));
-            right_motors->move_voltage(units::Voltage::from_pros_units(right_power));
+            // PROS uses -127 to 127 range, we need to convert to -12V to 12V
+            double left_voltage = (left_power / 127.0) * 12.0;
+            double right_voltage = (right_power / 127.0) * 12.0;
+            
+            left_motors->move_voltage(units::Voltage::from_volts(left_voltage));
+            right_motors->move_voltage(units::Voltage::from_volts(right_voltage));
         }
     }
 
-    void Chassis::move_left_motors(units::Voltage voltage) // Changed from double
+    void Chassis::move_left_motors(units::Voltage voltage)
     {
         left_motors->move_voltage(voltage);
     }
 
-    void Chassis::move_right_motors(units::Voltage voltage) // Changed from double
+    void Chassis::move_right_motors(units::Voltage voltage)
     {
         right_motors->move_voltage(voltage);
     }
@@ -114,9 +118,9 @@ namespace abclib::hardware
         imu->set_heading(0);
     }
 
-    units::BodyHeading Chassis::get_heading() // Changed return type
+    units::Angle Chassis::get_heading()
     {
-        return units::BodyHeading(units::Radians(-imu->get_heading() * M_PI / 180.0));
+        return units::Angle::from_radians(-imu->get_heading() * M_PI / 180.0);
     }
 
     estimation::Pose Chassis::get_pose() const
@@ -124,24 +128,22 @@ namespace abclib::hardware
         return estimator_->get_pose();
     }
 
-    void Chassis::set_pose(units::Distance x, units::Distance y, units::Radians heading)
+    void Chassis::set_pose(units::Length x, units::Length y, units::Angle heading)
     {
-        // Create the new pose
-        estimation::Pose new_pose;
-        new_pose.pose = units::BodyPose(x.inches, y.inches, heading);
-        new_pose.v = units::BodyLinearVelocity(0.0);
-        new_pose.omega = units::BodyAngularVelocity(0.0);
+        // Create the new pose using the Pose struct from pose.hpp
+        estimation::Pose new_pose(
+            x,
+            y,
+            heading,
+            units::Velocity::from_ips(0.0),
+            units::AngularVelocity::from_rad_per_sec(0.0)
+        );
 
         // Set the odometry pose (thread-safe with mutex)
         estimator_->set_pose(new_pose);
 
         // Set IMU heading to match (note the negation for IMU convention)
-        imu->set_heading(-heading.to_degrees().value);
-    }
-
-    void Chassis::set_pose(units::Distance x, units::Distance y, units::Degrees heading)
-    {
-        set_pose(x, y, heading.to_radians());
+        imu->set_heading(-heading.to_degrees());
     }
 
     void Chassis::move_voltage(units::Voltage left_voltage, units::Voltage right_voltage)
@@ -149,21 +151,22 @@ namespace abclib::hardware
         left_motors->move_voltage(left_voltage);
         right_motors->move_voltage(right_voltage);
     }
-    void Chassis::move_velocity(units::WheelLinearVelocity left_velocity,
-                                units::WheelLinearVelocity right_velocity,
+
+    void Chassis::move_velocity(units::Velocity left_velocity,
+                                units::Velocity right_velocity,
                                 double left_acceleration,
                                 double right_acceleration)
     {
-        units::Distance wheel_radius = get_wheel_radius();
+        units::Length wheel_radius = get_wheel_radius();
 
-        units::MotorAngularVelocity left_motor_vel =
-            units::MotorAngularVelocity(left_velocity.inches_per_sec / wheel_radius.inches);
-        units::MotorAngularVelocity right_motor_vel =
-            units::MotorAngularVelocity(right_velocity.inches_per_sec / wheel_radius.inches);
+        units::AngularVelocity left_motor_vel =
+            units::AngularVelocity::from_rad_per_sec(left_velocity.to_ips() / wheel_radius.to_inches());
+        units::AngularVelocity right_motor_vel =
+            units::AngularVelocity::from_rad_per_sec(right_velocity.to_ips() / wheel_radius.to_inches());
 
         // Convert wheel acceleration to motor acceleration
-        double left_motor_accel = left_acceleration / wheel_radius.inches;
-        double right_motor_accel = right_acceleration / wheel_radius.inches;
+        double left_motor_accel = left_acceleration / wheel_radius.to_inches();
+        double right_motor_accel = right_acceleration / wheel_radius.to_inches();
 
         left_motors->move_velocity_continuous(left_motor_vel, left_motor_accel);
         right_motors->move_velocity_continuous(right_motor_vel, right_motor_accel);
@@ -171,30 +174,30 @@ namespace abclib::hardware
         // Update telemetry
         {
             std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-            auto &data = telemetry.get_write_buffer();
+            auto &data = telemetry::g_telemetry.get_write_buffer();
             data.left_motor_target_velocity = left_motor_vel;
             data.right_motor_target_velocity = right_motor_vel;
         }
         update_motor_velocity_telemetry();
     }
 
-    void Chassis::move_velocity(units::WheelLinearVelocity left_velocity,
-                                units::WheelLinearVelocity right_velocity,
+    void Chassis::move_velocity(units::Velocity left_velocity,
+                                units::Velocity right_velocity,
                                 double left_acceleration,
                                 double right_acceleration,
                                 double override_kS,
                                 double override_kV,
                                 double override_kA)
     {
-        units::Distance wheel_radius = get_wheel_radius();
+        units::Length wheel_radius = get_wheel_radius();
 
-        units::MotorAngularVelocity left_motor_vel =
-            units::MotorAngularVelocity(left_velocity.inches_per_sec / wheel_radius.inches);
-        units::MotorAngularVelocity right_motor_vel =
-            units::MotorAngularVelocity(right_velocity.inches_per_sec / wheel_radius.inches);
+        units::AngularVelocity left_motor_vel =
+            units::AngularVelocity::from_rad_per_sec(left_velocity.to_ips() / wheel_radius.to_inches());
+        units::AngularVelocity right_motor_vel =
+            units::AngularVelocity::from_rad_per_sec(right_velocity.to_ips() / wheel_radius.to_inches());
 
-        double left_motor_accel = left_acceleration / wheel_radius.inches;
-        double right_motor_accel = right_acceleration / wheel_radius.inches;
+        double left_motor_accel = left_acceleration / wheel_radius.to_inches();
+        double right_motor_accel = right_acceleration / wheel_radius.to_inches();
 
         left_motors->move_velocity_continuous(left_motor_vel, left_motor_accel, override_kS, override_kV, override_kA);
         right_motors->move_velocity_continuous(right_motor_vel, right_motor_accel, override_kS, override_kV, override_kA);
@@ -202,7 +205,7 @@ namespace abclib::hardware
         // Update telemetry
         {
             std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-            auto &data = telemetry.get_write_buffer();
+            auto &data = telemetry::g_telemetry.get_write_buffer();
             data.left_motor_target_velocity = left_motor_vel;
             data.right_motor_target_velocity = right_motor_vel;
         }
@@ -216,28 +219,27 @@ namespace abclib::hardware
         right_motors->stop_all_tasks();
     }
 
-void Chassis::move_velocity_pros(units::WheelLinearVelocity left_velocity,
-                                 units::WheelLinearVelocity right_velocity)
-{
-    // Convert linear wheel velocity to angular motor velocity
-    units::Distance wheel_radius = get_wheel_radius();
-
-    units::MotorAngularVelocity left_motor_vel =
-        units::MotorAngularVelocity(left_velocity.inches_per_sec / wheel_radius.inches);
-    units::MotorAngularVelocity right_motor_vel =
-        units::MotorAngularVelocity(right_velocity.inches_per_sec / wheel_radius.inches);
-
-    left_motors->move_velocity_pros(left_motor_vel);
-    right_motors->move_velocity_pros(right_motor_vel);
-
-    // Update telemetry
+    void Chassis::move_velocity_pros(units::Velocity left_velocity,
+                                     units::Velocity right_velocity)
     {
-        std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-        auto& data = telemetry.get_write_buffer();
-        data.left_motor_target_velocity = left_motor_vel;
-        data.right_motor_target_velocity = right_motor_vel;
-    }
-    update_motor_velocity_telemetry();
-}
+        // Convert linear wheel velocity to angular motor velocity
+        units::Length wheel_radius = get_wheel_radius();
 
+        units::AngularVelocity left_motor_vel =
+            units::AngularVelocity::from_rad_per_sec(left_velocity.to_ips() / wheel_radius.to_inches());
+        units::AngularVelocity right_motor_vel =
+            units::AngularVelocity::from_rad_per_sec(right_velocity.to_ips() / wheel_radius.to_inches());
+
+        left_motors->move_velocity_pros(left_motor_vel);
+        right_motors->move_velocity_pros(right_motor_vel);
+
+        // Update telemetry
+        {
+            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+            auto& data = telemetry::g_telemetry.get_write_buffer();
+            data.left_motor_target_velocity = left_motor_vel;
+            data.right_motor_target_velocity = right_motor_vel;
+        }
+        update_motor_velocity_telemetry();
+    }
 }

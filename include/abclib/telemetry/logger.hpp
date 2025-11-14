@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <cstdint>
 
-namespace abclib
+namespace abclib::telemetry  // Changed from just 'abclib'
 {
     /**
      * @brief Configuration for which telemetry fields to log
@@ -132,4 +132,4 @@ namespace abclib
         std::string generate_filename(const std::string& segment_name) const;
     };
 
-} // namespace abclib
+} // namespace abclib::telemetry

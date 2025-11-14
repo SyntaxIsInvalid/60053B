@@ -1,7 +1,7 @@
 #include "screen_manager.hpp"
 #include <cstdio>
 
-namespace abclib {
+namespace abclib::ui {
 
 void ScreenManager::initialize() {
     // Create the tabview
@@ -224,33 +224,33 @@ void ScreenManager::hide_fullscreen_image() {
     lv_obj_add_flag(image_obj, LV_OBJ_FLAG_HIDDEN);
 }
 
-void ScreenManager::update_telemetry(const TelemetryData& data) {
+void ScreenManager::update_telemetry(const telemetry::TelemetryData& data) {
     update_overview_tab(data);
     // Other tabs will be implemented later
 }
 
-void ScreenManager::update_overview_tab(const TelemetryData& data) {
+void ScreenManager::update_overview_tab(const telemetry::TelemetryData& data) {
     if (overview_labels.size() >= 3) {
         char buf0[64];
         char buf1[64];
         char buf2[64];
         
-        // Label 0: Pose
+        // Label 0: Pose (using the new units API)
         snprintf(buf0, sizeof(buf0), "X:%.2f Y:%.2f Th:%.1f",
-            data.pose.x(),
-            data.pose.y(),
-            data.pose.theta() * 180.0 / M_PI);
+            data.pose.x_inches(),
+            data.pose.y_inches(),
+            data.pose.theta_deg());
         lv_label_set_text(overview_labels[0], buf0);
         
-        // Label 1: Velocity
+        // Label 1: Velocity (using the new units API)
         snprintf(buf1, sizeof(buf1), "V:%.2f W:%.2f",
-            data.pose_v.inches_per_sec,
-            data.pose_omega.rad_per_sec);
+            data.pose_v_raw.to_ips(),
+            data.pose_omega_raw.to_rad_per_sec());
         lv_label_set_text(overview_labels[1], buf1);
         
-        // Label 2: Battery
+        // Label 2: Battery (using the new units API)
         snprintf(buf2, sizeof(buf2), "%.2fV %.0f%% [%s%.2fx]",
-            data.battery_voltage.volts,
+            data.battery_voltage.to_volts(),
             data.battery_capacity_percent,
             data.voltage_compensation_active ? "C" : "-",
             data.voltage_compensation_scale);
@@ -259,9 +259,9 @@ void ScreenManager::update_overview_tab(const TelemetryData& data) {
 }
 
 // Stub implementations for tabs not yet implemented
-void ScreenManager::update_pid_tab(const TelemetryData& data) {}
-void ScreenManager::update_trajectory_tab(const TelemetryData& data) {}
-void ScreenManager::update_performance_tab(const TelemetryData& data) {}
-void ScreenManager::update_config_tab(const TelemetryData& data) {}
+void ScreenManager::update_pid_tab(const telemetry::TelemetryData& data) {}
+void ScreenManager::update_trajectory_tab(const telemetry::TelemetryData& data) {}
+void ScreenManager::update_performance_tab(const telemetry::TelemetryData& data) {}
+void ScreenManager::update_config_tab(const telemetry::TelemetryData& data) {}
 
 } // namespace abclib
