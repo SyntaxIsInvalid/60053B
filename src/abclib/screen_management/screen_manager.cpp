@@ -7,71 +7,168 @@ void ScreenManager::initialize() {
     // Create the tabview
     tabview = lv_tabview_create(lv_screen_active());
     
+    // Hide the default tab bar (we'll use custom navigation)
+    lv_tabview_set_tab_bar_size(tabview, 0);
+    
     // Create all tabs
     tab_overview = lv_tabview_add_tab(tabview, "Overview");
     tab_pid = lv_tabview_add_tab(tabview, "PID");
-    tab_path = lv_tabview_add_tab(tabview, "Path");
+    tab_trajectory = lv_tabview_add_tab(tabview, "Trajectory");
     tab_performance = lv_tabview_add_tab(tabview, "Performance");
-    tab_image = lv_tabview_add_tab(tabview, "Image");
+    tab_config = lv_tabview_add_tab(tabview, "Config");
     
     // Setup all tabs
     create_overview_tab();
     create_pid_tab();
-    create_path_tab();
+    create_trajectory_tab();
     create_performance_tab();
-    create_image_tab();
+    create_config_tab();
+    
+    // Create custom navigation bar
+    create_navigation_bar();
+    
+    // Create full-screen image overlay (not a tab anymore)
+    create_fullscreen_image();
+}
+
+void ScreenManager::create_navigation_bar() {
+    // Create container for navigation bar at the top
+    nav_bar = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(nav_bar, LV_PCT(100), 50);
+    lv_obj_align(nav_bar, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_set_style_pad_all(nav_bar, 5, 0);
+    lv_obj_remove_flag(nav_bar, LV_OBJ_FLAG_SCROLLABLE);
+    
+    // Left arrow button
+    btn_prev = lv_button_create(nav_bar);
+    lv_obj_set_size(btn_prev, 40, 40);
+    lv_obj_align(btn_prev, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_t* label_prev = lv_label_create(btn_prev);
+    lv_label_set_text(label_prev, LV_SYMBOL_LEFT);
+    lv_obj_center(label_prev);
+    lv_obj_add_event_cb(btn_prev, [](lv_event_t* e) {
+        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
+        manager->navigate_prev();
+    }, LV_EVENT_CLICKED, this);
+    
+    // Auton selector button (disabled for now)
+    btn_auton = lv_button_create(nav_bar);
+    lv_obj_set_size(btn_auton, 80, 40);
+    lv_obj_align(btn_auton, LV_ALIGN_LEFT_MID, 45, 0);
+    lv_obj_t* label_auton = lv_label_create(btn_auton);
+    lv_label_set_text(label_auton, "Auton");
+    lv_obj_center(label_auton);
+    lv_obj_add_state(btn_auton, LV_STATE_DISABLED);  // Disabled for now
+    
+    // Current screen name label (center)
+    label_current_screen = lv_label_create(nav_bar);
+    lv_label_set_text(label_current_screen, "Overview");
+    lv_obj_align(label_current_screen, LV_ALIGN_CENTER, 0, 0);
+    
+    // Image button
+    btn_image = lv_button_create(nav_bar);
+    lv_obj_set_size(btn_image, 80, 40);
+    lv_obj_align(btn_image, LV_ALIGN_RIGHT_MID, -45, 0);
+    lv_obj_t* label_image = lv_label_create(btn_image);
+    lv_label_set_text(label_image, "Image");
+    lv_obj_center(label_image);
+    lv_obj_add_event_cb(btn_image, [](lv_event_t* e) {
+        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
+        manager->show_fullscreen_image();
+    }, LV_EVENT_CLICKED, this);
+    
+    // Right arrow button
+    btn_next = lv_button_create(nav_bar);
+    lv_obj_set_size(btn_next, 40, 40);
+    lv_obj_align(btn_next, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_t* label_next = lv_label_create(btn_next);
+    lv_label_set_text(label_next, LV_SYMBOL_RIGHT);
+    lv_obj_center(label_next);
+    lv_obj_add_event_cb(btn_next, [](lv_event_t* e) {
+        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
+        manager->navigate_next();
+    }, LV_EVENT_CLICKED, this);
+    
+    // Update button states for initial screen
+    update_navigation_buttons();
+}
+
+void ScreenManager::navigate_prev() {
+    if (current_screen_index > 0) {
+        current_screen_index--;
+        lv_tabview_set_active(tabview, current_screen_index, LV_ANIM_ON);
+        update_current_screen_label();
+        update_navigation_buttons();
+    }
+}
+
+void ScreenManager::navigate_next() {
+    if (current_screen_index < 4) {  // 5 screens total (0-4)
+        current_screen_index++;
+        lv_tabview_set_active(tabview, current_screen_index, LV_ANIM_ON);
+        update_current_screen_label();
+        update_navigation_buttons();
+    }
+}
+
+void ScreenManager::update_current_screen_label() {
+    const char* screen_names[] = {"Overview", "PID", "Trajectory", "Performance", "Config"};
+    lv_label_set_text(label_current_screen, screen_names[current_screen_index]);
+}
+
+void ScreenManager::update_navigation_buttons() {
+    // Hide/show left arrow
+    if (current_screen_index == 0) {
+        lv_obj_add_flag(btn_prev, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_remove_flag(btn_prev, LV_OBJ_FLAG_HIDDEN);
+    }
+    
+    // Hide/show right arrow
+    if (current_screen_index == 4) {  // Last screen (index 4)
+        lv_obj_add_flag(btn_next, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_remove_flag(btn_next, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 void ScreenManager::create_overview_tab() {
     // Create labels for overview data
-    // We'll create 3 labels for now: pose, velocity, battery
     for (int i = 0; i < 3; i++) {
         lv_obj_t* label = lv_label_create(tab_overview);
         lv_label_set_text(label, "Loading...");
-        lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 10 + i * 40);  // More spacing
-        lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);  // Allow wrapping
-        lv_obj_set_width(label, 450);  // Set width for wrapping
+        lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 60 + i * 40);  // Offset for nav bar
+        lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+        lv_obj_set_width(label, 450);
         overview_labels.push_back(label);
     }
 }
 
 void ScreenManager::create_pid_tab() {
-    // Just a placeholder label for now
     lv_obj_t* label = lv_label_create(tab_pid);
     lv_label_set_text(label, "PID Control Data\n(Not implemented yet)");
     lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 }
 
-void ScreenManager::create_path_tab() {
-    // Just a placeholder label for now
-    lv_obj_t* label = lv_label_create(tab_path);
-    lv_label_set_text(label, "Path Tracking Data\n(Not implemented yet)");
+void ScreenManager::create_trajectory_tab() {
+    lv_obj_t* label = lv_label_create(tab_trajectory);
+    lv_label_set_text(label, "Trajectory Tracking Data\n(Not implemented yet)");
     lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 }
 
 void ScreenManager::create_performance_tab() {
-    // Just a placeholder label for now
     lv_obj_t* label = lv_label_create(tab_performance);
     lv_label_set_text(label, "Performance Metrics\n(Not implemented yet)");
     lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 }
 
-void ScreenManager::create_image_tab() {
-    // Create a button to show the image
-    lv_obj_t* btn = lv_button_create(tab_image);
-    lv_obj_set_size(btn, 200, 60);
-    lv_obj_align(btn, LV_ALIGN_CENTER, 0, 0);
-    
-    lv_obj_t* btn_label = lv_label_create(btn);
-    lv_label_set_text(btn_label, "View Image");
-    lv_obj_center(btn_label);
-    
-    // Add click event to show full-screen image
-    lv_obj_add_event_cb(btn, [](lv_event_t* e) {
-        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
-        manager->show_fullscreen_image();
-    }, LV_EVENT_CLICKED, this);
-    
+void ScreenManager::create_config_tab() {
+    lv_obj_t* label = lv_label_create(tab_config);
+    lv_label_set_text(label, "Tuning Configuration\n(Not implemented yet)");
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+}
+
+void ScreenManager::create_fullscreen_image() {
     // Create the full-screen image container (initially hidden)
     image_obj = lv_obj_create(lv_screen_active());
     lv_obj_set_size(image_obj, LV_PCT(100), LV_PCT(100));
@@ -120,23 +217,20 @@ void ScreenManager::create_image_tab() {
 
 void ScreenManager::show_fullscreen_image() {
     lv_obj_remove_flag(image_obj, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_to_index(image_obj, -1);  // Move to front (-1 means top)
+    lv_obj_move_to_index(image_obj, -1);  // Move to front
 }
-
 
 void ScreenManager::hide_fullscreen_image() {
     lv_obj_add_flag(image_obj, LV_OBJ_FLAG_HIDDEN);
 }
 
 void ScreenManager::update_telemetry(const TelemetryData& data) {
-    // Only update overview tab for now
     update_overview_tab(data);
+    // Other tabs will be implemented later
 }
 
 void ScreenManager::update_overview_tab(const TelemetryData& data) {
-    // Update the 3 labels we created
     if (overview_labels.size() >= 3) {
-        // Create buffers for formatted strings
         char buf0[64];
         char buf1[64];
         char buf2[64];
@@ -164,9 +258,10 @@ void ScreenManager::update_overview_tab(const TelemetryData& data) {
     }
 }
 
-// Stub implementations for update functions we haven't implemented yet
+// Stub implementations for tabs not yet implemented
 void ScreenManager::update_pid_tab(const TelemetryData& data) {}
-void ScreenManager::update_path_tab(const TelemetryData& data) {}
+void ScreenManager::update_trajectory_tab(const TelemetryData& data) {}
 void ScreenManager::update_performance_tab(const TelemetryData& data) {}
+void ScreenManager::update_config_tab(const TelemetryData& data) {}
 
 } // namespace abclib
