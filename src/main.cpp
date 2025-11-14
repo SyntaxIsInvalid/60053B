@@ -58,6 +58,10 @@ hardware::ChassisConfig chassis_constant{
     .turn_in_place_kV = robot_config::TURN_IN_PLACE_KV,
     .turn_in_place_kA = robot_config::TURN_IN_PLACE_KA,
     .profiled_turn_pid_constants = robot_config::get_profiled_turn_pid(),
+    .profiled_lateral_pid_constants = robot_config::get_profiled_lateral_pid(),
+    .lateral_kS = robot_config::LATERAL_KS,
+    .lateral_kV = robot_config::LATERAL_KV,
+    .lateral_kA = robot_config::LATERAL_KA,
 };
 
 hardware::Chassis chassis(

@@ -219,4 +219,127 @@ namespace abclib::hardware
         left_motors->brake();
         right_motors->brake();
     }
+
+    void Chassis::drive_straight_profiled_pid(
+        units::Distance target_distance,
+        double max_velocity_inches_per_sec,
+        double max_acceleration_inches_per_sec2,
+        units::Time timeout,
+        bool reset_position)
+    {
+        std::uint32_t start_time = pros::millis();
+        const double dt = 0.01; // 100Hz
+
+        if (reset_position)
+        {
+            reset_chassis_position();
+        }
+
+        estimation::Pose start_pose = get_pose();
+        double start_heading = start_pose.theta();
+        double initial_x = start_pose.x();
+        double initial_y = start_pose.y();
+        int settle_count = 0;
+
+        // Create ProfiledPID for lateral control
+        control::ProfiledPIDConstants profiled_constants;
+        profiled_constants.pid_constants = config_.profiled_lateral_pid_constants;
+        profiled_constants.max_velocity = max_velocity_inches_per_sec;
+        profiled_constants.max_acceleration = max_acceleration_inches_per_sec2;
+        profiled_constants.position_tolerance = settlement_config_.position_threshold.inches;
+        profiled_constants.velocity_tolerance = settlement_config_.linear_velocity_threshold.inches_per_sec;
+
+        control::ProfiledPID profiled_lateral_pid(profiled_constants);
+        profiled_lateral_pid.reset(0.0); // Start at 0 distance traveled
+
+        // Reset angular PID for heading correction
+        angular_pid.reset();
+
+        reset_telemetry_accumulators();
+
+        while ((pros::millis() - start_time) < timeout.to_millis_uint())
+        {
+            estimation::Pose current_pose = get_pose();
+
+            // Calculate distance traveled using vector projection
+            double dx = current_pose.x() - initial_x;
+            double dy = current_pose.y() - initial_y;
+            double distance_traveled_raw = dx * std::cos(start_heading) + dy * std::sin(start_heading);
+
+            // Compute profiled PID output for lateral control
+            double lateral_output = profiled_lateral_pid.compute(distance_traveled_raw, target_distance.inches, dt);
+
+            // Add feedforward for lateral motion
+            double target_velocity = profiled_lateral_pid.get_setpoint_velocity();
+            double target_acceleration = profiled_lateral_pid.get_setpoint().acceleration;
+
+            // Feedforward with deadband to avoid static friction at zero velocity
+            double ff_sign = (std::abs(target_velocity) < 0.01) ? 0.0 : math::sgn(target_velocity);
+            double lateral_ff = config_.lateral_kS * ff_sign +
+                                config_.lateral_kV * target_velocity +
+                                config_.lateral_kA * target_acceleration;
+
+            lateral_output += lateral_ff;
+
+            // Calculate angular error and correction (maintain starting heading)
+            double angular_error = start_heading - current_pose.theta();
+            angular_error = math::normalize_angle(angular_error);
+            double angular_output = angular_pid.compute(angular_error, dt);
+
+            // Clamp outputs
+            lateral_output = std::clamp(lateral_output, -12.0, 12.0);
+            angular_output = std::clamp(angular_output, -12.0, 12.0);
+
+            // Calculate motor voltages
+            units::Voltage left_voltage = units::Voltage::from_volts(lateral_output + angular_output);
+            units::Voltage right_voltage = units::Voltage::from_volts(lateral_output - angular_output);
+
+            // Check settlement
+            if (profiled_lateral_pid.at_goal() && std::abs(angular_error) <= settlement_config_.angular_threshold.value)
+            {
+                settle_count++;
+                if (settle_count >= settlement_config_.settle_count_required)
+                {
+                    update_settlement_telemetry(true, settle_count, SettlementReason::WITHIN_THRESHOLD, start_time);
+                    left_motors->brake();
+                    right_motors->brake();
+                    break;
+                }
+            }
+            else
+            {
+                settle_count = 0;
+            }
+
+            // Update telemetry
+            units::Distance distance_traveled = units::Distance::from_inches(distance_traveled_raw);
+            units::Distance lateral_error = target_distance - distance_traveled;
+            update_lateral_telemetry(lateral_error, lateral_output, target_distance, distance_traveled, dt);
+            update_angular_telemetry(angular_error, angular_output, start_heading, current_pose.theta(), dt);
+            update_pose_telemetry(current_pose);
+            update_motor_voltage_telemetry(left_voltage, right_voltage);
+            update_settlement_telemetry(false, settle_count, SettlementReason::NOT_SETTLED, start_time);
+
+            // Send power to motors
+            move_left_motors(left_voltage);
+            move_right_motors(right_voltage);
+            telemetry.swap();
+            pros::delay(10);
+        }
+
+        // Check if we timed out
+        bool timed_out = (pros::millis() - start_time) >= timeout.to_millis_uint();
+        {
+            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
+            auto &data = telemetry.get_write_buffer();
+            if (timed_out && !data.is_settled)
+            {
+                data.settlement_reason = SettlementReason::TIMEOUT;
+                data.time_to_settle = units::Time::from_millis(pros::millis() - start_time);
+            }
+        }
+
+        left_motors->brake();
+        right_motors->brake();
+    }
 }

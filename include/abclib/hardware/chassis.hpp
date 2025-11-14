@@ -24,6 +24,10 @@ namespace abclib::hardware
         double turn_in_place_kV = 0.0;
         double turn_in_place_kA = 0.0;
         control::PIDConstants profiled_turn_pid_constants = {0.0, 0.0, 0.0};
+        control::PIDConstants profiled_lateral_pid_constants = {0.0, 0.0, 0.0};
+        double lateral_kS = 0.0;
+        double lateral_kV = 0.0;
+        double lateral_kA = 0.0;
     };
 
     struct Sensors
@@ -171,6 +175,13 @@ namespace abclib::hardware
             double max_angular_velocity_deg_per_sec,
             double max_angular_acceleration_deg_per_sec2,
             units::Time timeout);
+
+        void drive_straight_profiled_pid(
+            units::Distance target_distance,
+            double max_velocity_inches_per_sec,
+            double max_acceleration_inches_per_sec2,
+            units::Time timeout = units::Time::from_seconds(5),
+            bool reset_position = false);
 
         units::Distance get_track_width() const { return track_width; }
         void stop_motors();

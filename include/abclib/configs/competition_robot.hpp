@@ -70,6 +70,16 @@ namespace abclib::robot_config
         return control::PIDConstants(4.7, 0, 0);
     }
 
+    // profiled turn pid constants
+    inline control::PIDConstants get_profiled_turn_pid() {
+        return control::PIDConstants(0.0, 0.0, 0.0);  // Tune these values
+    }
+
+    // profiled lateral pid constants
+    inline control::PIDConstants get_profiled_lateral_pid() {
+        return control::PIDConstants(0.0, 0.0, 0.0);  // Tune these values
+    }
+
     // Chassis config values (untuned) - these remain as raw doubles since they're feedforward gains
     constexpr double TURN_IN_PLACE_KS = 0.919850;
     constexpr double TURN_IN_PLACE_KV = 0.169750;
