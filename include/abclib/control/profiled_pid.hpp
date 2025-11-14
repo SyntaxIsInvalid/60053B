@@ -11,10 +11,10 @@ namespace abclib::control
     struct ProfiledPIDConstants
     {
         PIDConstants pid_constants;
-        double max_velocity;
-        double max_acceleration;
-        double position_tolerance;
-        double velocity_tolerance;
+        units::Velocity max_velocity;
+        units::Acceleration max_acceleration;
+        units::Length position_tolerance;
+        units::Velocity velocity_tolerance;
     };
 
     class ProfiledPID
@@ -24,29 +24,30 @@ namespace abclib::control
         profiling::IncrementalTrapezoidalProfile profile_;
         profiling::ProfileState current_setpoint_;
         profiling::ProfileState goal_;
-        double position_tolerance_;
-        double velocity_tolerance_;
-        double last_measurement_;
+        units::Length position_tolerance_;
+        units::Velocity velocity_tolerance_;
+        units::Length last_measurement_;
         bool initialized_;
 
     public:
         explicit ProfiledPID(const ProfiledPIDConstants& constants);
         
-        double compute(double measurement, double goal, double dt);
-        double compute(double measurement, const profiling::ProfileState& goal, double dt);
+        // Compute using units::Length for measurement and goal
+        double compute(units::Length measurement, units::Length goal, units::Time dt);
+        double compute(units::Length measurement, const profiling::ProfileState& goal, units::Time dt);
         
         profiling::ProfileState get_setpoint() const;
-        double get_setpoint_position() const;
-        double get_setpoint_velocity() const;
+        units::Length get_setpoint_position() const;
+        units::Velocity get_setpoint_velocity() const;
         profiling::ProfileState get_goal() const;
-        double get_error() const;
+        units::Length get_error() const;
         bool at_goal() const;
         
         void reset();
-        void reset(double initial_position);
+        void reset(units::Length initial_position);
         void reset(const profiling::ProfileState& initial_state);
-        void set_constraints(double max_vel, double max_accel);
-        void set_tolerance(double position_tolerance, double velocity_tolerance);
+        void set_constraints(units::Velocity max_vel, units::Acceleration max_accel);
+        void set_tolerance(units::Length position_tolerance, units::Velocity velocity_tolerance);
         
         PID& get_pid();
         const PID& get_pid() const;

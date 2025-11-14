@@ -6,36 +6,42 @@ namespace abclib::kinematics
 {
     struct WheelVelocities
     {
-        units::WheelLinearVelocity left;
-        units::WheelLinearVelocity right;
+        units::Velocity left;
+        units::Velocity right;
     };
 
     struct BodyVelocities
     {
-        units::BodyLinearVelocity v;
-        units::BodyAngularVelocity omega;
+        units::Velocity v;
+        units::AngularVelocity omega;
     };
 
     inline WheelVelocities diff_drive_ik(
-        units::BodyLinearVelocity v, 
-        units::BodyAngularVelocity omega, 
-        units::Distance track_width)
+        units::Velocity v, 
+        units::AngularVelocity omega, 
+        units::Length track_width)
     {
-        double half_track = track_width.inches / 2.0;
+        // Calculate half track width
+        units::Length half_track = track_width / 2.0;
+        
+        // v_left = v - (track_width/2) * omega
+        // v_right = v + (track_width/2) * omega
         return WheelVelocities{
-            units::WheelLinearVelocity(v.inches_per_sec - half_track * omega.rad_per_sec),
-            units::WheelLinearVelocity(v.inches_per_sec + half_track * omega.rad_per_sec)
+            v - half_track * omega,
+            v + half_track * omega
         };
     }
 
     inline BodyVelocities diff_drive_fk(
-        units::WheelLinearVelocity v_left,
-        units::WheelLinearVelocity v_right,
-        units::Distance track_width)
+        units::Velocity v_left,
+        units::Velocity v_right,
+        units::Length track_width)
     {
+        // v = (v_left + v_right) / 2
+        // omega = (v_right - v_left) / track_width
         return BodyVelocities{
-            units::BodyLinearVelocity((v_right.inches_per_sec + v_left.inches_per_sec) / 2.0),
-            units::BodyAngularVelocity((v_right.inches_per_sec - v_left.inches_per_sec) / track_width.inches)
+            (v_left + v_right) / 2.0,
+            (v_right - v_left) / track_width
         };
     }
 }

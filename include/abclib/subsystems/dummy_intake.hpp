@@ -28,10 +28,10 @@ namespace abclib::subsystems
         void intake_for_voltage(units::Voltage voltage, units::Time duration) override {}
         void outtake_for_voltage(units::Voltage voltage, units::Time duration) override {}
         
-        void intake_at_velocity(units::RPM target_rpm) override {}
-        void outtake_at_velocity(units::RPM target_rpm) override {}
-        void intake_at_velocity_for(units::RPM target_rpm, units::Time duration) override {}
-        void outtake_at_velocity_for(units::RPM target_rpm, units::Time duration) override {}
+        void intake_at_velocity(units::AngularVelocity target_rpm) override {}
+        void outtake_at_velocity(units::AngularVelocity target_rpm) override {}
+        void intake_at_velocity_for(units::AngularVelocity target_rpm, units::Time duration) override {}
+        void outtake_at_velocity_for(units::AngularVelocity target_rpm, units::Time duration) override {}
         
         void set_voltage(units::Voltage voltage) override {}
     };

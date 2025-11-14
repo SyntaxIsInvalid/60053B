@@ -10,30 +10,31 @@
 #include "abclib/path/turn_in_place_segment.hpp"
 #include "abclib/math/coordinate_frames.hpp"
 #include "abclib/builder/profile_group.hpp"
+
 namespace abclib::trajectory
 {
     struct TrajectoryState
     {
         units::Time time;
-        double x, y, theta; // raw positions in path frame
+        double x, y, theta; // raw positions in path frame (inches/radians)
         double vx, vy, omega;
         double ax, ay, alpha;
         double curvature;
-        double arc_length;
-        units::BodyLinearVelocity arc_velocity; // TYPED
-        double arc_acceleration;
+        double arc_length;                    // inches
+        units::Velocity arc_velocity;         // Changed from BodyLinearVelocity
+        units::Acceleration arc_acceleration; // Changed from double
     };
 
     class Trajectory
     {
     public:
         Trajectory(const path::IPathSegment *segment,
-                   units::BodyLinearVelocity max_velocity, // TYPED
-                   double max_acceleration)
+                   units::Velocity max_velocity,         // Changed from BodyLinearVelocity
+                   units::Acceleration max_acceleration) // Changed from double
             : segment_(segment),
               profile_group_(nullptr),
-              total_arc_length_(segment->get_segment_length()),
-              profile_(units::Distance::from_inches(total_arc_length_),
+              total_arc_length_(units::Length::from_inches(segment->get_segment_length())),
+              profile_(total_arc_length_,
                        max_velocity,
                        max_acceleration)
         {
@@ -43,7 +44,7 @@ namespace abclib::trajectory
             : segment_(nullptr), // null for multi-segment mode
               profile_group_(profile_group),
               total_arc_length_(profile_group->total_arc_length),
-              profile_(units::Distance::from_inches(total_arc_length_),
+              profile_(total_arc_length_,
                        profile_group->max_velocity,
                        profile_group->max_acceleration)
         {
@@ -55,8 +56,8 @@ namespace abclib::trajectory
             TrajectoryState state;
             state.time = time;
 
-            units::Distance arc_pos = profile_.get_position(time);
-            state.arc_length = arc_pos.inches;
+            units::Length arc_pos = profile_.get_position(time);
+            state.arc_length = arc_pos.to_inches();
             state.arc_velocity = profile_.get_velocity(time);
             state.arc_acceleration = profile_.get_acceleration(time);
 
@@ -78,7 +79,7 @@ namespace abclib::trajectory
             {
                 // Single-segment mode: use the stored segment pointer
                 current_segment = segment_;
-                u = std::clamp(state.arc_length / total_arc_length_, 0.0, 1.0);
+                u = std::clamp(state.arc_length / total_arc_length_.to_inches(), 0.0, 1.0);
             }
 
             // Now use current_segment and u for all geometry calculations
@@ -105,7 +106,7 @@ namespace abclib::trajectory
 
             state.curvature = current_segment->calc_curvature(u);
 
-            double v = state.arc_velocity.inches_per_sec;
+            double v = state.arc_velocity.to_ips(); // Changed from .inches_per_sec
 
             // Check if this is a turn-in-place segment
             if (current_segment->is_turn_in_place())
@@ -121,7 +122,8 @@ namespace abclib::trajectory
 
                 state.ax = 0.0;
                 state.ay = 0.0;
-                state.alpha = state.arc_acceleration / turning_radius;
+                // Fixed: Convert acceleration from m/s² to inches/s² (multiply by inches-per-meter)
+                state.alpha = (state.arc_acceleration.to_mps2() / units::constants::INCH_TO_METER) / turning_radius;
             }
             else
             {
@@ -133,11 +135,13 @@ namespace abclib::trajectory
                 double v_squared = v * v;
                 double du_ds_squared = du_ds * du_ds;
 
+                // Fixed: Convert acceleration from m/s² to inches/s²
+                double accel = state.arc_acceleration.to_mps2() / units::constants::INCH_TO_METER;
                 state.ax = d2.x() * du_ds_squared * v_squared +
-                           d1.x() * du_ds * state.arc_acceleration;
+                           d1.x() * du_ds * accel;
                 state.ay = d2.y() * du_ds_squared * v_squared +
-                           d1.y() * du_ds * state.arc_acceleration;
-                state.alpha = state.curvature * state.arc_acceleration;
+                           d1.y() * du_ds * accel;
+                state.alpha = state.curvature * accel;
             }
 
             return state;
@@ -155,23 +159,24 @@ namespace abclib::trajectory
 
         const path::ProfileGroup *get_profile_group() const { return profile_group_; }
         units::Time get_total_time() const { return profile_.get_total_time(); }
-        double get_total_distance() const { return profile_.get_total_distance().inches; }
+        units::Length get_total_distance() const { return profile_.get_total_distance(); } // Changed return type
         bool is_complete(units::Time time) const { return time >= get_total_time(); }
 
     private:
         const path::IPathSegment *segment_;
-        double total_arc_length_;
+        units::Length total_arc_length_; // Changed from double
         profiling::TrapezoidalProfile profile_;
 
         const path::ProfileGroup *profile_group_;
         std::vector<double> segment_arc_offsets_; // Cumulative arc lengths: [0, seg0_len, seg0_len+seg1_len, ...]
+
         struct SegmentLocation
         {
             size_t segment_index;
-            double local_arc_length; // arc_length relative to segment start
+            double local_arc_length; // arc_length relative to segment start (inches)
         };
 
-        // NEW: Build the lookup table
+        // Build the lookup table
         void build_segment_lookup_table()
         {
             if (!profile_group_)
@@ -191,7 +196,7 @@ namespace abclib::trajectory
         SegmentLocation find_segment_at_arc(double global_arc_length) const
         {
             // Clamp to valid range
-            global_arc_length = std::clamp(global_arc_length, 0.0, total_arc_length_);
+            global_arc_length = std::clamp(global_arc_length, 0.0, total_arc_length_.to_inches());
 
             // Binary search to find the segment
             // std::upper_bound finds first element > global_arc_length

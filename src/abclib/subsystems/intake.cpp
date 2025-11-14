@@ -1,6 +1,7 @@
 // intake.cpp
 #include "abclib/subsystems/intake.hpp"
 #include <mutex>
+
 namespace abclib::subsystems
 {
     Intake::Intake(hardware::AdvancedMotorGroup *motor_group,
@@ -71,7 +72,7 @@ namespace abclib::subsystems
         }
 
         current_state = IntakeState::IDLE;
-        motors->brake(); // Yes, this stops the motors
+        motors->brake();
     }
 
     void Intake::toggle_intake()
@@ -107,7 +108,7 @@ namespace abclib::subsystems
             timed_task_ = pros::Task([this, duration]()
                                      {
                 uint32_t start = pros::millis();
-                while ((pros::millis() - start) < duration.to_millis_uint()) {
+                while ((pros::millis() - start) < static_cast<uint32_t>(duration.to_milliseconds())) {
                     if (pros::Task::notify_take(true, 10) > 0) {
                         return; // Task was cancelled
                     }
@@ -137,7 +138,7 @@ namespace abclib::subsystems
             timed_task_ = pros::Task([this, duration]()
                                      {
                 uint32_t start = pros::millis();
-                while ((pros::millis() - start) < duration.to_millis_uint()) {
+                while ((pros::millis() - start) < static_cast<uint32_t>(duration.to_milliseconds())) {
                     if (pros::Task::notify_take(true, 10) > 0) {
                         return; // Task was cancelled
                     }
@@ -166,13 +167,13 @@ namespace abclib::subsystems
             std::lock_guard<pros::Mutex> lock(task_mutex_);
             timed_task_ = pros::Task([this, duration]()
                                      {
-            uint32_t start = pros::millis();
-            while ((pros::millis() - start) < duration.to_millis_uint()) {
-                if (pros::Task::notify_take(true, 10) > 0) {
-                    return; // Task was cancelled
+                uint32_t start = pros::millis();
+                while ((pros::millis() - start) < static_cast<uint32_t>(duration.to_milliseconds())) {
+                    if (pros::Task::notify_take(true, 10) > 0) {
+                        return; // Task was cancelled
+                    }
                 }
-            }
-            this->set_idle(); });
+                this->set_idle(); });
         }
     }
 
@@ -196,17 +197,17 @@ namespace abclib::subsystems
             std::lock_guard<pros::Mutex> lock(task_mutex_);
             timed_task_ = pros::Task([this, duration]()
                                      {
-            uint32_t start = pros::millis();
-            while ((pros::millis() - start) < duration.to_millis_uint()) {
-                if (pros::Task::notify_take(true, 10) > 0) {
-                    return; // Task was cancelled
+                uint32_t start = pros::millis();
+                while ((pros::millis() - start) < static_cast<uint32_t>(duration.to_milliseconds())) {
+                    if (pros::Task::notify_take(true, 10) > 0) {
+                        return; // Task was cancelled
+                    }
                 }
-            }
-            this->set_idle(); });
+                this->set_idle(); });
         }
     }
 
-    void Intake::intake_at_velocity(units::RPM target_rpm)
+    void Intake::intake_at_velocity(units::AngularVelocity target_rpm)
     {
         // Cancel any running timed task
         {
@@ -219,10 +220,10 @@ namespace abclib::subsystems
         }
 
         current_state = IntakeState::INTAKING;
-        motors->move_velocity_pros(units::MotorAngularVelocity::from_rpm(target_rpm.value));
+        motors->move_velocity_pros(target_rpm);
     }
 
-    void Intake::outtake_at_velocity(units::RPM target_rpm)
+    void Intake::outtake_at_velocity(units::AngularVelocity target_rpm)
     {
         // Cancel any running timed task
         {
@@ -236,10 +237,10 @@ namespace abclib::subsystems
 
         current_state = IntakeState::OUTTAKING;
         // Negative RPM for outtake
-        motors->move_velocity_pros(units::MotorAngularVelocity::from_rpm(-target_rpm.value));
+        motors->move_velocity_pros(-target_rpm);
     }
 
-    void Intake::intake_at_velocity_for(units::RPM target_rpm, units::Time duration)
+    void Intake::intake_at_velocity_for(units::AngularVelocity target_rpm, units::Time duration)
     {
         // Cancel any existing timed task
         {
@@ -252,24 +253,24 @@ namespace abclib::subsystems
 
         // Start intake at velocity immediately
         current_state = IntakeState::INTAKING;
-        motors->move_velocity_pros(units::MotorAngularVelocity::from_rpm(target_rpm.value));
+        motors->move_velocity_pros(target_rpm);
 
         // Create task to stop after duration
         {
             std::lock_guard<pros::Mutex> lock(task_mutex_);
             timed_task_ = pros::Task([this, duration]()
                                      {
-            uint32_t start = pros::millis();
-            while ((pros::millis() - start) < duration.to_millis_uint()) {
-                if (pros::Task::notify_take(true, 10) > 0) {
-                    return;
+                uint32_t start = pros::millis();
+                while ((pros::millis() - start) < static_cast<uint32_t>(duration.to_milliseconds())) {
+                    if (pros::Task::notify_take(true, 10) > 0) {
+                        return;
+                    }
                 }
-            }
-            this->set_idle(); });
+                this->set_idle(); });
         }
     }
 
-    void Intake::outtake_at_velocity_for(units::RPM target_rpm, units::Time duration)
+    void Intake::outtake_at_velocity_for(units::AngularVelocity target_rpm, units::Time duration)
     {
         // Cancel any existing timed task
         {
@@ -282,20 +283,20 @@ namespace abclib::subsystems
 
         // Start outtake at velocity immediately
         current_state = IntakeState::OUTTAKING;
-        motors->move_velocity_pros(units::MotorAngularVelocity::from_rpm(-target_rpm.value));
+        motors->move_velocity_pros(-target_rpm);
 
         // Create task to stop after duration
         {
             std::lock_guard<pros::Mutex> lock(task_mutex_);
             timed_task_ = pros::Task([this, duration]()
                                      {
-            uint32_t start = pros::millis();
-            while ((pros::millis() - start) < duration.to_millis_uint()) {
-                if (pros::Task::notify_take(true, 10) > 0) {
-                    return;
+                uint32_t start = pros::millis();
+                while ((pros::millis() - start) < static_cast<uint32_t>(duration.to_milliseconds())) {
+                    if (pros::Task::notify_take(true, 10) > 0) {
+                        return;
+                    }
                 }
-            }
-            this->set_idle(); });
+                this->set_idle(); });
         }
     }
 

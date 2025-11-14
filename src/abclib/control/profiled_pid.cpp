@@ -8,29 +8,30 @@ namespace abclib::control
     ProfiledPID::ProfiledPID(const ProfiledPIDConstants &constants)
         : pid_(constants.pid_constants),
           profile_(profiling::ProfileConstraints(constants.max_velocity, constants.max_acceleration)),
-          current_setpoint_(0.0, 0.0),
-          goal_(0.0, 0.0),
+          current_setpoint_(),
+          goal_(),
           position_tolerance_(constants.position_tolerance),
           velocity_tolerance_(constants.velocity_tolerance),
-          last_measurement_(0.0),
+          last_measurement_(units::Length::from_inches(0.0)),
           initialized_(false)
     {
     }
 
-    double ProfiledPID::compute(double measurement, double goal, double dt)
+    double ProfiledPID::compute(units::Length measurement, units::Length goal, units::Time dt)
     {
-        profiling::ProfileState goal_state(goal, 0.0);
+        profiling::ProfileState goal_state(goal, units::Velocity::from_ips(0.0));
         return compute(measurement, goal_state, dt);
     }
 
-    double ProfiledPID::compute(double measurement, const profiling::ProfileState &goal, double dt)
+    double ProfiledPID::compute(units::Length measurement, const profiling::ProfileState &goal, units::Time dt)
     {
         last_measurement_ = measurement;
 
         if (!initialized_)
         {
             current_setpoint_.position = measurement;
-            current_setpoint_.velocity = 0.0;
+            current_setpoint_.velocity = units::Velocity::from_ips(0.0);
+            current_setpoint_.acceleration = units::Acceleration::from_mps2(0.0);
             initialized_ = true;
         }
 
@@ -38,8 +39,9 @@ namespace abclib::control
 
         current_setpoint_ = profile_.calculate(dt, current_setpoint_, goal_);
 
-        double error = current_setpoint_.position - measurement;
-        return pid_.compute(error, dt);
+        units::Length error(current_setpoint_.position - measurement);
+        // PID operates on raw doubles (in inches per your convention)
+        return pid_.compute(error.to_inches(), dt.to_seconds());
     }
 
     profiling::ProfileState ProfiledPID::get_setpoint() const
@@ -47,12 +49,12 @@ namespace abclib::control
         return current_setpoint_;
     }
 
-    double ProfiledPID::get_setpoint_position() const
+    units::Length ProfiledPID::get_setpoint_position() const
     {
         return current_setpoint_.position;
     }
 
-    double ProfiledPID::get_setpoint_velocity() const
+    units::Velocity ProfiledPID::get_setpoint_velocity() const
     {
         return current_setpoint_.velocity;
     }
@@ -62,9 +64,9 @@ namespace abclib::control
         return goal_;
     }
 
-    double ProfiledPID::get_error() const
+    units::Length ProfiledPID::get_error() const
     {
-        return current_setpoint_.position - last_measurement_;
+        return units::Length(current_setpoint_.position - last_measurement_);
     }
 
     bool ProfiledPID::at_goal() const
@@ -73,16 +75,16 @@ namespace abclib::control
             return false;
 
         // Check if the setpoint has converged to the goal
-        double setpoint_to_goal_error = std::abs(goal_.position - current_setpoint_.position);
-        bool setpoint_at_goal = setpoint_to_goal_error <= position_tolerance_;
+        units::Length setpoint_to_goal_error(units::Qabs(goal_.position - current_setpoint_.position));
+        bool setpoint_at_goal = setpoint_to_goal_error.to_inches() <= position_tolerance_.to_inches();
 
         // Check if the setpoint velocity has reached goal velocity (typically 0)
-        double setpoint_velocity_error = std::abs(current_setpoint_.velocity - goal_.velocity);
-        bool setpoint_stopped = setpoint_velocity_error <= velocity_tolerance_;
+        units::Velocity setpoint_velocity_error(units::Qabs(current_setpoint_.velocity - goal_.velocity));
+        bool setpoint_stopped = setpoint_velocity_error.to_ips() <= velocity_tolerance_.to_ips();
 
         // Check if measurement is tracking the setpoint
-        double tracking_error = std::abs(current_setpoint_.position - last_measurement_);
-        bool tracking_setpoint = tracking_error <= position_tolerance_;
+        units::Length tracking_error(units::Qabs(current_setpoint_.position - last_measurement_));
+        bool tracking_setpoint = tracking_error.to_inches() <= position_tolerance_.to_inches();
 
         return setpoint_at_goal && setpoint_stopped && tracking_setpoint;
     }
@@ -90,15 +92,15 @@ namespace abclib::control
     void ProfiledPID::reset()
     {
         pid_.reset();
-        current_setpoint_ = profiling::ProfileState(0.0, 0.0);
-        goal_ = profiling::ProfileState(0.0, 0.0);
-        last_measurement_ = 0.0;
+        current_setpoint_ = profiling::ProfileState();
+        goal_ = profiling::ProfileState();
+        last_measurement_ = units::Length::from_inches(0.0);
         initialized_ = false;
     }
 
-    void ProfiledPID::reset(double initial_position)
+    void ProfiledPID::reset(units::Length initial_position)
     {
-        reset(profiling::ProfileState(initial_position, 0.0));
+        reset(profiling::ProfileState(initial_position, units::Velocity::from_ips(0.0)));
     }
 
     void ProfiledPID::reset(const profiling::ProfileState &initial_state)
@@ -110,12 +112,12 @@ namespace abclib::control
         initialized_ = true;
     }
 
-    void ProfiledPID::set_constraints(double max_vel, double max_accel)
+    void ProfiledPID::set_constraints(units::Velocity max_vel, units::Acceleration max_accel)
     {
         profile_.set_constraints(profiling::ProfileConstraints(max_vel, max_accel));
     }
 
-    void ProfiledPID::set_tolerance(double position_tolerance, double velocity_tolerance)
+    void ProfiledPID::set_tolerance(units::Length position_tolerance, units::Velocity velocity_tolerance)
     {
         position_tolerance_ = position_tolerance;
         velocity_tolerance_ = velocity_tolerance;

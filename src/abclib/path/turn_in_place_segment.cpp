@@ -9,18 +9,17 @@ namespace abclib::path
 
     TurnInPlaceSegment::TurnInPlaceSegment(const Pose &center_pose,
                                            double end_heading,
-                                           units::Distance track_width) // CHANGED HERE
+                                           units::Length track_width)
         : start_pose_(center_pose),
           end_pose_(center_pose(0), center_pose(1), end_heading),
           track_width_(track_width)
     {
         // Validate track width
-        if (track_width.inches <= 0)
-        { // CHANGED: access .inches member
+        if (track_width_.to_inches() <= 0)
+        {
             throw std::invalid_argument(
                 "TurnInPlaceSegment: track_width must be positive. Got: " +
-                std::to_string(track_width.inches) // CHANGED: access .inches
-            );
+                std::to_string(track_width_.to_inches()));
         }
 
         // Calculate angular displacement (shortest path)
@@ -33,13 +32,13 @@ namespace abclib::path
                 "TurnInPlaceSegment: angular displacement is too small. "
                 "Start: " +
                 std::to_string(center_pose(2) * 180.0 / M_PI) + "°, "
-                                                                "End: " +
+                "End: " +
                 std::to_string(end_heading * 180.0 / M_PI) + "°");
         }
 
         // Calculate arc length based on actual wheel separation
         // Arc length = radius * angle, where radius = track_width / 2
-        double turning_radius = track_width_.inches / 2.0; // CHANGED: access .inches
+        double turning_radius = track_width_.to_inches() / 2.0;
         arc_length_ = std::abs(angular_displacement_) * turning_radius;
     }
 

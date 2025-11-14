@@ -56,7 +56,7 @@ namespace abclib::trajectory
         {
             units::Time total_time = trajectory.get_total_time();
             
-            for (double t = 0.0; t <= total_time.seconds; t += time_step)
+            for (double t = 0.0; t <= total_time.to_seconds(); t += time_step)
             {
                 units::Time time = units::Time::from_seconds(t);
                 TrajectoryState state = trajectory.get_state(time);
@@ -64,8 +64,8 @@ namespace abclib::trajectory
                 fprintf(file, "%zu,%s,", group_index, group_name.c_str());
                 fprintf(file, "%.3f,%.3f,", t, state.arc_length);
                 fprintf(file, "%.3f,%.3f,",
-                       state.arc_velocity.inches_per_sec,
-                       state.arc_acceleration);
+                       state.arc_velocity.to_ips(),
+                       state.arc_acceleration.to_mps2() / units::constants::INCH_TO_METER);
                 fprintf(file, "%.3f,%.3f,%.6f,%.2f,",
                        state.x, state.y, state.theta, state.theta * 180.0 / M_PI);
                 fprintf(file, "%.3f,%.3f,%.3f,%.6f\n",

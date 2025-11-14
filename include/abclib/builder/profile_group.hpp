@@ -11,17 +11,17 @@ namespace abclib::path
     struct ProfileGroup
     {
         std::string name;
-        units::BodyLinearVelocity max_velocity;
-        double max_acceleration; // inches/s^2
+        units::Velocity max_velocity;      // Changed from BodyLinearVelocity
+        units::Acceleration max_acceleration; // Changed from double (inches/s^2)
 
         std::vector<std::unique_ptr<IPathSegment>> segments;
 
         // Computed during build
-        double total_arc_length = 0.0;
+        units::Length total_arc_length = units::Length::from_inches(0.0); // Changed from double
 
         ProfileGroup(const std::string &group_name,
-                     units::BodyLinearVelocity max_vel,
-                     double max_accel)
+                     units::Velocity max_vel,
+                     units::Acceleration max_accel)
             : name(group_name), max_velocity(max_vel), max_acceleration(max_accel)
         {
         }
@@ -29,10 +29,11 @@ namespace abclib::path
         // Calculate total arc length from all segments
         void compute_arc_length()
         {
-            total_arc_length = 0.0;
+            total_arc_length = units::Length::from_inches(0.0);
             for (const auto &seg : segments)
             {
-                total_arc_length += seg->get_segment_length();
+                total_arc_length = total_arc_length + 
+                    units::Length::from_inches(seg->get_segment_length());
             }
         }
 
