@@ -8,13 +8,22 @@ namespace abclib::ui
     class ScreenManager
     {
     private:
-        // Tabview and tabs
+        // Main telemetry tabview and tabs
         lv_obj_t *tabview;
         lv_obj_t *tab_overview;
         lv_obj_t *tab_pid;
         lv_obj_t *tab_trajectory;
         lv_obj_t *tab_performance;
         lv_obj_t *tab_config;
+
+        // Autonomous screen tabview and tabs
+        lv_obj_t *auton_tabview;
+        lv_obj_t *auton_tab_red;
+        lv_obj_t *auton_tab_blue;
+        lv_obj_t *auton_tab_skills;
+        lv_obj_t *auton_tab_test;
+        lv_obj_t *auton_tab_telemetry;
+        lv_obj_t *auton_tab_image;
 
         // Labels for each tab (created once, updated repeatedly)
         std::vector<lv_obj_t *> overview_labels;
@@ -35,13 +44,24 @@ namespace abclib::ui
         lv_obj_t *label_current_screen; // Shows current screen name
 
         int current_screen_index = 0;   // Track which screen we're on (0-4)
-
-        // Tab creation helpers
+        bool is_auton_screen_active = false; // Track if we're on autonomous screen
+        bool is_navigating = false;
+        
+        // Tab creation helpers - Telemetry screen
         void create_overview_tab();
         void create_pid_tab();
         void create_trajectory_tab();
         void create_performance_tab();
         void create_config_tab();
+        
+        // Tab creation helpers - Autonomous screen
+        void create_autonomous_screen();
+        void create_auton_red_tab();
+        void create_auton_blue_tab();
+        void create_auton_skills_tab();
+        void create_auton_test_tab();
+        void create_auton_telemetry_tab();
+        void create_auton_image_tab();
         
         // Navigation helpers
         void create_navigation_bar();
@@ -49,6 +69,10 @@ namespace abclib::ui
         void navigate_next();
         void update_current_screen_label();
         void update_navigation_buttons();
+        
+        // Screen switching helpers
+        void show_telemetry_screen();
+        void show_autonomous_screen();
 
         // Update helpers
         void update_overview_tab(const telemetry::TelemetryData &data);

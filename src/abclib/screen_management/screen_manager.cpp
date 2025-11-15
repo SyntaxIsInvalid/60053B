@@ -4,20 +4,20 @@
 namespace abclib::ui {
 
 void ScreenManager::initialize() {
-    // Create the tabview
+    // Create the main telemetry tabview
     tabview = lv_tabview_create(lv_screen_active());
     
     // Hide the default tab bar (we'll use custom navigation)
     lv_tabview_set_tab_bar_size(tabview, 0);
     
-    // Create all tabs
+    // Create all telemetry tabs
     tab_overview = lv_tabview_add_tab(tabview, "Overview");
     tab_pid = lv_tabview_add_tab(tabview, "PID");
     tab_trajectory = lv_tabview_add_tab(tabview, "Trajectory");
     tab_performance = lv_tabview_add_tab(tabview, "Performance");
     tab_config = lv_tabview_add_tab(tabview, "Config");
     
-    // Setup all tabs
+    // Setup all telemetry tabs
     create_overview_tab();
     create_pid_tab();
     create_trajectory_tab();
@@ -29,6 +29,9 @@ void ScreenManager::initialize() {
     
     // Create full-screen image overlay (not a tab anymore)
     create_fullscreen_image();
+    
+    // Create autonomous screen (initially hidden)
+    create_autonomous_screen();
 }
 
 void ScreenManager::create_navigation_bar() {
@@ -51,14 +54,17 @@ void ScreenManager::create_navigation_bar() {
         manager->navigate_prev();
     }, LV_EVENT_CLICKED, this);
     
-    // Auton selector button (disabled for now)
+    // Auton selector button (now enabled)
     btn_auton = lv_button_create(nav_bar);
     lv_obj_set_size(btn_auton, 80, 40);
     lv_obj_align(btn_auton, LV_ALIGN_LEFT_MID, 45, 0);
     lv_obj_t* label_auton = lv_label_create(btn_auton);
     lv_label_set_text(label_auton, "Auton");
     lv_obj_center(label_auton);
-    lv_obj_add_state(btn_auton, LV_STATE_DISABLED);  // Disabled for now
+    lv_obj_add_event_cb(btn_auton, [](lv_event_t* e) {
+        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
+        manager->show_autonomous_screen();
+    }, LV_EVENT_CLICKED, this);
     
     // Current screen name label (center)
     label_current_screen = lv_label_create(nav_bar);
@@ -93,23 +99,141 @@ void ScreenManager::create_navigation_bar() {
     update_navigation_buttons();
 }
 
+void ScreenManager::create_autonomous_screen() {
+    // Create the autonomous tabview (initially hidden)
+    auton_tabview = lv_tabview_create(lv_screen_active());
+    
+    // Position it to cover the entire screen
+    lv_obj_set_size(auton_tabview, LV_PCT(100), LV_PCT(100));
+    lv_obj_align(auton_tabview, LV_ALIGN_TOP_LEFT, 0, 0);
+    
+    // Create all 6 tabs
+    auton_tab_red = lv_tabview_add_tab(auton_tabview, "Red");
+    auton_tab_blue = lv_tabview_add_tab(auton_tabview, "Blue");
+    auton_tab_skills = lv_tabview_add_tab(auton_tabview, "Skills");
+    auton_tab_test = lv_tabview_add_tab(auton_tabview, "Test");
+    auton_tab_telemetry = lv_tabview_add_tab(auton_tabview, "Telemetry");
+    auton_tab_image = lv_tabview_add_tab(auton_tabview, "Image");
+    
+    // Setup all autonomous tabs
+    create_auton_red_tab();
+    create_auton_blue_tab();
+    create_auton_skills_tab();
+    create_auton_test_tab();
+    create_auton_telemetry_tab();
+    create_auton_image_tab();
+    
+    // Add event callback to detect tab changes
+    lv_obj_add_event_cb(auton_tabview, [](lv_event_t* e) {
+        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
+        lv_obj_t* tabview = (lv_obj_t*)lv_event_get_target(e);
+        uint32_t active_tab = lv_tabview_get_tab_active(tabview);
+        
+        // Tab 4 is Telemetry - switch back to main telemetry screen
+        if (active_tab == 4) {
+            manager->show_telemetry_screen();
+        }
+        // Tab 5 is Image - show fullscreen image
+        else if (active_tab == 5) {
+            manager->show_fullscreen_image();
+        }
+    }, LV_EVENT_VALUE_CHANGED, this);
+    
+    // Hide initially
+    lv_obj_add_flag(auton_tabview, LV_OBJ_FLAG_HIDDEN);
+}
+
+void ScreenManager::create_auton_red_tab() {
+    lv_obj_t* label = lv_label_create(auton_tab_red);
+    lv_label_set_text(label, "Red Autonomous\n(Not implemented yet)");
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+}
+
+void ScreenManager::create_auton_blue_tab() {
+    lv_obj_t* label = lv_label_create(auton_tab_blue);
+    lv_label_set_text(label, "Blue Autonomous\n(Not implemented yet)");
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+}
+
+void ScreenManager::create_auton_skills_tab() {
+    lv_obj_t* label = lv_label_create(auton_tab_skills);
+    lv_label_set_text(label, "Skills Autonomous\n(Not implemented yet)");
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+}
+
+void ScreenManager::create_auton_test_tab() {
+    lv_obj_t* label = lv_label_create(auton_tab_test);
+    lv_label_set_text(label, "Test Autonomous\n(Not implemented yet)");
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+}
+
+void ScreenManager::create_auton_telemetry_tab() {
+    lv_obj_t* label = lv_label_create(auton_tab_telemetry);
+    lv_label_set_text(label, "Return to Telemetry");
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+}
+
+void ScreenManager::create_auton_image_tab() {
+    lv_obj_t* label = lv_label_create(auton_tab_image);
+    lv_label_set_text(label, "Show Image");
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+}
+
+void ScreenManager::show_telemetry_screen() {
+    // Hide autonomous screen
+    lv_obj_add_flag(auton_tabview, LV_OBJ_FLAG_HIDDEN);
+    
+    // Show telemetry tabview and nav bar
+    lv_obj_remove_flag(tabview, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(nav_bar, LV_OBJ_FLAG_HIDDEN);
+    
+    is_auton_screen_active = false;
+}
+
+void ScreenManager::show_autonomous_screen() {
+    // Hide telemetry tabview and nav bar
+    lv_obj_add_flag(tabview, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(nav_bar, LV_OBJ_FLAG_HIDDEN);
+    
+    // Show autonomous screen
+    lv_obj_remove_flag(auton_tabview, LV_OBJ_FLAG_HIDDEN);
+    
+    // Set to first tab (Red)
+    lv_tabview_set_active(auton_tabview, 0, LV_ANIM_OFF);
+    
+    is_auton_screen_active = true;
+}
+
 void ScreenManager::navigate_prev() {
-    if (current_screen_index > 0) {
-        current_screen_index--;
-        lv_tabview_set_active(tabview, current_screen_index, LV_ANIM_ON);
-        update_current_screen_label();
-        update_navigation_buttons();
+    if (is_navigating || current_screen_index <= 0) {
+        return;  // Exit early if already navigating or at first screen
     }
+    
+    is_navigating = true;
+    
+    current_screen_index--;
+    lv_tabview_set_active(tabview, current_screen_index, LV_ANIM_ON);
+    update_current_screen_label();
+    update_navigation_buttons();
+    
+    is_navigating = false;
 }
 
 void ScreenManager::navigate_next() {
-    if (current_screen_index < 4) {  // 5 screens total (0-4)
-        current_screen_index++;
-        lv_tabview_set_active(tabview, current_screen_index, LV_ANIM_ON);
-        update_current_screen_label();
-        update_navigation_buttons();
+    if (is_navigating || current_screen_index >= 4) {
+        return;  // Exit early if already navigating or at last screen
     }
+    
+    is_navigating = true;
+    
+    current_screen_index++;
+    lv_tabview_set_active(tabview, current_screen_index, LV_ANIM_ON);
+    update_current_screen_label();
+    update_navigation_buttons();
+    
+    is_navigating = false;
 }
+
 
 void ScreenManager::update_current_screen_label() {
     const char* screen_names[] = {"Overview", "PID", "Trajectory", "Performance", "Config"};
@@ -222,6 +346,11 @@ void ScreenManager::show_fullscreen_image() {
 
 void ScreenManager::hide_fullscreen_image() {
     lv_obj_add_flag(image_obj, LV_OBJ_FLAG_HIDDEN);
+    
+    // If we were on the autonomous screen, switch to telemetry tab
+    if (is_auton_screen_active) {
+        lv_tabview_set_active(auton_tabview, 4, LV_ANIM_OFF);  // Tab 4 is Telemetry
+    }
 }
 
 void ScreenManager::update_telemetry(const telemetry::TelemetryData& data) {

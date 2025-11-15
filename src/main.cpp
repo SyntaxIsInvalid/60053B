@@ -54,6 +54,7 @@ hardware::ChassisConfig chassis_constant{
     .right = &rightMotors,
     .diameter = robot_config::WHEEL_DIAMETER,
     .track_width = robot_config::TRACK_WIDTH,
+    .ramsete_constants = robot_config::get_ramsete_config(),
     .turn_in_place_kS = robot_config::TURN_IN_PLACE_KS,
     .turn_in_place_kV = robot_config::TURN_IN_PLACE_KV,
     .turn_in_place_kA = robot_config::TURN_IN_PLACE_KA,

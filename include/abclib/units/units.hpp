@@ -273,6 +273,9 @@ namespace abclib::units
     using Jerk_Base = Quantity<std::ratio<0>, std::ratio<1>, std::ratio<-3>,
                                std::ratio<0>, std::ratio<0>, std::ratio<0>>;
 
+    using AngularJerk_Base = Quantity<std::ratio<0>, std::ratio<0>, std::ratio<-3>,
+                                      std::ratio<0>, std::ratio<0>, std::ratio<1>>;
+
     using Current_Base = Quantity<std::ratio<0>, std::ratio<0>, std::ratio<0>,
                                   std::ratio<1>, std::ratio<0>, std::ratio<0>>;
 
@@ -439,6 +442,20 @@ namespace abclib::units
         static constexpr Jerk from_mps3(double mps3) { return Jerk(mps3); }
 
         constexpr double to_mps3() const { return value(); }
+    };
+
+    struct AngularJerk : AngularJerk_Base
+    {
+        using AngularJerk_Base::AngularJerk_Base;
+        using AngularJerk_Base::operator=;
+        constexpr AngularJerk(const AngularJerk_Base &base) : AngularJerk_Base(base) {}
+
+        static constexpr AngularJerk from_rad_per_sec3(double rad_s3)
+        {
+            return AngularJerk(rad_s3);
+        }
+
+        constexpr double to_rad_per_sec3() const { return value(); }
     };
 
     struct Current : Current_Base
@@ -870,6 +887,163 @@ namespace abclib::units
         constexpr Resistance operator""_Ohm(unsigned long long x)
         {
             return Resistance::from_ohms(static_cast<double>(x));
+        }
+
+        // Acceleration literals
+        constexpr Acceleration operator""_mps2(long double x)
+        {
+            return Acceleration::from_mps2(static_cast<double>(x));
+        }
+
+        constexpr Acceleration operator""_mps2(unsigned long long x)
+        {
+            return Acceleration::from_mps2(static_cast<double>(x));
+        }
+
+        constexpr Acceleration operator""_ips2(long double x)
+        {
+            return Acceleration::from_mps2(static_cast<double>(x) * constants::INCH_TO_METER);
+        }
+
+        constexpr Acceleration operator""_ips2(unsigned long long x)
+        {
+            return Acceleration::from_mps2(static_cast<double>(x) * constants::INCH_TO_METER);
+        }
+
+        constexpr Acceleration operator""_G(long double x)
+        {
+            return Acceleration::from_G(static_cast<double>(x));
+        }
+
+        constexpr Acceleration operator""_G(unsigned long long x)
+        {
+            return Acceleration::from_G(static_cast<double>(x));
+        }
+
+        // Angular velocity literals
+        constexpr AngularVelocity operator""_rad_per_sec(long double x)
+        {
+            return AngularVelocity::from_rad_per_sec(static_cast<double>(x));
+        }
+
+        constexpr AngularVelocity operator""_rad_per_sec(unsigned long long x)
+        {
+            return AngularVelocity::from_rad_per_sec(static_cast<double>(x));
+        }
+
+        constexpr AngularVelocity operator""_deg_per_sec(long double x)
+        {
+            return AngularVelocity::from_deg_per_sec(static_cast<double>(x));
+        }
+
+        constexpr AngularVelocity operator""_deg_per_sec(unsigned long long x)
+        {
+            return AngularVelocity::from_deg_per_sec(static_cast<double>(x));
+        }
+
+        constexpr AngularVelocity operator""_rpm(long double x)
+        {
+            return AngularVelocity::from_rpm(static_cast<double>(x));
+        }
+
+        constexpr AngularVelocity operator""_rpm(unsigned long long x)
+        {
+            return AngularVelocity::from_rpm(static_cast<double>(x));
+        }
+
+        // Angular acceleration literals
+        constexpr AngularAcceleration operator""_rad_per_sec2(long double x)
+        {
+            return AngularAcceleration::from_rad_per_sec2(static_cast<double>(x));
+        }
+
+        constexpr AngularAcceleration operator""_rad_per_sec2(unsigned long long x)
+        {
+            return AngularAcceleration::from_rad_per_sec2(static_cast<double>(x));
+        }
+
+        constexpr AngularAcceleration operator""_deg_per_sec2(long double x)
+        {
+            return AngularAcceleration::from_deg_per_sec2(static_cast<double>(x));
+        }
+
+        constexpr AngularAcceleration operator""_deg_per_sec2(unsigned long long x)
+        {
+            return AngularAcceleration::from_deg_per_sec2(static_cast<double>(x));
+        }
+
+        // Jerk literals
+        constexpr Jerk operator""_mps3(long double x)
+        {
+            return Jerk::from_mps3(static_cast<double>(x));
+        }
+
+        constexpr Jerk operator""_mps3(unsigned long long x)
+        {
+            return Jerk::from_mps3(static_cast<double>(x));
+        }
+
+        constexpr Jerk operator""_ips3(long double x)
+        {
+            return Jerk::from_mps3(static_cast<double>(x) * constants::INCH_TO_METER);
+        }
+
+        constexpr Jerk operator""_ips3(unsigned long long x)
+        {
+            return Jerk::from_mps3(static_cast<double>(x) * constants::INCH_TO_METER);
+        }
+
+        // Angular jerk literals
+        constexpr AngularJerk operator""_rad_per_sec3(long double x)
+        {
+            return AngularJerk::from_rad_per_sec3(static_cast<double>(x));
+        }
+
+        constexpr AngularJerk operator""_rad_per_sec3(unsigned long long x)
+        {
+            return AngularJerk::from_rad_per_sec3(static_cast<double>(x));
+        }
+
+        constexpr AngularJerk operator""_deg_per_sec3(long double x)
+        {
+            return AngularJerk::from_rad_per_sec3(static_cast<double>(x) * constants::DEG_TO_RAD);
+        }
+
+        constexpr AngularJerk operator""_deg_per_sec3(unsigned long long x)
+        {
+            return AngularJerk::from_rad_per_sec3(static_cast<double>(x) * constants::DEG_TO_RAD);
+        }
+
+        // Temperature difference literals
+        constexpr TemperatureDifference operator""_degC(long double x)
+        {
+            return TemperatureDifference::from_celsius(static_cast<double>(x));
+        }
+
+        constexpr TemperatureDifference operator""_degC(unsigned long long x)
+        {
+            return TemperatureDifference::from_celsius(static_cast<double>(x));
+        }
+
+        constexpr TemperatureDifference operator""_degK(long double x)
+        {
+            return TemperatureDifference::from_kelvin(static_cast<double>(x));
+        }
+
+        constexpr TemperatureDifference operator""_degK(unsigned long long x)
+        {
+            return TemperatureDifference::from_kelvin(static_cast<double>(x));
+        }
+
+        // Note: Fahrenheit differences use the same scale factor as Celsius (1°F change = 5/9 K change)
+        constexpr TemperatureDifference operator""_degF(long double x)
+        {
+            return TemperatureDifference::from_kelvin(static_cast<double>(x) * constants::FAHRENHEIT_SCALE);
+        }
+
+        constexpr TemperatureDifference operator""_degF(unsigned long long x)
+        {
+            return TemperatureDifference::from_kelvin(static_cast<double>(x) * constants::FAHRENHEIT_SCALE);
         }
 
     } // namespace literals

@@ -3,7 +3,7 @@
 #include "abclib/hardware/tracking_wheel.hpp"
 #include "abclib/units/units.hpp"
 #include "api.h"
-
+#include "abclib/control/ramsete.hpp"
 namespace abclib::robot_config
 {
 
@@ -66,18 +66,25 @@ namespace abclib::robot_config
 
     inline control::PIDConstants get_angular_pid()
     {
-        //return control::PIDConstants(4.7, 0, 0);
+        // return control::PIDConstants(4.7, 0, 0);
         return control::PIDConstants(4.7, 0, 0);
     }
 
     // profiled turn pid constants
-    inline control::PIDConstants get_profiled_turn_pid() {
-        return control::PIDConstants(0.0, 0.0, 0.0);  // Tune these values
+    inline control::PIDConstants get_profiled_turn_pid()
+    {
+        return control::PIDConstants(0.0, 0.0, 0.0); // Tune these values
     }
 
     // profiled lateral pid constants
-    inline control::PIDConstants get_profiled_lateral_pid() {
-        return control::PIDConstants(0.0, 0.0, 0.0);  // Tune these values
+    inline control::PIDConstants get_profiled_lateral_pid()
+    {
+        return control::PIDConstants(0.0, 0.0, 0.0); // Tune these values
+    }
+
+    inline control::RamseteConstants get_ramsete_config()
+    {
+        return control::RamseteConstants{2.0, 0.7}; // b, zeta
     }
 
     // Chassis config values (untuned) - these remain as raw doubles since they're feedforward gains

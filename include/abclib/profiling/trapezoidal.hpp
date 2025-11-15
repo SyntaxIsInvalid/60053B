@@ -24,7 +24,7 @@ namespace abclib::profiling
          *
          * @param total_distance Total distance to travel (arc length)
          * @param max_velocity Maximum velocity constraint
-         * @param max_acceleration Maximum acceleration constraint (in inches/s²)
+         * @param max_acceleration Maximum acceleration constraint
          */
         TrapezoidalProfile(units::Length total_distance,
                            units::Velocity max_velocity,
@@ -74,11 +74,11 @@ namespace abclib::profiling
           max_velocity_(max_velocity),
           max_acceleration_(max_acceleration)
     {
-        if (total_distance.to_inches() <= 0)
+        if (total_distance.to_meters() <= 0)
         {
             throw std::invalid_argument("Total distance must be positive");
         }
-        if (max_velocity.to_ips() <= 0)
+        if (max_velocity.to_mps() <= 0)
         {
             throw std::invalid_argument("Max velocity must be positive");
         }
@@ -207,10 +207,12 @@ namespace abclib::profiling
             is_trapezoidal_ = false;
             cruise_distance_ = units::Length::from_meters(0);
 
-            // Peak velocity: v_peak = sqrt(a * d)
-            // Using v² = 2ad, so v = sqrt(2 * a * d)
-            double peak_vel_mps = std::sqrt(2.0 * max_acceleration_.to_mps2() *
-                                            total_distance_.to_meters() / 2.0);
+            // For triangular: total distance = accel_distance + decel_distance
+            // accel_distance = v²/(2a), decel_distance = v²/(2a)
+            // total_distance = 2 * v²/(2a) = v²/a
+            // Therefore: v_peak = sqrt(a * total_distance)
+            double peak_vel_mps = std::sqrt(max_acceleration_.to_mps2() *
+                                            total_distance_.to_meters());
             peak_velocity_ = units::Velocity::from_mps(peak_vel_mps);
 
             // t = v / a

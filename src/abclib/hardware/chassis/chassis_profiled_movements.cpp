@@ -60,8 +60,8 @@ namespace abclib::hardware
 
     void Chassis::turn_to_heading_profiled(
         units::Angle target_heading,
-        units::AngularVelocity max_body_angular_velocity,         // Now a unit
-        units::AngularAcceleration max_body_angular_acceleration, // Now a unit
+        units::AngularVelocity max_body_angular_velocity,
+        units::AngularAcceleration max_body_angular_acceleration,
         units::Time timeout)
     {
         // 1. Get current pose from odometry
@@ -211,9 +211,6 @@ namespace abclib::hardware
         left_motors->brake();
         right_motors->brake();
     }
-    // In chassis_profiled_movements.cpp - add this implementation:
-
-    // In chassis_profiled_movements.cpp - updated implementation:
 
     void Chassis::move_straight_profiled_pid(
         units::Length target_distance,

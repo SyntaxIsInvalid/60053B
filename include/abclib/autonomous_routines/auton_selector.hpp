@@ -7,7 +7,8 @@
 #include "abclib/builder/path_builder.hpp"
 #include "abclib/builder/path_logger.hpp"
 #include "abclib/trajectory/trajectory_logger.hpp"
-
+#include "abclib/units/units.hpp"
+using namespace abclib::units::literals;
 namespace abclib::auton {
     enum class AutonRoutine {
         SOLO_AWP_RED,
