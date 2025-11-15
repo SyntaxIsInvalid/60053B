@@ -20,7 +20,7 @@ namespace abclib::hardware
     void Chassis::move_straight_profiled(
         units::Length distance,
         units::Velocity max_velocity,
-        double max_acceleration,
+        units::Acceleration max_acceleration, // Now a unit
         units::Time timeout,
         double heading_tolerance)
     {
@@ -50,12 +50,48 @@ namespace abclib::hardware
         // Configure trajectory follower
         trajectory::FollowerConfig config;
         config.max_velocity = max_velocity;
-        config.max_acceleration = units::Acceleration::from_mps2(max_acceleration);
+        config.max_acceleration = max_acceleration; // Already a unit now
         config.timeout = timeout;
         config.ramsete_constants = config_.ramsete_constants;
 
         // Execute the trajectory
         path_follower_->follow_segment(&segment, config);
+    }
+
+    void Chassis::turn_to_heading_profiled(
+        units::Angle target_heading,
+        units::AngularVelocity max_body_angular_velocity,         // Now a unit
+        units::AngularAcceleration max_body_angular_acceleration, // Now a unit
+        units::Time timeout)
+    {
+        // 1. Get current pose from odometry
+        estimation::Pose current_pose = get_pose();
+        double current_heading_rad = current_pose.theta.to_radians();
+        double target_heading_rad = target_heading.to_radians();
+
+        // 2. Create TurnInPlaceSegment in math frame
+        path::Pose start_pose(current_pose.x.to_inches(), current_pose.y.to_inches(), current_heading_rad);
+        path::TurnInPlaceSegment turn_segment(start_pose, target_heading_rad, track_width);
+
+        // 3. Convert angular velocity/acceleration to linear (wheel velocity)
+        // For turn-in-place: v_wheel = ω_body * r, where r = track_width / 2
+        double turning_radius = track_width.to_inches() / 2.0;
+        double max_angular_vel_rad_per_sec = max_body_angular_velocity.to_rad_per_sec();
+        double max_angular_accel_rad_per_sec2 = max_body_angular_acceleration.to_rad_per_sec2();
+
+        double max_wheel_linear_velocity = max_angular_vel_rad_per_sec * turning_radius;
+        double max_wheel_linear_accel = max_angular_accel_rad_per_sec2 * turning_radius;
+
+        // 4. Configure follower with converted linear velocities
+        trajectory::FollowerConfig config;
+        config.max_velocity = units::Velocity::from_ips(max_wheel_linear_velocity);
+        config.max_acceleration = units::Acceleration::from_mps2(max_wheel_linear_accel);
+        config.timeout = timeout;
+        config.ramsete_constants = config_.ramsete_constants;
+        config.turn_kP = 0.35; // Can make this configurable via ChassisConfig later
+
+        // 5. Let the path follower handle everything!
+        path_follower_->follow_segment(&turn_segment, config);
     }
 
     void Chassis::turn_to_heading_profiled_pid(
@@ -175,91 +211,93 @@ namespace abclib::hardware
         left_motors->brake();
         right_motors->brake();
     }
-    /*
-    void Chassis::drive_straight_profiled_pid(
+    // In chassis_profiled_movements.cpp - add this implementation:
+
+    // In chassis_profiled_movements.cpp - updated implementation:
+
+    void Chassis::move_straight_profiled_pid(
         units::Length target_distance,
-        double max_velocity_inches_per_sec,
-        double max_acceleration_inches_per_sec2,
+        units::Velocity max_velocity,
+        units::Acceleration max_acceleration,
         units::Time timeout,
         bool reset_position)
     {
         std::uint32_t start_time = pros::millis();
-        const double dt = 0.01; // 100Hz
+        const double dt = 0.01;
+
+        // Get initial position
+        estimation::Pose initial_pose = get_pose();
+        units::Length initial_x = initial_pose.x;
+        units::Length initial_y = initial_pose.y;
+        units::Angle initial_heading = initial_pose.theta;
 
         if (reset_position)
         {
             reset_chassis_position();
+            initial_x = units::Length::from_inches(0);
+            initial_y = units::Length::from_inches(0);
+            initial_heading = units::Angle::from_radians(0);
         }
 
-        estimation::Pose start_pose = get_pose();
-        double start_heading = start_pose.theta.to_radians();
-        double initial_x = start_pose.x.to_inches();
-        double initial_y = start_pose.y.to_inches();
-        int settle_count = 0;
-
         // Create ProfiledPID for lateral control
-        control::ProfiledPIDConstants profiled_constants;
-        profiled_constants.pid_constants = config_.profiled_lateral_pid_constants;
-        profiled_constants.max_velocity = units::Velocity::from_ips(max_velocity_inches_per_sec);
-        profiled_constants.max_acceleration = units::Acceleration::from_mps2(max_acceleration_inches_per_sec2 * units::constants::IPS_TO_MPS);
-        profiled_constants.position_tolerance = settlement_config_.position_threshold;
-        profiled_constants.velocity_tolerance = settlement_config_.linear_velocity_threshold;
+        control::ProfiledPIDConstants lateral_profiled_constants;
+        lateral_profiled_constants.pid_constants = config_.profiled_lateral_pid_constants;
+        lateral_profiled_constants.max_velocity = max_velocity.to_ips();
+        lateral_profiled_constants.max_acceleration = max_acceleration.to_mps2();
+        lateral_profiled_constants.position_tolerance = settlement_config_.position_threshold.to_inches();
+        lateral_profiled_constants.velocity_tolerance = settlement_config_.linear_velocity_threshold.to_ips();
 
-        control::ProfiledPID profiled_lateral_pid(profiled_constants);
-        profiled_lateral_pid.reset(units::Length::from_inches(0.0)); // Start at 0 distance traveled
-
-        // Reset angular PID for heading correction
-        angular_pid.reset();
+        control::ProfiledPID lateral_profiled_pid(lateral_profiled_constants);
+        lateral_profiled_pid.reset(0.0); // Start at 0 distance traveled
 
         reset_telemetry_accumulators();
+
+        int settle_count = 0;
+        const int REQUIRED_SETTLE_COUNT = 3;
 
         while ((pros::millis() - start_time) < timeout.to_milliseconds())
         {
             estimation::Pose current_pose = get_pose();
 
-            // Calculate distance traveled using vector projection
-            double dx = current_pose.x.to_inches() - initial_x;
-            double dy = current_pose.y.to_inches() - initial_y;
-            double distance_traveled_raw = dx * std::cos(start_heading) + dy * std::sin(start_heading);
+            // Calculate distance traveled along the initial heading direction
+            double dx = current_pose.x.to_inches() - initial_x.to_inches();
+            double dy = current_pose.y.to_inches() - initial_y.to_inches();
+            double distance_traveled = dx * std::cos(initial_heading.to_radians()) +
+                                       dy * std::sin(initial_heading.to_radians());
 
-            // Compute profiled PID output for lateral control (passing units::Length)
-            double lateral_output = profiled_lateral_pid.compute(
-                units::Length::from_inches(distance_traveled_raw),
-                target_distance,
-                units::Time::from_seconds(dt));
+            // Compute lateral profiled PID output
+            double lateral_output = lateral_profiled_pid.compute(
+                distance_traveled,
+                target_distance.to_inches(),
+                dt);
 
-            // Add feedforward for lateral motion
-            units::Velocity target_velocity = profiled_lateral_pid.get_setpoint_velocity();
-            double target_acceleration = profiled_lateral_pid.get_setpoint().acceleration.to_mps2();
+            // Get setpoint for feedforward
+            double target_velocity_ips = lateral_profiled_pid.get_setpoint_velocity();
+            double target_acceleration = lateral_profiled_pid.get_setpoint().acceleration;
 
-            // Feedforward with deadband to avoid static friction at zero velocity
-            double ff_sign = (std::abs(target_velocity.to_ips()) < 0.01) ? 0.0 : math::sgn(target_velocity.to_ips());
-            double lateral_ff = config_.lateral_kS * ff_sign +
-                                config_.lateral_kV * target_velocity.to_ips() +
-                                config_.lateral_kA * target_acceleration;
+            // Calculate feedforward
+            double ff_sign = (std::abs(target_velocity_ips) < 0.01) ? 0.0 : math::sgn(target_velocity_ips);
+            double ff = config_.lateral_kS * ff_sign +
+                        config_.lateral_kV * target_velocity_ips +
+                        config_.lateral_kA * target_acceleration;
 
-            lateral_output += lateral_ff;
+            lateral_output += ff;
 
-            // Calculate angular error and correction (maintain starting heading)
-            double angular_error = start_heading - current_pose.theta.to_radians();
-            angular_error = math::normalize_angle(angular_error);
-            double angular_output = angular_pid.compute(angular_error, dt);
-
-            // Clamp outputs
+            // Clamp output
             lateral_output = std::clamp(lateral_output, -12.0, 12.0);
-            angular_output = std::clamp(angular_output, -12.0, 12.0);
 
-            // Calculate motor voltages
-            units::Voltage left_voltage = units::Voltage::from_volts(lateral_output + angular_output);
-            units::Voltage right_voltage = units::Voltage::from_volts(lateral_output - angular_output);
+            // Apply same output to both sides (no angular correction)
+            double left_voltage = lateral_output;
+            double right_voltage = lateral_output;
 
             // Check settlement
-            if (profiled_lateral_pid.at_goal() && std::abs(angular_error) <= settlement_config_.angular_threshold.to_radians())
+            if (lateral_profiled_pid.at_goal())
             {
                 settle_count++;
-                if (settle_count >= settlement_config_.settle_count_required)
+                if (settle_count >= REQUIRED_SETTLE_COUNT)
                 {
-                    update_settlement_telemetry(true, settle_count, telemetry::SettlementReason::WITHIN_THRESHOLD, start_time);
+                    update_settlement_telemetry(true, settle_count,
+                                                telemetry::SettlementReason::WITHIN_THRESHOLD, start_time);
                     left_motors->brake();
                     right_motors->brake();
                     break;
@@ -271,35 +309,31 @@ namespace abclib::hardware
             }
 
             // Update telemetry
-            units::Length distance_traveled = units::Length::from_inches(distance_traveled_raw);
-            units::Length lateral_error = units::Length::from_inches(target_distance.to_inches() - distance_traveled_raw);
-            update_lateral_telemetry(lateral_error, lateral_output, target_distance, distance_traveled, dt);
-            update_angular_telemetry(angular_error, angular_output, start_heading, current_pose.theta.to_radians(), dt);
-            update_pose_telemetry(current_pose);
-            update_motor_voltage_telemetry(left_voltage, right_voltage);
-            update_settlement_telemetry(false, settle_count, telemetry::SettlementReason::NOT_SETTLED, start_time);
+            units::Length position_error = units::Length::from_inches(target_distance.to_inches() - distance_traveled);
+            units::Length current_distance = units::Length::from_inches(distance_traveled);
 
-            // Send power to motors
-            move_left_motors(left_voltage);
-            move_right_motors(right_voltage);
+            update_lateral_telemetry(position_error, lateral_output,
+                                     target_distance, current_distance, dt);
+            update_pose_telemetry(current_pose);
+            update_motor_voltage_telemetry(units::Voltage::from_volts(left_voltage),
+                                           units::Voltage::from_volts(right_voltage));
+            update_settlement_telemetry(false, settle_count,
+                                        telemetry::SettlementReason::NOT_SETTLED, start_time);
+
+            // Apply voltages
+            move_left_motors(units::Voltage::from_volts(left_voltage));
+            move_right_motors(units::Voltage::from_volts(right_voltage));
+
             telemetry::g_telemetry.swap();
             pros::delay(10);
         }
 
-        // Check if we timed out
-        bool timed_out = (pros::millis() - start_time) >= timeout.to_milliseconds();
-        {
-            std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-            auto &data = telemetry::g_telemetry.get_write_buffer();
-            if (timed_out && !data.is_settled)
-            {
-                data.settlement_reason = telemetry::SettlementReason::TIMEOUT;
-                data.time_to_settle = units::Time::from_milliseconds(pros::millis() - start_time);
-            }
-        }
-
+        // Timeout handling
         left_motors->brake();
         right_motors->brake();
+
+        // Final telemetry update
+        update_settlement_telemetry(false, settle_count,
+                                    telemetry::SettlementReason::TIMEOUT, start_time);
     }
-        */
 }

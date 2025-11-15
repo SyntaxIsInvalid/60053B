@@ -72,7 +72,7 @@ namespace abclib::robot_config {
 
     // profiled lateral pid constants
     inline control::PIDConstants get_profiled_lateral_pid() {
-        return control::PIDConstants(0.0, 0.0, 0.0);  // Tune these values
+        return control::PIDConstants(10.0, 0.0, 0.0);  // Tune these values
     }
 
     // Ramsete controller constants (for path following)

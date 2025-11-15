@@ -172,10 +172,10 @@ namespace abclib::hardware
             units::AngularAcceleration max_angular_acceleration,
             units::Time timeout);
 
-        void drive_straight_profiled_pid(
-            units::Length target_distance, // Changed from Distance
-            double max_velocity_inches_per_sec,
-            double max_acceleration_inches_per_sec2,
+        void move_straight_profiled_pid(
+            units::Length target_distance,
+            units::Velocity max_velocity,
+            units::Acceleration max_acceleration,
             units::Time timeout = units::Time::from_seconds(5),
             bool reset_position = false);
 
@@ -199,17 +199,17 @@ namespace abclib::hardware
                                 units::Velocity right_velocity); // Changed from WheelLinearVelocity
 
         void move_straight_profiled(
-            units::Length distance,       // Changed from Distance
-            units::Velocity max_velocity, // Changed from BodyLinearVelocity
-            double max_acceleration,
+            units::Length distance,
+            units::Velocity max_velocity,
+            units::Acceleration max_acceleration, // Changed from double
             units::Time timeout = units::Time::from_seconds(5),
             double heading_tolerance = 0.1 // ~5.7 degrees tolerance for IMU drift
         );
 
         void turn_to_heading_profiled(
-            units::Angle target_heading, // Changed from Degrees
-            double max_body_angular_velocity_deg_per_sec,
-            double max_body_angular_acceleration_deg_per_sec2,
+            units::Angle target_heading,
+            units::AngularVelocity max_angular_velocity,         // Changed from double
+            units::AngularAcceleration max_angular_acceleration, // Changed from double
             units::Time timeout = units::Time::from_seconds(3));
 
         void turn_to_heading_test(units::Angle target_heading, // Changed from Degrees
