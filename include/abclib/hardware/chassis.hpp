@@ -167,9 +167,9 @@ namespace abclib::hardware
                       units::Angle heading); // Changed from Radians
 
         void turn_to_heading_profiled_pid(
-            units::Angle target_heading, // Changed from Degrees
-            double max_angular_velocity_deg_per_sec,
-            double max_angular_acceleration_deg_per_sec2,
+            units::Angle target_heading,
+            units::AngularVelocity max_angular_velocity,
+            units::AngularAcceleration max_angular_acceleration,
             units::Time timeout);
 
         void drive_straight_profiled_pid(

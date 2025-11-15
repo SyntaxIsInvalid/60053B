@@ -4,6 +4,7 @@
 namespace abclib::auton {
     inline void solo_awp_red(RobotSubsystems& robot) {
         // Set starting position
+        /*
         robot.chassis.set_pose(
             units::Distance::from_inches(0),
             units::Distance::from_inches(0),
@@ -34,5 +35,6 @@ namespace abclib::auton {
         pros::delay(1000);
         robot.top_intake.outtake_for_voltage(units::Voltage::from_volts(12), units::Time::from_seconds(1));
         robot.bottom_intake.outtake_for_voltage(units::Voltage::from_volts(12), units::Time::from_seconds(1));
+        */
     }
 }

@@ -58,52 +58,16 @@ namespace abclib::hardware
         path_follower_->follow_segment(&segment, config);
     }
 
-    void Chassis::turn_to_heading_profiled(
-        units::Angle target_heading,
-        double max_body_angular_velocity_deg_per_sec,
-        double max_body_angular_acceleration_deg_per_sec2,
-        units::Time timeout)
-    {
-        // 1. Get current pose from odometry
-        estimation::Pose current_pose = get_pose();
-        double current_heading_rad = current_pose.theta.to_radians();
-        double target_heading_rad = target_heading.to_radians();
-
-        // 2. Create TurnInPlaceSegment in math frame
-        path::Pose start_pose(current_pose.x.to_inches(), current_pose.y.to_inches(), current_heading_rad);
-        path::TurnInPlaceSegment turn_segment(start_pose, target_heading_rad, track_width);
-
-        // 3. Convert angular velocity/acceleration to linear (wheel velocity)
-        // For turn-in-place: v_wheel = ω_body * r, where r = track_width / 2
-        double turning_radius = track_width.to_inches() / 2.0;
-        double max_angular_vel_rad_per_sec = max_body_angular_velocity_deg_per_sec * M_PI / 180.0;
-        double max_angular_accel_rad_per_sec2 = max_body_angular_acceleration_deg_per_sec2 * M_PI / 180.0;
-
-        double max_wheel_linear_velocity = max_angular_vel_rad_per_sec * turning_radius;
-        double max_wheel_linear_accel = max_angular_accel_rad_per_sec2 * turning_radius;
-
-        // 4. Configure follower with converted linear velocities
-        trajectory::FollowerConfig config;
-        config.max_velocity = units::Velocity::from_ips(max_wheel_linear_velocity);
-        config.max_acceleration = units::Acceleration::from_mps2(max_wheel_linear_accel * units::constants::IPS_TO_MPS);
-        config.timeout = timeout;
-        config.ramsete_constants = config_.ramsete_constants;
-        config.turn_kP = 0.35; // Can make this configurable via ChassisConfig later
-
-        // 5. Let the path follower handle everything!
-        path_follower_->follow_segment(&turn_segment, config);
-    }
-
     void Chassis::turn_to_heading_profiled_pid(
         units::Angle target_heading,
-        double max_angular_velocity_deg_per_sec,
-        double max_angular_acceleration_deg_per_sec2,
+        units::AngularVelocity max_angular_velocity,
+        units::AngularAcceleration max_angular_acceleration,
         units::Time timeout)
     {
-        units::AngularVelocity max_angular_velocity =
-            units::AngularVelocity::from_deg_per_sec(max_angular_velocity_deg_per_sec);
-        units::AngularAcceleration max_angular_acceleration =
-            units::AngularAcceleration::from_deg_per_sec2(max_angular_acceleration_deg_per_sec2);
+        // Convert to SI doubles at the boundary
+        double target_rad = target_heading.to_radians();
+        double max_vel_rad_s = max_angular_velocity.to_rad_per_sec();
+        double max_accel_rad_s2 = max_angular_acceleration.to_rad_per_sec2();
 
         std::uint32_t start_time = pros::millis();
         const double dt = 0.01;
@@ -115,20 +79,20 @@ namespace abclib::hardware
         double cumulative_unwrapped_rad = initial_rad;
 
         // Unwrap target to be close to initial
-        double angle_diff = target_heading.to_radians() - initial_rad;
+        double angle_diff = target_rad - initial_rad;
         angle_diff = math::normalize_angle(angle_diff);
-        units::Angle unwrapped_target = units::Angle::from_radians(initial_rad + angle_diff);
+        double unwrapped_target = initial_rad + angle_diff;
 
-        // Create ProfiledPID with Angle type
-        control::ProfiledPIDConstants<units::Angle> profiled_constants;
+        // Create ProfiledPID with doubles
+        control::ProfiledPIDConstants profiled_constants;
         profiled_constants.pid_constants = config_.profiled_turn_pid_constants;
-        profiled_constants.max_velocity = max_angular_velocity;
-        profiled_constants.max_acceleration = max_angular_acceleration;
-        profiled_constants.position_tolerance = settlement_config_.angular_threshold;
-        profiled_constants.velocity_tolerance = settlement_config_.angular_velocity_threshold;
+        profiled_constants.max_velocity = max_vel_rad_s;
+        profiled_constants.max_acceleration = max_accel_rad_s2;
+        profiled_constants.position_tolerance = settlement_config_.angular_threshold.to_radians();
+        profiled_constants.velocity_tolerance = settlement_config_.angular_velocity_threshold.to_rad_per_sec();
 
-        control::ProfiledPID<units::Angle> profiled_pid(profiled_constants);
-        profiled_pid.reset(units::Angle::from_radians(cumulative_unwrapped_rad));
+        control::ProfiledPID profiled_pid(profiled_constants);
+        profiled_pid.reset(cumulative_unwrapped_rad);
 
         reset_telemetry_accumulators();
 
@@ -149,27 +113,27 @@ namespace abclib::hardware
 
             estimation::Pose current_pose = get_pose();
 
-            // Compute profiled PID output with proper Angle types
+            // Compute profiled PID output (all doubles now)
             double angular_output = profiled_pid.compute(
-                units::Angle::from_radians(cumulative_unwrapped_rad),
+                cumulative_unwrapped_rad,
                 unwrapped_target,
-                units::Time::from_seconds(dt));
+                dt);
 
-            // Calculate feedforward - now with proper typed velocity!
-            units::AngularVelocity target_velocity = profiled_pid.get_setpoint_velocity();
-            units::AngularAcceleration target_acceleration = profiled_pid.get_setpoint().acceleration;
+            // Calculate feedforward (doubles from ProfiledPID)
+            double target_velocity = profiled_pid.get_setpoint_velocity();
+            double target_acceleration = profiled_pid.get_setpoint().acceleration;
 
-            double ff_sign = (std::abs(target_velocity.to_rad_per_sec()) < 0.01) ? 0.0 : math::sgn(target_velocity.to_rad_per_sec());
+            double ff_sign = (std::abs(target_velocity) < 0.01) ? 0.0 : math::sgn(target_velocity);
 
             double ff = config_.turn_in_place_kS * ff_sign +
-                        config_.turn_in_place_kV * target_velocity.to_rad_per_sec() +
-                        config_.turn_in_place_kA * target_acceleration.to_rad_per_sec2();
+                        config_.turn_in_place_kV * target_velocity +
+                        config_.turn_in_place_kA * target_acceleration;
 
             angular_output += ff;
             angular_output = std::clamp(angular_output, -12.0, 12.0);
 
             // Calculate wrapped error for telemetry
-            double angular_error_rad = unwrapped_target.to_radians() - cumulative_unwrapped_rad;
+            double angular_error_rad = unwrapped_target - cumulative_unwrapped_rad;
             angular_error_rad = math::normalize_angle(angular_error_rad);
 
             // Check settlement
@@ -190,15 +154,16 @@ namespace abclib::hardware
                 settle_count = 0;
             }
 
-            // Motor voltages
+            // Convert back to units for motor control
             units::Voltage left_voltage = units::Voltage::from_volts(-angular_output);
             units::Voltage right_voltage = units::Voltage::from_volts(angular_output);
 
             update_angular_telemetry(angular_error_rad, angular_output,
-                                     unwrapped_target.to_radians(), cumulative_unwrapped_rad, dt);
+                                     unwrapped_target, cumulative_unwrapped_rad, dt);
             update_pose_telemetry(current_pose);
             update_motor_voltage_telemetry(left_voltage, right_voltage);
-            update_settlement_telemetry(false, settle_count, telemetry::SettlementReason::NOT_SETTLED, start_time);
+            update_settlement_telemetry(false, settle_count,
+                                        telemetry::SettlementReason::NOT_SETTLED, start_time);
 
             move_left_motors(left_voltage);
             move_right_motors(right_voltage);
@@ -206,7 +171,7 @@ namespace abclib::hardware
             pros::delay(10);
         }
 
-        // Timeout handling...
+        // Timeout handling
         left_motors->brake();
         right_motors->brake();
     }

@@ -3,200 +3,160 @@
 
 #include <algorithm>
 #include <cmath>
-#include "abclib/units/units.hpp"
 
 namespace abclib::profiling
 {
-    // Template-based ProfileState that works with any quantity type
-    template<typename QuantityType>
     struct ProfileState
     {
-        QuantityType position;
-        decltype(QuantityType() / units::Time()) velocity;  // Automatic velocity type
-        decltype(QuantityType() / units::Time() / units::Time()) acceleration;  // Automatic acceleration type
+        double position;
+        double velocity;
+        double acceleration;  // ADDED
         
-        ProfileState() 
-            : position(QuantityType(0.0)),
-              velocity(decltype(velocity)(0.0)),
-              acceleration(decltype(acceleration)(0.0)) {}
-              
-        ProfileState(QuantityType pos, decltype(velocity) vel, decltype(acceleration) accel = decltype(acceleration)(0.0)) 
+        ProfileState() : position(0.0), velocity(0.0), acceleration(0.0) {}
+        ProfileState(double pos, double vel, double accel = 0.0) 
             : position(pos), velocity(vel), acceleration(accel) {}
     };
     
-    template<typename QuantityType>
     struct ProfileConstraints
     {
-        decltype(QuantityType() / units::Time()) max_velocity;
-        decltype(QuantityType() / units::Time() / units::Time()) max_acceleration;
+        double max_velocity;
+        double max_acceleration;
         
-        using VelocityType = decltype(QuantityType() / units::Time());
-        using AccelerationType = decltype(QuantityType() / units::Time() / units::Time());
-        
-        ProfileConstraints(VelocityType max_vel, AccelerationType max_accel)
+        ProfileConstraints(double max_vel, double max_accel)
             : max_velocity(max_vel), max_acceleration(max_accel) {}
     };
     
-    template<typename QuantityType>
     class IncrementalTrapezoidalProfile
     {
     public:
-        using VelocityType = decltype(QuantityType() / units::Time());
-        using AccelerationType = decltype(QuantityType() / units::Time() / units::Time());
-        using StateType = ProfileState<QuantityType>;
-        using ConstraintsType = ProfileConstraints<QuantityType>;
+        IncrementalTrapezoidalProfile(const ProfileConstraints& constraints);
         
-        IncrementalTrapezoidalProfile(const ConstraintsType& constraints);
+        ProfileState calculate(double dt, const ProfileState& current, const ProfileState& goal);
         
-        StateType calculate(units::Time dt, const StateType& current, const StateType& goal);
-        
-        void set_constraints(const ConstraintsType& constraints);
-        ConstraintsType get_constraints() const;
+        void set_constraints(const ProfileConstraints& constraints);
+        ProfileConstraints get_constraints() const;
         
     private:
-        ConstraintsType constraints_;
+        ProfileConstraints constraints_;
         
-        VelocityType calculate_max_reachable_velocity(
-            QuantityType position, 
-            VelocityType velocity, 
-            QuantityType goal_position, 
-            AccelerationType max_accel) const;
+        double calculate_max_reachable_velocity(double position, double velocity, 
+                                                double goal_position, double max_accel) const;
     };
     
-    template<typename QuantityType>
-    inline IncrementalTrapezoidalProfile<QuantityType>::IncrementalTrapezoidalProfile(
-        const ConstraintsType& constraints)
+    inline IncrementalTrapezoidalProfile::IncrementalTrapezoidalProfile(const ProfileConstraints& constraints)
         : constraints_(constraints)
     {
     }
     
-    template<typename QuantityType>
-    inline typename IncrementalTrapezoidalProfile<QuantityType>::StateType 
-    IncrementalTrapezoidalProfile<QuantityType>::calculate(
-        units::Time dt, 
-        const StateType& current, 
-        const StateType& goal)
+    inline ProfileState IncrementalTrapezoidalProfile::calculate(
+        double dt, 
+        const ProfileState& current, 
+        const ProfileState& goal)
     {
-        // Determine direction using value() to get underlying SI units
-        double direction = (goal.position.value() >= current.position.value()) ? 1.0 : -1.0;
+        // Assume goal.velocity = 0 for endpoint
+        double direction = (goal.position >= current.position) ? 1.0 : -1.0;
         
-        StateType next;
+        ProfileState next;
         
-        auto position_error = goal.position - current.position;
-        auto velocity_error = goal.velocity - current.velocity;
+        double position_error = goal.position - current.position;
+        double velocity_error = goal.velocity - current.velocity;
         
         // If already at goal, stay there
-        if (std::abs(position_error.value()) < 1e-9 && std::abs(velocity_error.value()) < 1e-9)
+        if (std::abs(position_error) < 1e-6 && std::abs(velocity_error) < 1e-6)
         {
             next.position = goal.position;
             next.velocity = goal.velocity;
-            next.acceleration = AccelerationType(0.0);
+            next.acceleration = 0.0;
             return next;
         }
         
-        auto distance_to_goal = units::Qabs(position_error);
+        double distance_to_goal = std::abs(position_error);
         
         // Calculate the maximum velocity we can have and still stop at the goal
-        // Using: v_f² = v_i² + 2*a*d, solving for v_i when v_f = 0
-        VelocityType max_reachable_velocity = calculate_max_reachable_velocity(
-            current.position, current.velocity, goal.position, constraints_.max_acceleration
+        // Using: v_f² = v_i² + 2*a*d, solving for v_i when v_f = 0 (goal velocity)
+        double max_reachable_velocity = std::sqrt(
+            goal.velocity * goal.velocity + 2.0 * constraints_.max_acceleration * distance_to_goal
         );
         
         // Clamp to profile's max velocity
-        if (max_reachable_velocity.value() > constraints_.max_velocity.value())
-        {
-            max_reachable_velocity = constraints_.max_velocity;
-        }
+        max_reachable_velocity = std::min(max_reachable_velocity, constraints_.max_velocity);
         
         // Determine if we should accelerate or decelerate
-        AccelerationType acceleration;
-        if (std::abs(current.velocity.value()) < max_reachable_velocity.value() - 1e-9)
+        double acceleration;
+        if (std::abs(current.velocity) < max_reachable_velocity - 1e-6)
         {
             // Accelerate toward max velocity
-            acceleration = AccelerationType(direction * constraints_.max_acceleration.value());
+            acceleration = direction * constraints_.max_acceleration;
         }
         else
         {
             // Decelerate to be able to stop at goal
-            acceleration = AccelerationType(-direction * constraints_.max_acceleration.value());
+            acceleration = -direction * constraints_.max_acceleration;
         }
         
-        // Calculate next velocity: v = v0 + a*t
-        next.velocity = VelocityType(
-            current.velocity.value() + acceleration.value() * dt.to_seconds()
-        );
+        // Calculate next velocity
+        next.velocity = current.velocity + acceleration * dt;
         
         // Clamp velocity to constraints
-        next.velocity = VelocityType(
-            std::clamp(next.velocity.value(), 
-                      -constraints_.max_velocity.value(), 
-                      constraints_.max_velocity.value())
-        );
+        next.velocity = std::clamp(next.velocity, 
+                                   -constraints_.max_velocity, 
+                                   constraints_.max_velocity);
         
         // Enforce direction (don't go backwards when going forward)
         if (direction > 0)
         {
-            next.velocity = VelocityType(std::max(0.0, next.velocity.value()));
+            next.velocity = std::max(0.0, next.velocity);
         }
         else
         {
-            next.velocity = VelocityType(std::min(0.0, next.velocity.value()));
+            next.velocity = std::min(0.0, next.velocity);
         }
         
         // Calculate next position using average velocity over dt
-        auto avg_velocity = (current.velocity + next.velocity) / 2.0;
-        next.position = QuantityType(
-            current.position.value() + avg_velocity.value() * dt.to_seconds()
-        );
+        // This is more accurate than using just next.velocity
+        double avg_velocity = (current.velocity + next.velocity) / 2.0;
+        next.position = current.position + avg_velocity * dt;
         
         // Store the actual acceleration used
         next.acceleration = acceleration;
         
         // Check if we've reached or passed the goal
-        if ((direction > 0 && next.position.value() >= goal.position.value()) ||
-            (direction < 0 && next.position.value() <= goal.position.value()))
+        if ((direction > 0 && next.position >= goal.position) ||
+            (direction < 0 && next.position <= goal.position))
         {
             // Clamp to goal - we've arrived
             next.position = goal.position;
-            next.velocity = goal.velocity;
-            next.acceleration = AccelerationType(0.0);
+            next.velocity = goal.velocity;  // Should be 0
+            next.acceleration = 0.0;
         }
         
         return next;
     }
     
-    template<typename QuantityType>
-    inline typename IncrementalTrapezoidalProfile<QuantityType>::VelocityType 
-    IncrementalTrapezoidalProfile<QuantityType>::calculate_max_reachable_velocity(
-        QuantityType position, 
-        VelocityType velocity, 
-        QuantityType goal_position, 
-        AccelerationType max_accel) const
+    inline double IncrementalTrapezoidalProfile::calculate_max_reachable_velocity(
+        double position, 
+        double velocity, 
+        double goal_position, 
+        double max_accel) const
     {
-        auto distance_to_goal = units::Qabs(goal_position - position);
+        double distance_to_goal = std::abs(goal_position - position);
+        double velocity_squared = velocity * velocity;
+        double max_vel_squared = velocity_squared + 2.0 * max_accel * distance_to_goal;
         
-        // v² = v_goal² + 2*a*d
-        double vel_squared = velocity.value() * velocity.value() + 
-                            2.0 * max_accel.value() * distance_to_goal.value();
-        
-        if (vel_squared < 0)
+        if (max_vel_squared < 0)
         {
-            return VelocityType(0.0);
+            return 0.0;
         }
         
-        return VelocityType(std::sqrt(vel_squared));
+        return std::sqrt(max_vel_squared);
     }
     
-    template<typename QuantityType>
-    inline void IncrementalTrapezoidalProfile<QuantityType>::set_constraints(
-        const ConstraintsType& constraints)
+    inline void IncrementalTrapezoidalProfile::set_constraints(const ProfileConstraints& constraints)
     {
         constraints_ = constraints;
     }
     
-    template<typename QuantityType>
-    inline typename IncrementalTrapezoidalProfile<QuantityType>::ConstraintsType 
-    IncrementalTrapezoidalProfile<QuantityType>::get_constraints() const
+    inline ProfileConstraints IncrementalTrapezoidalProfile::get_constraints() const
     {
         return constraints_;
     }

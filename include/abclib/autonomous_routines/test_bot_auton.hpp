@@ -6,14 +6,10 @@ namespace abclib::auton
     inline void test_bot_auton(RobotSubsystems &robot)
     {
         // Set starting position
-        robot.chassis.set_pose(
-            units::Distance::from_inches(0),
-            units::Distance::from_inches(0),
-            units::Degrees(0));
         robot.chassis.turn_to_heading_profiled_pid(
-            units::Degrees(90.0),
-            180,
-            360,
-            units::Time::from_seconds(10.0));
+            units::Angle::from_degrees(90.0),
+            units::AngularVelocity::from_deg_per_sec(180.0),
+            units::AngularAcceleration::from_deg_per_sec2(360.0),
+            units::Time::from_seconds(2.0));
     }
 }

@@ -5,7 +5,6 @@
 - [ ] standardize the code base
 - [ ] lvgl mayne later to make brain screen look not cancer
 - [ ] moter dynamic stuff from these equations, V = k_s \cdot \text{sgn}(v) + k_v \cdot v + k_a \cdot a, f_c = \frac{k_s \cdot k_t}{R}, J = \frac{k_a \cdot k_t}{R}
-- [ ] add unit literals
 - [ ] figure out primitive pose error maybe 
 - [ ] add timing metrics for the movements
 - [ ] namespace the telemetry
@@ -14,3 +13,4 @@
 - [ ] update all the telemetry on what would be useful to log
 - [ ] update move straight profiled to just a straight not segment 
 - [ ] add a dead band maybe to fix the small jiggle at the end eventually like if angular error < deadband make it force 0 for the profiled pid
+- [ ] add angular jerk and add unit literals
