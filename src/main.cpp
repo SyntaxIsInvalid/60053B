@@ -113,7 +113,7 @@ void initialize()
     chassis.calibrate([](int progress, const char *status)
                       { screen_manager.update_calibration_progress(progress, status); });
 
-    pros::delay(250);
+    pros::delay(200);
     screen_manager.hide_calibration_screen();
 
     using namespace abclib::auton;

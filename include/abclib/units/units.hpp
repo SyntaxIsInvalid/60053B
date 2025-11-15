@@ -455,7 +455,14 @@ namespace abclib::units
             return AngularJerk(rad_s3);
         }
 
+        static constexpr AngularJerk from_deg_per_sec3(double deg_s3)
+        {
+            return AngularJerk(deg_s3 * constants::DEG_TO_RAD);
+        }
+
         constexpr double to_rad_per_sec3() const { return value(); }
+
+        constexpr double to_deg_per_sec3() const { return value() * constants::RAD_TO_DEG; }
     };
 
     struct Current : Current_Base
