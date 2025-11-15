@@ -9,6 +9,7 @@
 #include "abclib/trajectory/path_follower.hpp"
 #include "abclib/units/units.hpp"
 #include "abclib/estimation/geometric_odometry_estimator.hpp"
+#include <functional>
 
 namespace abclib::hardware
 {
@@ -99,6 +100,8 @@ namespace abclib::hardware
                                      int &settle_count) const;
 
     public:
+        using CalibrationCallback = std::function<void(int, const char *)>;
+
         Chassis(ChassisConfig chassis_config, Sensors sensors,
                 const control::PIDConstants lateral_constants,
                 const control::PIDConstants angular_constants);
@@ -108,7 +111,7 @@ namespace abclib::hardware
         void move_left_motors(units::Voltage voltage);
         void move_right_motors(units::Voltage voltage);
 
-        void calibrate();
+        void calibrate(CalibrationCallback progress_callback = nullptr);
         void reset_chassis_position();
         units::Angle get_heading(); // Changed return type from BodyHeading
 

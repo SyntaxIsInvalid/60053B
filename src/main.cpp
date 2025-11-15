@@ -104,10 +104,18 @@ ui::ScreenManager screen_manager;
 void initialize()
 {
     lv_init();
-
     pros::lcd::initialize();
-    chassis.calibrate();
     screen_manager.initialize();
+
+    screen_manager.show_calibration_screen();
+
+    // Calibrate with progress updates
+    chassis.calibrate([](int progress, const char *status)
+                      { screen_manager.update_calibration_progress(progress, status); });
+
+    pros::delay(250);
+    screen_manager.hide_calibration_screen();
+
     using namespace abclib::auton;
     register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red);
     register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test);

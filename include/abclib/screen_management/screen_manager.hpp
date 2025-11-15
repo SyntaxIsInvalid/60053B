@@ -43,17 +43,17 @@ namespace abclib::ui
         lv_obj_t *btn_image;            // Image button
         lv_obj_t *label_current_screen; // Shows current screen name
 
-        int current_screen_index = 0;   // Track which screen we're on (0-4)
+        int current_screen_index = 0;        // Track which screen we're on (0-4)
         bool is_auton_screen_active = false; // Track if we're on autonomous screen
         bool is_navigating = false;
-        
+
         // Tab creation helpers - Telemetry screen
         void create_overview_tab();
         void create_pid_tab();
         void create_trajectory_tab();
         void create_performance_tab();
         void create_config_tab();
-        
+
         // Tab creation helpers - Autonomous screen
         void create_autonomous_screen();
         void create_auton_red_tab();
@@ -62,14 +62,14 @@ namespace abclib::ui
         void create_auton_test_tab();
         void create_auton_telemetry_tab();
         void create_auton_image_tab();
-        
+
         // Navigation helpers
         void create_navigation_bar();
         void navigate_prev();
         void navigate_next();
         void update_current_screen_label();
         void update_navigation_buttons();
-        
+
         // Screen switching helpers
         void show_telemetry_screen();
         void show_autonomous_screen();
@@ -86,6 +86,15 @@ namespace abclib::ui
         void show_fullscreen_image();
         void hide_fullscreen_image();
 
+        lv_obj_t *calibration_screen;
+        lv_obj_t *calibration_bar;
+        lv_obj_t *calibration_label;
+
+        void create_calibration_screen();
+
+        // In the public section:
+
+
     public:
         ScreenManager() = default;
 
@@ -94,6 +103,9 @@ namespace abclib::ui
 
         // Update telemetry display (called from loop)
         void update_telemetry(const telemetry::TelemetryData &data);
+                void show_calibration_screen();
+        void update_calibration_progress(int percentage, const char *status);
+        void hide_calibration_screen();
     };
 
 } // namespace abclib

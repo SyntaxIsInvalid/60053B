@@ -29,7 +29,7 @@ void ScreenManager::initialize() {
     
     // Create full-screen image overlay (not a tab anymore)
     create_fullscreen_image();
-    
+    create_calibration_screen();
     // Create autonomous screen (initially hidden)
     create_autonomous_screen();
 }
@@ -386,6 +386,45 @@ void ScreenManager::update_overview_tab(const telemetry::TelemetryData& data) {
         lv_label_set_text(overview_labels[2], buf2);
     }
 }
+
+void ScreenManager::create_calibration_screen() {
+    // Create full-screen container
+    calibration_screen = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(calibration_screen, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_color(calibration_screen, lv_color_hex(0x1a1a1a), 0);
+    lv_obj_remove_flag(calibration_screen, LV_OBJ_FLAG_SCROLLABLE);
+    
+    // Status label
+    calibration_label = lv_label_create(calibration_screen);
+    lv_label_set_text(calibration_label, "Calibrating IMU...");
+    lv_obj_set_style_text_font(calibration_label, &lv_font_montserrat_24, 0);
+    lv_obj_align(calibration_label, LV_ALIGN_CENTER, 0, -40);
+    
+    // Progress bar
+    calibration_bar = lv_bar_create(calibration_screen);
+    lv_obj_set_size(calibration_bar, 300, 30);
+    lv_obj_align(calibration_bar, LV_ALIGN_CENTER, 0, 20);
+    lv_bar_set_value(calibration_bar, 0, LV_ANIM_OFF);
+    
+    // Hide initially
+    lv_obj_add_flag(calibration_screen, LV_OBJ_FLAG_HIDDEN);
+}
+
+void ScreenManager::show_calibration_screen() {
+    lv_obj_remove_flag(calibration_screen, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_to_index(calibration_screen, -1);  // Move to front
+    lv_bar_set_value(calibration_bar, 0, LV_ANIM_OFF);
+}
+
+void ScreenManager::update_calibration_progress(int percentage, const char* status) {
+    lv_bar_set_value(calibration_bar, percentage, LV_ANIM_ON);
+    lv_label_set_text(calibration_label, status);
+}
+
+void ScreenManager::hide_calibration_screen() {
+    lv_obj_add_flag(calibration_screen, LV_OBJ_FLAG_HIDDEN);
+}
+
 
 // Stub implementations for tabs not yet implemented
 void ScreenManager::update_pid_tab(const telemetry::TelemetryData& data) {}

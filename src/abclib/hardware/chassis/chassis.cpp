@@ -77,7 +77,7 @@ namespace abclib::hardware
             // PROS uses -127 to 127 range, we need to convert to -12V to 12V
             double left_voltage = (left_power / 127.0) * 12.0;
             double right_voltage = (right_power / 127.0) * 12.0;
-            
+
             left_motors->move_voltage(units::Voltage::from_volts(left_voltage));
             right_motors->move_voltage(units::Voltage::from_volts(right_voltage));
         }
@@ -93,22 +93,43 @@ namespace abclib::hardware
         right_motors->move_voltage(voltage);
     }
 
-    void Chassis::calibrate()
+    void Chassis::calibrate(CalibrationCallback progress_callback)
     {
+        if (progress_callback)
+            progress_callback(10, "Resetting sensors...");
+
         estimator_->stop();
         left_motors->reset_position();
         right_motors->reset_position();
+
+        if (progress_callback)
+            progress_callback(20, "Calibrating IMU...");
         imu->reset();
 
-        // Wait for IMU to calibrate
+        // Wait for IMU to calibrate with progress updates
+        int progress = 20;
+        uint32_t start_time = pros::millis();
         while (imu->is_calibrating())
         {
-            pros::delay(10);
+            pros::delay(50);
+            uint32_t elapsed = pros::millis() - start_time;
+            // IMU takes ~2000ms to calibrate
+            progress = 20 + (int)((elapsed / 2000.0) * 70);
+            if (progress > 90)
+                progress = 90;
+            if (progress_callback)
+                progress_callback(progress, "Calibrating IMU...");
         }
-        pros::delay(100); // Additional safety delay
 
-        estimator_->calibrate(); // Reset sensors but keep pose
+        if (progress_callback)
+            progress_callback(90, "Finalizing...");
+        pros::delay(100);
+
+        estimator_->calibrate();
         estimator_->init();
+
+        if (progress_callback)
+            progress_callback(100, "Complete!");
     }
 
     void Chassis::reset_chassis_position()
@@ -136,8 +157,7 @@ namespace abclib::hardware
             y,
             heading,
             units::Velocity::from_ips(0.0),
-            units::AngularVelocity::from_rad_per_sec(0.0)
-        );
+            units::AngularVelocity::from_rad_per_sec(0.0));
 
         // Set the odometry pose (thread-safe with mutex)
         estimator_->set_pose(new_pose);
@@ -236,7 +256,7 @@ namespace abclib::hardware
         // Update telemetry
         {
             std::lock_guard<pros::Mutex> lock(telemetry_mutex);
-            auto& data = telemetry::g_telemetry.get_write_buffer();
+            auto &data = telemetry::g_telemetry.get_write_buffer();
             data.left_motor_target_velocity = left_motor_vel;
             data.right_motor_target_velocity = right_motor_vel;
         }
