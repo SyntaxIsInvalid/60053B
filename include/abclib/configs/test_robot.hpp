@@ -51,12 +51,12 @@ namespace abclib::robot_config
     // PID constants
     inline control::PIDConstants get_lateral_pid()
     {
-        return control::PIDConstants(0.5, 0, 0);
+        return control::PIDConstants(0.6, 5, 0);
     }
 
     inline control::PIDConstants get_angular_pid()
     {
-        return control::PIDConstants(5, 0, 0);
+        return control::PIDConstants(5, 50, 0);
     }
 
     // Turn-in-place feedforward constants (for turn_to_heading_profiled)
