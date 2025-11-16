@@ -302,5 +302,13 @@ namespace abclib::hardware
             right_config.kA = kA;
             right_motors->set_config(right_config);
         }
+
+        void move_to_pose_profiled(
+            units::Length target_x,
+            units::Length target_y,
+            units::Angle target_heading,
+            units::Velocity max_velocity,
+            units::Acceleration max_acceleration,
+            units::Time timeout);
     };
 }

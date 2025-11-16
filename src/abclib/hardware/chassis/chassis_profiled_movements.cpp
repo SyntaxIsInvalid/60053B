@@ -333,4 +333,48 @@ namespace abclib::hardware
         update_settlement_telemetry(false, settle_count,
                                     telemetry::SettlementReason::TIMEOUT, start_time);
     }
+    void Chassis::move_to_pose_profiled(
+    units::Length target_x,
+    units::Length target_y, 
+    units::Angle target_heading,
+    units::Velocity max_velocity,
+    units::Acceleration max_acceleration,
+    units::Time timeout)
+{
+    // Get current pose (body frame)
+    estimation::Pose current_body = get_pose();
+    
+    // Convert to math frame
+    units::Length start_x_math, start_y_math;
+    units::Angle start_theta_math;
+    math::BodyPose body_pose{current_body.x, current_body.y, current_body.theta};
+    math::body_to_math_frame(body_pose, start_x_math, start_y_math, start_theta_math);
+    
+    // Convert target to math frame
+    units::Length target_x_math, target_y_math;
+    units::Angle target_theta_math;
+    math::BodyPose target_body{target_x, target_y, target_heading};
+    math::body_to_math_frame(target_body, target_x_math, target_y_math, target_theta_math);
+    
+    // Create path segment in math frame
+    path::Pose start_pose(start_x_math.to_inches(), 
+                         start_y_math.to_inches(), 
+                         start_theta_math.to_radians());
+    path::Pose end_pose(target_x_math.to_inches(), 
+                       target_y_math.to_inches(), 
+                       target_theta_math.to_radians());
+    
+    path::Eta3PathSegment segment(start_pose, end_pose);
+    
+    // Configure follower
+    trajectory::FollowerConfig config;
+    config.max_velocity = max_velocity;
+    config.max_acceleration = max_acceleration;
+    config.timeout = timeout;
+    config.ramsete_constants = config_.ramsete_constants;
+    
+    // Let the path follower do its magic!
+    path_follower_->follow_segment(&segment, config);
+}
+
 }
