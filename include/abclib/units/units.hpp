@@ -408,9 +408,11 @@ namespace abclib::units
         constexpr Acceleration(const Acceleration_Base &base) : Acceleration_Base(base) {}
 
         static constexpr Acceleration from_mps2(double mps2) { return Acceleration(mps2); }
+        static constexpr Acceleration from_ips2(double ips2) { return Acceleration(ips2 * constants::INCH_TO_METER); }
         static constexpr Acceleration from_G(double g) { return Acceleration(g * constants::G_TO_MPS2); }
 
         constexpr double to_mps2() const { return value(); }
+        constexpr double to_ips2() const { return value() / constants::INCH_TO_METER; }
         constexpr double to_G() const { return value() / constants::G_TO_MPS2; }
     };
 
@@ -909,12 +911,12 @@ namespace abclib::units
 
         constexpr Acceleration operator""_ips2(long double x)
         {
-            return Acceleration::from_mps2(static_cast<double>(x) * constants::INCH_TO_METER);
+            return Acceleration::from_ips2(static_cast<double>(x));
         }
 
         constexpr Acceleration operator""_ips2(unsigned long long x)
         {
-            return Acceleration::from_mps2(static_cast<double>(x) * constants::INCH_TO_METER);
+            return Acceleration::from_ips2(static_cast<double>(x));
         }
 
         constexpr Acceleration operator""_G(long double x)

@@ -45,6 +45,7 @@
 #include "abclib/path/path_segment_interface.hpp"
 #include "abclib/path/straight_segment.hpp"
 #include "abclib/path/turn_in_place_segment.hpp"
+#include "abclib/path/quintic_hermite_segment.hpp"
 
 // motion profiles
 #include "abclib/profiling/trapezoidal.hpp"
