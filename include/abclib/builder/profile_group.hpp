@@ -2,39 +2,59 @@
 
 #include "abclib/path/path_segment_interface.hpp"
 #include "abclib/units/units.hpp"
+#include "abclib/builder/continuity.hpp"
 #include <vector>
 #include <string>
 #include <memory>
 
 namespace abclib::path
 {
+    enum class ProfileType {
+        Trapezoidal
+        // Future: SCurve
+    };
+
     struct ProfileGroup
     {
         std::string name;
-        units::Velocity max_velocity;      // Changed from BodyLinearVelocity
-        units::Acceleration max_acceleration; // Changed from double (inches/s^2)
+        units::Velocity max_velocity;
+        units::Acceleration max_acceleration;
+        ProfileType profile_type;
+        
+        // Future for S-curve:
+        // std::optional<units::Jerk> max_jerk;
 
         std::vector<std::unique_ptr<IPathSegment>> segments;
 
         // Computed during build
-        units::Length total_arc_length = units::Length::from_inches(0.0); // Changed from double
+        units::Length total_arc_length = units::Length::from_inches(0.0);
+        ContinuityLevel achieved_continuity = ContinuityLevel::G3;
 
         ProfileGroup(const std::string &group_name,
                      units::Velocity max_vel,
-                     units::Acceleration max_accel)
-            : name(group_name), max_velocity(max_vel), max_acceleration(max_accel)
+                     units::Acceleration max_accel,
+                     ProfileType type = ProfileType::Trapezoidal)
+            : name(group_name)
+            , max_velocity(max_vel)
+            , max_acceleration(max_accel)
+            , profile_type(type)
         {
         }
 
-        // Calculate total arc length from all segments
+        // Rest stays the same...
         void compute_arc_length()
         {
             total_arc_length = units::Length::from_inches(0.0);
             for (const auto &seg : segments)
             {
-                total_arc_length = total_arc_length + 
-                    units::Length::from_inches(seg->get_segment_length());
+                total_arc_length = total_arc_length +
+                                   units::Length::from_inches(seg->get_segment_length());
             }
+        }
+
+        void add_segment(std::unique_ptr<IPathSegment> segment)
+        {
+            segments.push_back(std::move(segment));
         }
 
         bool is_turn_in_place_group() const
@@ -43,8 +63,6 @@ namespace abclib::path
             {
                 return false;
             }
-            // Since turn-in-place always breaks continuity,
-            // if ANY segment is turn-in-place, the whole group is
             return segments.front()->is_turn_in_place();
         }
 

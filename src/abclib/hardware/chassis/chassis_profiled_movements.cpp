@@ -20,7 +20,7 @@ namespace abclib::hardware
     void Chassis::move_straight_profiled(
         units::Length distance,
         units::Velocity max_velocity,
-        units::Acceleration max_acceleration, // Now a unit
+        units::Acceleration max_acceleration,
         units::Time timeout,
         double heading_tolerance)
     {

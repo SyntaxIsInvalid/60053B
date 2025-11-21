@@ -181,8 +181,9 @@ void autonomous()
         match_load_ramp,
         intake_lift};
     run_selected_auton(robot);
-
+    
     controller.print(0, 0, "done");
+
 }
 
 void opcontrol()

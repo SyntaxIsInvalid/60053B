@@ -1,6 +1,7 @@
 // trapezoidal.hpp
 #pragma once
 
+#include "motion_profile_interface.hpp"
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
@@ -16,7 +17,7 @@ namespace abclib::profiling
      *
      * All inputs and outputs use typed units for safety.
      */
-    class TrapezoidalProfile
+    class TrapezoidalProfile : public IMotionProfile
     {
     public:
         /**
@@ -30,16 +31,17 @@ namespace abclib::profiling
                            units::Velocity max_velocity,
                            units::Acceleration max_acceleration);
 
-        // Query methods
-        units::Length get_position(units::Time time) const;
-        units::Velocity get_velocity(units::Time time) const;
-        units::Acceleration get_acceleration(units::Time time) const;
+        // VelocityProfile interface implementation
+        units::Length get_position(units::Time time) const override;
+        units::Velocity get_velocity(units::Time time) const override;
+        units::Acceleration get_acceleration(units::Time time) const override;
 
-        units::Time get_total_time() const { return total_time_; }
+        units::Time get_total_time() const override { return total_time_; }
+        units::Length get_total_distance() const override { return total_distance_; }
+
+        // Trapezoidal-specific query methods
         units::Velocity get_max_velocity() const { return max_velocity_; }
         units::Acceleration get_max_acceleration() const { return max_acceleration_; }
-        units::Length get_total_distance() const { return total_distance_; }
-
         bool is_trapezoidal() const { return is_trapezoidal_; }
 
     private:
