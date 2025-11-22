@@ -1,6 +1,8 @@
+// path_segment_interface.hpp
 #pragma once
 
 #include <Eigen/Dense>
+#include <string>
 
 namespace abclib::path
 {
@@ -8,7 +10,6 @@ namespace abclib::path
     class IPathSegment
     {
     public:
-        // Shared type aliases for ALL path geometries
         using Point = Eigen::Vector2d;
         using Pose = Eigen::Vector3d;
 
@@ -26,7 +27,13 @@ namespace abclib::path
         virtual double get_end_curvature() const = 0;
         virtual double get_start_curvature_derivative() const = 0;
         virtual double get_end_curvature_derivative() const = 0;
+        virtual std::string get_type_name() const = 0;
+
+        // New: arc length parameterization
+        virtual double arc_length_to_u(double s) const = 0;
+        virtual double u_to_arc_length(double u) const = 0;
     };
+    
     using Point = IPathSegment::Point;
     using Pose = IPathSegment::Pose;
 }

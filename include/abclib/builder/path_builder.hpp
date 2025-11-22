@@ -7,6 +7,8 @@
 #include <vector>
 #include <memory>
 #include "continuity.hpp"
+#include "abclib/builder/profile_builder.hpp"
+#include "abclib/builder/spline_builder/quintic_hermite_builder.hpp"
 
 namespace abclib::path {
 class Path;

@@ -46,6 +46,9 @@ namespace abclib::path
         double get_start_curvature_derivative() const override;
         double get_end_curvature_derivative() const override;
 
+        double arc_length_to_u(double s) const override;
+        double u_to_arc_length(double u) const override;
+        std::string get_type_name() const override { return "turn_in_place"; }
     private:
         Pose start_pose_;
         Pose end_pose_;

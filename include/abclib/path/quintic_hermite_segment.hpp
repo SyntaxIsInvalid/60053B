@@ -3,6 +3,7 @@
 #include "path_segment_interface.hpp"
 #include <optional>
 #include <Eigen/Dense>
+#include "abclib/math/arc_length_table.hpp"
 
 namespace abclib::path
 {
@@ -11,24 +12,24 @@ namespace abclib::path
     public:
         /**
          * @brief Constructs a quintic Hermite spline segment with heuristic control vectors.
-         * 
+         *
          * Uses the 1.2 × distance heuristic for velocity magnitude:
          * - Velocity magnitude = 1.2 × ||end - start||
          * - Velocity direction aligned with heading
          * - Zero acceleration at both endpoints
-         * 
+         *
          * This provides G2 continuity (continuous position, tangent, and curvature).
-         * 
+         *
          * @param start_pose Starting pose [x, y, theta]
          * @param end_pose Ending pose [x, y, theta]
          */
-        QuinticHermiteSegment(const Pose& start_pose, const Pose& end_pose);
+        QuinticHermiteSegment(const Pose &start_pose, const Pose &end_pose);
 
         /**
          * @brief Constructs a quintic Hermite spline with explicit control vectors.
-         * 
+         *
          * Allows full control over velocity and acceleration at endpoints.
-         * 
+         *
          * @param start_pose Starting pose [x, y, theta]
          * @param end_pose Ending pose [x, y, theta]
          * @param start_vel Velocity vector at start [vx, vy]
@@ -36,18 +37,18 @@ namespace abclib::path
          * @param end_vel Velocity vector at end [vx, vy]
          * @param end_accel Acceleration vector at end [ax, ay]
          */
-        QuinticHermiteSegment(const Pose& start_pose, const Pose& end_pose,
-                            const Point& start_vel, const Point& start_accel,
-                            const Point& end_vel, const Point& end_accel);
+        QuinticHermiteSegment(const Pose &start_pose, const Pose &end_pose,
+                              const Point &start_vel, const Point &start_accel,
+                              const Point &end_vel, const Point &end_accel);
 
         // IPathSegment interface
-        void calc_point(double u, double& x, double& y) const override;
+        void calc_point(double u, double &x, double &y) const override;
         Point calc_first_deriv(double u) const override;
         Point calc_second_deriv(double u) const override;
         double calc_curvature(double u) const override;
         double get_segment_length() const override;
-        const Pose& get_start_pose() const override;
-        const Pose& get_end_pose() const override;
+        const Pose &get_start_pose() const override;
+        const Pose &get_end_pose() const override;
 
         // Boundary conditions for path stitching
         double get_start_curvature() const override;
@@ -55,6 +56,9 @@ namespace abclib::path
         double get_start_curvature_derivative() const override;
         double get_end_curvature_derivative() const override;
 
+        double arc_length_to_u(double s) const override;
+        double u_to_arc_length(double u) const override;
+        std::string get_type_name() const override { return "quintic_hermite"; }
     private:
         Pose start_pose_;
         Pose end_pose_;
@@ -64,12 +68,14 @@ namespace abclib::path
         Eigen::Matrix<double, 6, 1> y_coeffs_;
 
         double segment_length_;
+        math::ArcLengthTable arc_table_;
+        void build_arc_length_table();
 
         /**
          * @brief Calculates quintic polynomial coefficients from boundary conditions.
-         * 
+         *
          * Uses closed-form Hermite interpolation formulas.
-         * 
+         *
          * @param pos_a Start position [x, y]
          * @param vel_a Start velocity [vx, vy]
          * @param accel_a Start acceleration [ax, ay]
@@ -78,8 +84,8 @@ namespace abclib::path
          * @param accel_b End acceleration [ax, ay]
          */
         void calculate_coefficients(
-            const Point& pos_a, const Point& vel_a, const Point& accel_a,
-            const Point& pos_b, const Point& vel_b, const Point& accel_b);
+            const Point &pos_a, const Point &vel_a, const Point &accel_a,
+            const Point &pos_b, const Point &vel_b, const Point &accel_b);
 
         /**
          * @brief Integrates arc length using Gauss-Legendre quadrature.
@@ -88,13 +94,13 @@ namespace abclib::path
 
         /**
          * @brief Generates heuristic control vectors from poses.
-         * 
+         *
          * Returns [velocity, acceleration] vectors for a given pose using:
          * - velocity magnitude = scalar × cos/sin(theta)
          * - acceleration = [0, 0]
          */
         static std::pair<Point, Point> calculate_heuristic_control_vectors(
-            const Pose& pose, double scalar);
+            const Pose &pose, double scalar);
     };
 
 } // namespace abclib::path

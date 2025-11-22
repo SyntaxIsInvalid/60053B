@@ -183,7 +183,6 @@ void autonomous()
     run_selected_auton(robot);
     
     controller.print(0, 0, "done");
-
 }
 
 void opcontrol()

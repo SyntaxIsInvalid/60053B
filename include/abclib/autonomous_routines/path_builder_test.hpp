@@ -43,6 +43,10 @@ namespace abclib::auton
         
         .build();
 
+        builder::PathLogger logger("test_path", 14.0_in);
+        logger.log_all(test_path);
+
+
         /*
         // Add path:: and trajectory:: qualifiers
         path::PathLogger::log_path(test_complex, "test_complex_path");
