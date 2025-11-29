@@ -10,7 +10,7 @@ namespace abclib::profiling
     {
         double position;
         double velocity;
-        double acceleration;  // ADDED
+        double acceleration;
         
         ProfileState() : position(0.0), velocity(0.0), acceleration(0.0) {}
         ProfileState(double pos, double vel, double accel = 0.0) 
