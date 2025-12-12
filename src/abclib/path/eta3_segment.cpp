@@ -14,18 +14,13 @@ namespace abclib::path
         : start_pose_(start_pose),
           end_pose_(end_pose)
     {
-        // 1. Resolve eta: use the provided value, otherwise calculate the heuristic.
         const EtaVec final_eta = opt_eta.has_value() ? opt_eta.value() : calculate_heuristic_eta(start_pose, end_pose);
-
-        // 2. Resolve kappa: use the provided value, otherwise default to a zero vector.
         const KappaVec final_kappa = opt_kappa.value_or(KappaVec::Zero());
         kappa_ = final_kappa;
 
-        // 3. With the final parameters determined, compute the polynomial coefficients.
         calculate_coefficients(final_eta, final_kappa);
-
-        // 4. Finally, calculate the segment's arc length for future use.
         segment_length_ = integrate_arc_length();
+        build_arc_length_table(); // Add this line
     }
 
     void Eta3PathSegment::calc_point(double u, double &x, double &y) const
@@ -248,4 +243,21 @@ namespace abclib::path
     double Eta3PathSegment::get_end_curvature() const { return kappa_(2); }
     double Eta3PathSegment::get_start_curvature_derivative() const { return kappa_(1); }
     double Eta3PathSegment::get_end_curvature_derivative() const { return kappa_(3); }
+
+    void Eta3PathSegment::build_arc_length_table()
+    {
+        arc_table_.build([this](double u)
+                         { return calc_first_deriv(u).norm(); });
+    }
+
+    double Eta3PathSegment::arc_length_to_u(double s) const
+    {
+        return arc_table_.arc_length_to_u(s);
+    }
+
+    double Eta3PathSegment::u_to_arc_length(double u) const
+    {
+        return arc_table_.u_to_arc_length(u);
+    }
+
 }

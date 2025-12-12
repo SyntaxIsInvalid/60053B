@@ -124,4 +124,16 @@ namespace abclib::path
         return 0.0;
     }
 
+    double StraightSegment::arc_length_to_u(double s) const
+    {
+        if (length_ <= 0.0)
+            return 0.0;
+        return std::clamp(s / length_, 0.0, 1.0);
+    }
+
+    double StraightSegment::u_to_arc_length(double u) const
+    {
+        return std::clamp(u, 0.0, 1.0) * length_;
+    }
+
 } // namespace abclib::path

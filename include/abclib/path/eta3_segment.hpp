@@ -5,6 +5,7 @@
 #include <cmath>
 #include <Eigen/Dense>
 #include "path_segment_interface.hpp"
+#include "abclib/math/arc_length_table.hpp"
 
 namespace abclib::path
 {
@@ -44,7 +45,10 @@ namespace abclib::path
         double get_end_curvature() const;
         double get_start_curvature_derivative() const;
         double get_end_curvature_derivative() const;
-
+        // Arc length parameterization
+        double arc_length_to_u(double s) const override;
+        double u_to_arc_length(double u) const override;
+        std::string get_type_name() const override { return "eta3"; }
     private:
         static EtaVec calculate_heuristic_eta(const Pose &start_pose, const Pose &end_pose);
         void calculate_coefficients(const EtaVec &eta, const KappaVec &kappa);
@@ -56,5 +60,7 @@ namespace abclib::path
         Pose end_pose_;
         Eigen::Matrix<double, 2, 8> coeffs_;
         double segment_length_;
+        math::ArcLengthTable arc_table_;
+        void build_arc_length_table();
     };
 }

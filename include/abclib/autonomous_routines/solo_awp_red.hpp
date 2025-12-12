@@ -1,15 +1,23 @@
 #pragma once
 #include "auton_selector.hpp"
 
-namespace abclib::auton {
-    inline void solo_awp_red(RobotSubsystems& robot) {
+namespace abclib::auton
+{
+    inline void solo_awp_red(RobotSubsystems &robot)
+    {
         // Set starting position
-        /*
         robot.chassis.set_pose(
             units::Distance::from_inches(0),
             units::Distance::from_inches(0),
             units::Degrees(0));
         
+        robot.chassis.move_to_pose_profiled(12_in, 6_in, 45_deg, 12_ips, 40_ips2, 10_s);
+        /*
+        robot.chassis.set_pose(
+            units::Distance::from_inches(0),
+            units::Distance::from_inches(0),
+            units::Degrees(0));
+
         robot.chassis.drive_straight_relative(units::Distance(25), units::Time::from_seconds(1.2));
         robot.match_load_ramp.extend();
         pros::delay(500);

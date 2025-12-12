@@ -32,7 +32,7 @@ namespace abclib::path
                 "TurnInPlaceSegment: angular displacement is too small. "
                 "Start: " +
                 std::to_string(center_pose(2) * 180.0 / M_PI) + "°, "
-                "End: " +
+                                                                "End: " +
                 std::to_string(end_heading * 180.0 / M_PI) + "°");
         }
 
@@ -104,6 +104,18 @@ namespace abclib::path
     double TurnInPlaceSegment::get_end_curvature_derivative() const
     {
         return 0.0;
+    }
+
+    double TurnInPlaceSegment::arc_length_to_u(double s) const
+    {
+        if (arc_length_ <= 0.0)
+            return 0.0;
+        return std::clamp(s / arc_length_, 0.0, 1.0);
+    }
+
+    double TurnInPlaceSegment::u_to_arc_length(double u) const
+    {
+        return std::clamp(u, 0.0, 1.0) * arc_length_;
     }
 
 } // namespace abclib::path

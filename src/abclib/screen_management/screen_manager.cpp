@@ -144,27 +144,203 @@ void ScreenManager::create_autonomous_screen() {
 }
 
 void ScreenManager::create_auton_red_tab() {
-    lv_obj_t* label = lv_label_create(auton_tab_red);
-    lv_label_set_text(label, "Red Autonomous\n(Not implemented yet)");
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+    // Title
+    lv_obj_t* title = lv_label_create(auton_tab_red);
+    lv_label_set_text(title, "RED ALLIANCE");
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+    
+    // Dropdown
+    red_dropdown = lv_dropdown_create(auton_tab_red);
+    lv_obj_set_size(red_dropdown, 300, 50);
+    lv_obj_align(red_dropdown, LV_ALIGN_CENTER, 0, -10);
+    
+    // Store category in dropdown's user data
+    static abclib::auton::AutonCategory red_category = abclib::auton::AutonCategory::RED;
+    lv_obj_set_user_data(red_dropdown, &red_category);
+    
+    // Auto-populate and setup callback
+    populate_dropdown(red_dropdown, abclib::auton::AutonCategory::RED);
+    setup_dropdown_callback(red_dropdown, abclib::auton::AutonCategory::RED);
+    
+    // Confirm button
+    confirm_btn_red = lv_button_create(auton_tab_red);
+    lv_obj_set_size(confirm_btn_red, 280, 50);
+    lv_obj_align(confirm_btn_red, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_set_style_bg_color(confirm_btn_red, lv_color_hex(0x00AA00), 0);
+    lv_obj_t* label_confirm = lv_label_create(confirm_btn_red);
+    lv_label_set_text(label_confirm, "CONFIRM");
+    lv_obj_center(label_confirm);
+    lv_obj_add_event_cb(confirm_btn_red, [](lv_event_t* e) {
+        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
+        manager->confirm_auton_selection();
+    }, LV_EVENT_CLICKED, this);
 }
 
 void ScreenManager::create_auton_blue_tab() {
-    lv_obj_t* label = lv_label_create(auton_tab_blue);
-    lv_label_set_text(label, "Blue Autonomous\n(Not implemented yet)");
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+    // Title
+    lv_obj_t* title = lv_label_create(auton_tab_blue);
+    lv_label_set_text(title, "BLUE ALLIANCE");
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+    
+    // Dropdown
+    blue_dropdown = lv_dropdown_create(auton_tab_blue);
+    lv_obj_set_size(blue_dropdown, 300, 50);
+    lv_obj_align(blue_dropdown, LV_ALIGN_CENTER, 0, -10);
+    
+    // Store category in dropdown's user data
+    static abclib::auton::AutonCategory blue_category = abclib::auton::AutonCategory::BLUE;
+    lv_obj_set_user_data(blue_dropdown, &blue_category);
+    
+    // Auto-populate and setup callback
+    populate_dropdown(blue_dropdown, abclib::auton::AutonCategory::BLUE);
+    setup_dropdown_callback(blue_dropdown, abclib::auton::AutonCategory::BLUE);
+    
+    // Confirm button
+    confirm_btn_blue = lv_button_create(auton_tab_blue);
+    lv_obj_set_size(confirm_btn_blue, 280, 50);
+    lv_obj_align(confirm_btn_blue, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_set_style_bg_color(confirm_btn_blue, lv_color_hex(0x00AA00), 0);
+    lv_obj_t* label_confirm = lv_label_create(confirm_btn_blue);
+    lv_label_set_text(label_confirm, "CONFIRM");
+    lv_obj_center(label_confirm);
+    lv_obj_add_event_cb(confirm_btn_blue, [](lv_event_t* e) {
+        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
+        manager->confirm_auton_selection();
+    }, LV_EVENT_CLICKED, this);
 }
-
 void ScreenManager::create_auton_skills_tab() {
-    lv_obj_t* label = lv_label_create(auton_tab_skills);
-    lv_label_set_text(label, "Skills Autonomous\n(Not implemented yet)");
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+    // Title
+    lv_obj_t* title = lv_label_create(auton_tab_skills);
+    lv_label_set_text(title, "SKILLS");
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+    
+    // Dropdown
+    skills_dropdown = lv_dropdown_create(auton_tab_skills);
+    lv_obj_set_size(skills_dropdown, 300, 50);
+    lv_obj_align(skills_dropdown, LV_ALIGN_CENTER, 0, -10);
+    
+    // Store category in dropdown's user data
+    static abclib::auton::AutonCategory skills_category = abclib::auton::AutonCategory::SKILLS;
+    lv_obj_set_user_data(skills_dropdown, &skills_category);
+    
+    // Auto-populate and setup callback
+    populate_dropdown(skills_dropdown, abclib::auton::AutonCategory::SKILLS);
+    setup_dropdown_callback(skills_dropdown, abclib::auton::AutonCategory::SKILLS);
+    
+    // Confirm button
+    confirm_btn_skills = lv_button_create(auton_tab_skills);
+    lv_obj_set_size(confirm_btn_skills, 280, 50);
+    lv_obj_align(confirm_btn_skills, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_set_style_bg_color(confirm_btn_skills, lv_color_hex(0x00AA00), 0);
+    lv_obj_t* label_confirm = lv_label_create(confirm_btn_skills);
+    lv_label_set_text(label_confirm, "CONFIRM");
+    lv_obj_center(label_confirm);
+    lv_obj_add_event_cb(confirm_btn_skills, [](lv_event_t* e) {
+        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
+        manager->confirm_auton_selection();
+    }, LV_EVENT_CLICKED, this);
 }
 
 void ScreenManager::create_auton_test_tab() {
-    lv_obj_t* label = lv_label_create(auton_tab_test);
-    lv_label_set_text(label, "Test Autonomous\n(Not implemented yet)");
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+    // Title
+    lv_obj_t* title = lv_label_create(auton_tab_test);
+    lv_label_set_text(title, "TEST ROUTINES");
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+    
+    // Dropdown
+    test_dropdown = lv_dropdown_create(auton_tab_test);
+    lv_obj_set_size(test_dropdown, 300, 50);
+    lv_obj_align(test_dropdown, LV_ALIGN_CENTER, 0, -10);
+    
+    // Store category in dropdown's user data
+    static abclib::auton::AutonCategory test_category = abclib::auton::AutonCategory::TEST;
+    lv_obj_set_user_data(test_dropdown, &test_category);
+    
+    // Auto-populate and setup callback
+    populate_dropdown(test_dropdown, abclib::auton::AutonCategory::TEST);
+    setup_dropdown_callback(test_dropdown, abclib::auton::AutonCategory::TEST);
+    
+    // Confirm button
+    confirm_btn_test = lv_button_create(auton_tab_test);
+    lv_obj_set_size(confirm_btn_test, 280, 50);
+    lv_obj_align(confirm_btn_test, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_set_style_bg_color(confirm_btn_test, lv_color_hex(0x00AA00), 0);
+    lv_obj_t* label_confirm = lv_label_create(confirm_btn_test);
+    lv_label_set_text(label_confirm, "CONFIRM");
+    lv_obj_center(label_confirm);
+    lv_obj_add_event_cb(confirm_btn_test, [](lv_event_t* e) {
+        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
+        manager->confirm_auton_selection();
+    }, LV_EVENT_CLICKED, this);
+}
+
+void ScreenManager::confirm_auton_selection() {
+    // Set the actual selected auton
+    abclib::auton::selected_auton = temp_selection;
+    
+    // Visual feedback - flash the confirm button green
+    uint32_t active_tab = lv_tabview_get_tab_active(auton_tabview);
+    lv_obj_t* confirm_btn = nullptr;
+    
+    switch(active_tab) {
+        case 0: confirm_btn = confirm_btn_red; break;
+        case 1: confirm_btn = confirm_btn_blue; break;
+        case 2: confirm_btn = confirm_btn_skills; break;
+        case 3: confirm_btn = confirm_btn_test; break;
+    }
+    
+    if (confirm_btn) {
+        lv_obj_set_style_bg_color(confirm_btn, lv_color_hex(0x00FF00), 0);
+    }
+}
+
+void ScreenManager::populate_dropdown(lv_obj_t* dropdown, abclib::auton::AutonCategory category) {
+    // Get all autons for this category in order
+    std::vector<abclib::auton::AutonRoutine> autons = abclib::auton::get_autons_for_category(category);
+    
+    if (autons.empty()) {
+        lv_dropdown_set_options(dropdown, "NONE");
+        return;
+    }
+    
+    // Build options string (newline separated)
+    std::string options = "";
+    for (size_t i = 0; i < autons.size(); i++) {
+        options += abclib::auton::get_display_name(autons[i]);
+        if (i < autons.size() - 1) {
+            options += "\n";
+        }
+    }
+    
+    lv_dropdown_set_options(dropdown, options.c_str());
+}
+
+void ScreenManager::setup_dropdown_callback(lv_obj_t* dropdown, abclib::auton::AutonCategory category) {
+    lv_obj_add_event_cb(dropdown, [](lv_event_t* e) {
+        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
+        lv_obj_t* dropdown = (lv_obj_t*)lv_event_get_target(e);
+        
+        // Get selected index
+        uint32_t selected = lv_dropdown_get_selected(dropdown);
+        
+        // Get category from the dropdown's user data (we'll set this)
+        abclib::auton::AutonCategory* category_ptr = (abclib::auton::AutonCategory*)lv_obj_get_user_data(dropdown);
+        
+        if (category_ptr) {
+            // Get the list of autons for this category
+            std::vector<abclib::auton::AutonRoutine> autons = 
+                abclib::auton::get_autons_for_category(*category_ptr);
+            
+            // Set temp_selection to the selected auton
+            if (selected < autons.size()) {
+                manager->temp_selection = autons[selected];
+            }
+        }
+    }, LV_EVENT_VALUE_CHANGED, this);
 }
 
 void ScreenManager::create_auton_telemetry_tab() {
