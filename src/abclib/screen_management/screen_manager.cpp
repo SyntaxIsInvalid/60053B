@@ -152,24 +152,16 @@ void ScreenManager::create_auton_red_tab() {
     
     // Dropdown
     red_dropdown = lv_dropdown_create(auton_tab_red);
-    lv_dropdown_set_options(red_dropdown, 
-        "SOLO_AWP_RED\n"
-        "RED_RIGHT\n"
-        "RED_LEFT");
     lv_obj_set_size(red_dropdown, 300, 50);
     lv_obj_align(red_dropdown, LV_ALIGN_CENTER, 0, -10);
     
-    lv_obj_add_event_cb(red_dropdown, [](lv_event_t* e) {
-        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
-        lv_obj_t* dropdown = (lv_obj_t*)lv_event_get_target(e);
-        
-        uint32_t selected = lv_dropdown_get_selected(dropdown);
-        switch(selected) {
-            case 0: manager->temp_selection = abclib::auton::AutonRoutine::SOLO_AWP_RED; break;
-            case 1: manager->temp_selection = abclib::auton::AutonRoutine::RED_RIGHT; break;
-            case 2: manager->temp_selection = abclib::auton::AutonRoutine::RED_LEFT; break;
-        }
-    }, LV_EVENT_VALUE_CHANGED, this);
+    // Store category in dropdown's user data
+    static abclib::auton::AutonCategory red_category = abclib::auton::AutonCategory::RED;
+    lv_obj_set_user_data(red_dropdown, &red_category);
+    
+    // Auto-populate and setup callback
+    populate_dropdown(red_dropdown, abclib::auton::AutonCategory::RED);
+    setup_dropdown_callback(red_dropdown, abclib::auton::AutonCategory::RED);
     
     // Confirm button
     confirm_btn_red = lv_button_create(auton_tab_red);
@@ -194,24 +186,16 @@ void ScreenManager::create_auton_blue_tab() {
     
     // Dropdown
     blue_dropdown = lv_dropdown_create(auton_tab_blue);
-    lv_dropdown_set_options(blue_dropdown, 
-        "SOLO_AWP_BLUE\n"
-        "BLUE_RIGHT\n"
-        "BLUE_LEFT");
     lv_obj_set_size(blue_dropdown, 300, 50);
     lv_obj_align(blue_dropdown, LV_ALIGN_CENTER, 0, -10);
     
-    lv_obj_add_event_cb(blue_dropdown, [](lv_event_t* e) {
-        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
-        lv_obj_t* dropdown = (lv_obj_t*)lv_event_get_target(e);
-        
-        uint32_t selected = lv_dropdown_get_selected(dropdown);
-        switch(selected) {
-            case 0: manager->temp_selection = abclib::auton::AutonRoutine::SOLO_AWP_BLUE; break;
-            case 1: manager->temp_selection = abclib::auton::AutonRoutine::BLUE_RIGHT; break;
-            case 2: manager->temp_selection = abclib::auton::AutonRoutine::BLUE_LEFT; break;
-        }
-    }, LV_EVENT_VALUE_CHANGED, this);
+    // Store category in dropdown's user data
+    static abclib::auton::AutonCategory blue_category = abclib::auton::AutonCategory::BLUE;
+    lv_obj_set_user_data(blue_dropdown, &blue_category);
+    
+    // Auto-populate and setup callback
+    populate_dropdown(blue_dropdown, abclib::auton::AutonCategory::BLUE);
+    setup_dropdown_callback(blue_dropdown, abclib::auton::AutonCategory::BLUE);
     
     // Confirm button
     confirm_btn_blue = lv_button_create(auton_tab_blue);
@@ -226,7 +210,6 @@ void ScreenManager::create_auton_blue_tab() {
         manager->confirm_auton_selection();
     }, LV_EVENT_CLICKED, this);
 }
-
 void ScreenManager::create_auton_skills_tab() {
     // Title
     lv_obj_t* title = lv_label_create(auton_tab_skills);
@@ -236,14 +219,16 @@ void ScreenManager::create_auton_skills_tab() {
     
     // Dropdown
     skills_dropdown = lv_dropdown_create(auton_tab_skills);
-    lv_dropdown_set_options(skills_dropdown, "SKILLS");
     lv_obj_set_size(skills_dropdown, 300, 50);
     lv_obj_align(skills_dropdown, LV_ALIGN_CENTER, 0, -10);
     
-    lv_obj_add_event_cb(skills_dropdown, [](lv_event_t* e) {
-        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
-        manager->temp_selection = abclib::auton::AutonRoutine::SKILLS;
-    }, LV_EVENT_VALUE_CHANGED, this);
+    // Store category in dropdown's user data
+    static abclib::auton::AutonCategory skills_category = abclib::auton::AutonCategory::SKILLS;
+    lv_obj_set_user_data(skills_dropdown, &skills_category);
+    
+    // Auto-populate and setup callback
+    populate_dropdown(skills_dropdown, abclib::auton::AutonCategory::SKILLS);
+    setup_dropdown_callback(skills_dropdown, abclib::auton::AutonCategory::SKILLS);
     
     // Confirm button
     confirm_btn_skills = lv_button_create(auton_tab_skills);
@@ -259,7 +244,6 @@ void ScreenManager::create_auton_skills_tab() {
     }, LV_EVENT_CLICKED, this);
 }
 
-
 void ScreenManager::create_auton_test_tab() {
     // Title
     lv_obj_t* title = lv_label_create(auton_tab_test);
@@ -269,24 +253,16 @@ void ScreenManager::create_auton_test_tab() {
     
     // Dropdown
     test_dropdown = lv_dropdown_create(auton_tab_test);
-    lv_dropdown_set_options(test_dropdown, 
-        "TEST_BOT_AUTON\n"
-        "PATH_BUILDER_TEST\n"
-        "NONE");
     lv_obj_set_size(test_dropdown, 300, 50);
     lv_obj_align(test_dropdown, LV_ALIGN_CENTER, 0, -10);
     
-    lv_obj_add_event_cb(test_dropdown, [](lv_event_t* e) {
-        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
-        lv_obj_t* dropdown = (lv_obj_t*)lv_event_get_target(e);
-        
-        uint32_t selected = lv_dropdown_get_selected(dropdown);
-        switch(selected) {
-            case 0: manager->temp_selection = abclib::auton::AutonRoutine::TEST_BOT_AUTON; break;
-            case 1: manager->temp_selection = abclib::auton::AutonRoutine::PATH_BUILDER_TEST; break;
-            case 2: manager->temp_selection = abclib::auton::AutonRoutine::NONE; break;
-        }
-    }, LV_EVENT_VALUE_CHANGED, this);
+    // Store category in dropdown's user data
+    static abclib::auton::AutonCategory test_category = abclib::auton::AutonCategory::TEST;
+    lv_obj_set_user_data(test_dropdown, &test_category);
+    
+    // Auto-populate and setup callback
+    populate_dropdown(test_dropdown, abclib::auton::AutonCategory::TEST);
+    setup_dropdown_callback(test_dropdown, abclib::auton::AutonCategory::TEST);
     
     // Confirm button
     confirm_btn_test = lv_button_create(auton_tab_test);
@@ -322,6 +298,50 @@ void ScreenManager::confirm_auton_selection() {
     }
 }
 
+void ScreenManager::populate_dropdown(lv_obj_t* dropdown, abclib::auton::AutonCategory category) {
+    // Get all autons for this category in order
+    std::vector<abclib::auton::AutonRoutine> autons = abclib::auton::get_autons_for_category(category);
+    
+    if (autons.empty()) {
+        lv_dropdown_set_options(dropdown, "NONE");
+        return;
+    }
+    
+    // Build options string (newline separated)
+    std::string options = "";
+    for (size_t i = 0; i < autons.size(); i++) {
+        options += abclib::auton::get_display_name(autons[i]);
+        if (i < autons.size() - 1) {
+            options += "\n";
+        }
+    }
+    
+    lv_dropdown_set_options(dropdown, options.c_str());
+}
+
+void ScreenManager::setup_dropdown_callback(lv_obj_t* dropdown, abclib::auton::AutonCategory category) {
+    lv_obj_add_event_cb(dropdown, [](lv_event_t* e) {
+        ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
+        lv_obj_t* dropdown = (lv_obj_t*)lv_event_get_target(e);
+        
+        // Get selected index
+        uint32_t selected = lv_dropdown_get_selected(dropdown);
+        
+        // Get category from the dropdown's user data (we'll set this)
+        abclib::auton::AutonCategory* category_ptr = (abclib::auton::AutonCategory*)lv_obj_get_user_data(dropdown);
+        
+        if (category_ptr) {
+            // Get the list of autons for this category
+            std::vector<abclib::auton::AutonRoutine> autons = 
+                abclib::auton::get_autons_for_category(*category_ptr);
+            
+            // Set temp_selection to the selected auton
+            if (selected < autons.size()) {
+                manager->temp_selection = autons[selected];
+            }
+        }
+    }, LV_EVENT_VALUE_CHANGED, this);
+}
 
 void ScreenManager::create_auton_telemetry_tab() {
     lv_obj_t* label = lv_label_create(auton_tab_telemetry);

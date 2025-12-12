@@ -64,6 +64,10 @@ namespace abclib::ui
         void create_auton_telemetry_tab();
         void create_auton_image_tab();
 
+        // Auto-population helpers
+        void populate_dropdown(lv_obj_t* dropdown, abclib::auton::AutonCategory category);
+        void setup_dropdown_callback(lv_obj_t* dropdown, abclib::auton::AutonCategory category);
+
         // Navigation helpers
         void create_navigation_bar();
         void navigate_prev();
