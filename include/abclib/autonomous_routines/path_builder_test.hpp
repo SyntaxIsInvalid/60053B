@@ -43,8 +43,8 @@ namespace abclib::auton
         
         .build();
 
-        builder::PathLogger logger("test_path", 14.0_in);
-        logger.log_all(test_path);
+        //builder::PathLogger logger("test_path", 14.0_in);
+        // logger.log_all(test_path);
 
 
         /*

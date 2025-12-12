@@ -2,6 +2,7 @@
 #include "liblvgl/lvgl.h"
 #include "abclib/telemetry/telemetry.hpp"
 #include <vector>
+#include "abclib/autonomous_routines/auton_selector.hpp"
 
 namespace abclib::ui
 {
@@ -92,8 +93,20 @@ namespace abclib::ui
 
         void create_calibration_screen();
 
-        // In the public section:
+        // Add to private section
+        lv_obj_t *red_dropdown = nullptr;
+        lv_obj_t *blue_dropdown = nullptr;
+        lv_obj_t *skills_dropdown = nullptr;
+        lv_obj_t *test_dropdown = nullptr;
 
+        lv_obj_t *confirm_btn_red = nullptr;
+        lv_obj_t *confirm_btn_blue = nullptr;
+        lv_obj_t *confirm_btn_skills = nullptr;
+        lv_obj_t *confirm_btn_test = nullptr;
+
+        abclib::auton::AutonRoutine temp_selection = abclib::auton::AutonRoutine::NONE;
+
+        void confirm_auton_selection();
 
     public:
         ScreenManager() = default;
@@ -103,7 +116,7 @@ namespace abclib::ui
 
         // Update telemetry display (called from loop)
         void update_telemetry(const telemetry::TelemetryData &data);
-                void show_calibration_screen();
+        void show_calibration_screen();
         void update_calibration_progress(int percentage, const char *status);
         void hide_calibration_screen();
     };
