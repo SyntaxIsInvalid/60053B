@@ -103,6 +103,14 @@ ui::ScreenManager screen_manager;
 
 void initialize()
 {
+    using namespace abclib::auton;
+    
+    // Register autons with their categories
+    register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red, AutonCategory::RED);
+    register_auton(AutonRoutine::RED_LEFT, red_left, AutonCategory::RED);
+    register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test, AutonCategory::TEST);
+    register_auton(AutonRoutine::TEST_BOT_AUTON, test_bot_auton, AutonCategory::TEST);
+    register_auton(AutonRoutine::NONE, none, AutonCategory::TEST);
     lv_init();
     pros::lcd::initialize();
     screen_manager.initialize();
@@ -115,16 +123,6 @@ void initialize()
 
     pros::delay(200);
     screen_manager.hide_calibration_screen();
-
-    using namespace abclib::auton;
-    
-    // Register autons with their categories
-    register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red, AutonCategory::RED);
-    register_auton(AutonRoutine::RED_LEFT, red_left, AutonCategory::RED);
-    register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test, AutonCategory::TEST);
-    register_auton(AutonRoutine::TEST_BOT_AUTON, test_bot_auton, AutonCategory::TEST);
-    register_auton(AutonRoutine::NONE, none, AutonCategory::TEST);
-    
 #if HAS_PNEUMATICS
     match_load_ramp.retract();
     intake_lift.retract();

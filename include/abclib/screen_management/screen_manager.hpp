@@ -110,6 +110,11 @@ namespace abclib::ui
 
         abclib::auton::AutonRoutine temp_selection = abclib::auton::AutonRoutine::NONE;
 
+        // Confirm button tracking and colors
+        lv_obj_t* currently_highlighted_btn = nullptr;
+        static constexpr uint32_t CONFIRM_COLOR_HIGHLIGHTED = 0x00FF00;  // Bright green
+        static constexpr uint32_t CONFIRM_COLOR_NORMAL = 0x808080;       // Gray
+
         void confirm_auton_selection();
 
     public:
