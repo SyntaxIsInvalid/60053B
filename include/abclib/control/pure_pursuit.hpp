@@ -1,72 +1,63 @@
-#if 0
 #pragma once
 
-#include "abclib/estimation/pose.hpp"
 #include "abclib/path/path_segment_interface.hpp"
+#include "abclib/estimation/pose.hpp"
 #include "abclib/units/units.hpp"
 
 namespace abclib::control
 {
     struct PurePursuitConfig
     {
-        units::Distance base_lookahead;                  // Base lookahead distance, typically 12-20 inches
-        units::BodyLinearVelocity max_velocity;          // Maximum forward velocity
-        double curvature_lookahead_gain;                 // How aggressively to reduce lookahead on curves (0.3-0.7)
-        units::Distance min_lookahead;                   // Minimum lookahead distance, safety floor (3-5 inches)
+        units::Length lookahead_distance = units::Length::from_inches(15.0);
+        units::Velocity target_velocity = units::Velocity::from_ips(24.0);
+
+        // NEW: Motion profile support
+        bool use_motion_profile = false;
+        units::Acceleration max_acceleration = units::Acceleration::from_ips2(48.0);
+
+        bool use_adaptive_lookahead = false;
+        double lookahead_velocity_gain = 0.5;
+        units::Length min_lookahead = units::Length::from_inches(6.0);
+        units::Length max_lookahead = units::Length::from_inches(24.0);
     };
 
-    struct PurePursuitOutput
-    {
-        units::BodyLinearVelocity v;
-        units::BodyAngularVelocity omega;
-        units::Distance lookahead_distance;              // Actual lookahead used (for telemetry/tuning)
-        units::Distance cross_track_error;               // Lateral error from path
-    };
-
+    /**
+     * @brief Pure pursuit control law
+     *
+     * Calculates commanded curvature to track a lookahead point.
+     * This is a stateless, pure function - no robot dependencies.
+     */
     class PurePursuit
     {
     public:
-        PurePursuit() = default;
+        /**
+         * @brief Calculate curvature command to reach lookahead point
+         *
+         * @param lookahead_point Target point in global frame
+         * @param robot_pose Current robot pose
+         * @param lookahead_distance Distance to lookahead point
+         * @return Commanded curvature (1/radius)
+         */
+        static double calculate_curvature(
+            const path::Point &lookahead_point,
+            const estimation::Pose &robot_pose,
+            units::Length lookahead_distance);
 
         /**
-         * @brief Compute velocity commands using adaptive pure pursuit
-         * @param current_pose Current robot pose
-         * @param segment Path segment to follow
-         * @param config Pure pursuit parameters
-         * @return Velocity commands (v, omega) and tracking info
+         * @brief Convert curvature to differential drive wheel velocities
+         *
+         * @param curvature Commanded curvature
+         * @param linear_velocity Desired forward velocity
+         * @param track_width Distance between wheels
+         * @param left_velocity [out] Left wheel velocity
+         * @param right_velocity [out] Right wheel velocity
          */
-        PurePursuitOutput compute(
-            const estimation::Pose &current_pose,
-            const path::IPathSegment *segment,
-            const PurePursuitConfig &config);
-
-    private:
-        /**
-         * @brief Find arc length parameter of closest point on path
-         */
-        double find_closest_arc_length(
-            const estimation::Pose &current_pose,
-            const path::IPathSegment *segment);
-
-        /**
-         * @brief Get lookahead point on path
-         */
-        void get_lookahead_point(
-            double closest_arc_length,
-            double lookahead_distance,
-            const path::IPathSegment *segment,
-            double &lookahead_x,
-            double &lookahead_y);
-
-        /**
-         * @brief Compute adaptive lookahead based on path curvature
-         */
-        double compute_adaptive_lookahead(
-            double u_param,
-            units::BodyLinearVelocity current_velocity,
-            const path::IPathSegment *segment,
-            const PurePursuitConfig &config);
+        static void curvature_to_wheel_velocities(
+            double curvature,
+            units::Velocity linear_velocity,
+            units::Length track_width,
+            units::Velocity &left_velocity,
+            units::Velocity &right_velocity);
     };
 
 } // namespace abclib::control
-#endif

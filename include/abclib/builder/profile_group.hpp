@@ -12,7 +12,8 @@
 
 namespace abclib::path
 {
-    enum class ProfileType {
+    enum class ProfileType
+    {
         Trapezoidal
     };
 
@@ -27,19 +28,16 @@ namespace abclib::path
 
         units::Length total_arc_length = units::Length::from_inches(0.0);
         ContinuityLevel achieved_continuity = ContinuityLevel::G3;
-        
+
         std::vector<double> segment_arc_offsets;
-        
+
         std::optional<profiling::TrapezoidalProfile> profile;
 
         ProfileGroup(const std::string &group_name,
                      units::Velocity max_vel,
                      units::Acceleration max_accel,
                      ProfileType type = ProfileType::Trapezoidal)
-            : name(group_name)
-            , max_velocity(max_vel)
-            , max_acceleration(max_accel)
-            , profile_type(type)
+            : name(group_name), max_velocity(max_vel), max_acceleration(max_accel), profile_type(type)
         {
         }
 
@@ -47,7 +45,7 @@ namespace abclib::path
         {
             segment_arc_offsets.clear();
             segment_arc_offsets.reserve(segments.size());
-            
+
             double cumulative = 0.0;
             for (const auto &seg : segments)
             {
@@ -55,40 +53,44 @@ namespace abclib::path
                 cumulative += seg->get_segment_length();
             }
             total_arc_length = units::Length::from_inches(cumulative);
-            
+
             // Build the motion profile
-            if (cumulative > 0.0) {
+            if (cumulative > 0.0)
+            {
                 profile.emplace(total_arc_length, max_velocity, max_acceleration);
             }
         }
 
         std::pair<size_t, double> arc_length_to_segment_u(double s) const
         {
-            if (segments.empty()) {
+            if (segments.empty())
+            {
                 return {0, 0.0};
             }
-            
+
             double total = total_arc_length.to_inches();
-            
-            if (s <= 0.0) {
+
+            if (s <= 0.0)
+            {
                 return {0, 0.0};
             }
-            if (s >= total) {
+            if (s >= total)
+            {
                 return {segments.size() - 1, 1.0};
             }
-            
+
             auto it = std::upper_bound(
                 segment_arc_offsets.begin(),
                 segment_arc_offsets.end(),
                 s);
-            
-            size_t idx = (it == segment_arc_offsets.begin()) 
-                ? 0 
-                : std::distance(segment_arc_offsets.begin(), it) - 1;
-            
+
+            size_t idx = (it == segment_arc_offsets.begin())
+                             ? 0
+                             : std::distance(segment_arc_offsets.begin(), it) - 1;
+
             double local_s = s - segment_arc_offsets[idx];
             double local_u = segments[idx]->arc_length_to_u(local_s);
-            
+
             return {idx, local_u};
         }
 
@@ -130,7 +132,8 @@ namespace abclib::path
          */
         Pose query_at_time(units::Time t) const
         {
-            if (!profile) {
+            if (!profile)
+            {
                 throw std::runtime_error("ProfileGroup: no profile built");
             }
             double s = profile->get_position(t).to_inches();
@@ -142,10 +145,60 @@ namespace abclib::path
          */
         units::Velocity get_velocity_at_time(units::Time t) const
         {
-            if (!profile) {
+            if (!profile)
+            {
                 throw std::runtime_error("ProfileGroup: no profile built");
             }
             return profile->get_velocity(t);
+        }
+
+        // Add this method to ProfileGroup struct in profile_group.hpp
+
+        /**
+         * @brief Get velocity at arc length s (more accurate than time-based for tracking)
+         */
+        units::Velocity get_velocity_at_arc_length(double s) const
+        {
+            if (!profile)
+            {
+                throw std::runtime_error("ProfileGroup: no profile built");
+            }
+
+            // Clamp to valid range
+            s = std::clamp(s, 0.0, total_arc_length.to_inches());
+
+            // Binary search to find time where position = s
+            double total_time = profile->get_total_time().to_seconds();
+            double lo = 0.0;
+            double hi = total_time;
+
+            constexpr int MAX_ITER = 20;
+            constexpr double TOLERANCE = 0.01; // 0.01 inch tolerance
+
+            for (int i = 0; i < MAX_ITER; ++i)
+            {
+                double mid = (lo + hi) / 2.0;
+                units::Time t_mid = units::Time::from_seconds(mid);
+                double pos_mid = profile->get_position(t_mid).to_inches();
+
+                if (std::abs(pos_mid - s) < TOLERANCE)
+                {
+                    return profile->get_velocity(t_mid);
+                }
+
+                if (pos_mid < s)
+                {
+                    lo = mid;
+                }
+                else
+                {
+                    hi = mid;
+                }
+            }
+
+            // Fallback: return velocity at best estimate
+            units::Time t_estimate = units::Time::from_seconds((lo + hi) / 2.0);
+            return profile->get_velocity(t_estimate);
         }
 
         /**
@@ -153,7 +206,8 @@ namespace abclib::path
          */
         units::Time get_total_time() const
         {
-            if (!profile) {
+            if (!profile)
+            {
                 return units::Time::from_seconds(0.0);
             }
             return profile->get_total_time();
@@ -166,7 +220,8 @@ namespace abclib::path
 
         bool is_turn_in_place_group() const
         {
-            if (segments.empty()) {
+            if (segments.empty())
+            {
                 return false;
             }
             return segments.front()->is_turn_in_place();
@@ -174,7 +229,8 @@ namespace abclib::path
 
         Pose get_start_pose() const
         {
-            if (segments.empty()) {
+            if (segments.empty())
+            {
                 throw std::runtime_error("ProfileGroup: no segments");
             }
             return segments.front()->get_start_pose();
@@ -182,7 +238,8 @@ namespace abclib::path
 
         Pose get_end_pose() const
         {
-            if (segments.empty()) {
+            if (segments.empty())
+            {
                 throw std::runtime_error("ProfileGroup: no segments");
             }
             return segments.back()->get_end_pose();

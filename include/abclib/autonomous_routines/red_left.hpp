@@ -3,6 +3,7 @@
 
 namespace abclib::auton {
     inline void red_left(RobotSubsystems& robot) {
+        /*
         // Set starting position
         robot.chassis.set_pose(
             units::Distance::from_inches(0),
@@ -22,5 +23,6 @@ namespace abclib::auton {
         robot.intake_lift.extend();
         robot.chassis.drive_straight_relative(units::Distance(22), units::Time::from_seconds(.7));
         robot.top_intake.intake_for(units::Time::from_seconds(2));
+        */
     }
 }

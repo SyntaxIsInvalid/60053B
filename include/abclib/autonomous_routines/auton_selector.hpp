@@ -40,7 +40,8 @@ namespace abclib::auton {
         subsystems::Intake& top_intake;
         subsystems::Intake& bottom_intake;
         hardware::Pneumatic& match_load_ramp;
-        hardware::Pneumatic& intake_lift;
+        hardware::Pneumatic& hood;
+        hardware::Pneumatic& wing;
     };
 
     // Function type for auton routines

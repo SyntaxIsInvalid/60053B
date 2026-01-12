@@ -8,10 +8,10 @@ namespace abclib::robot_config
 {
 
     // Motor ports
-    inline const std::vector<int8_t> LEFT_MOTOR_PORTS = {-12, -11, -19};
-    inline const std::vector<int8_t> RIGHT_MOTOR_PORTS = {14, 15, 20};
-    inline const std::vector<int8_t> TOP_INTAKE_PORTS = {9};
-    inline const std::vector<int8_t> BOTTOM_INTAKE_PORTS = {-10};
+    inline const std::vector<int8_t> LEFT_MOTOR_PORTS = {-11, -13, 12};
+    inline const std::vector<int8_t> RIGHT_MOTOR_PORTS = {19, 20, -16};
+    inline const std::vector<int8_t> TOP_INTAKE_PORTS = {10};
+    inline const std::vector<int8_t> BOTTOM_INTAKE_PORTS = {-1};
 
     // Intake voltages - now using units::Voltage
     inline const units::Voltage TOP_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
@@ -20,15 +20,16 @@ namespace abclib::robot_config
     inline const units::Voltage BOTTOM_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
 
     // Sensor ports
-    constexpr int8_t IMU_PORT = 18;
-    constexpr int8_t Y_ROTATION_PORT = -17;
+    constexpr int8_t IMU_PORT = 17;
+    constexpr int8_t Y_ROTATION_PORT = 18;
 
     // Pneumatic ports
-    constexpr char MATCH_LOAD_RAMP_PORT = 'G';
-    constexpr char INTAKE_LIFT_PORT = 'H';
+    constexpr char MATCH_LOAD_RAMP_PORT = 'A';
+    constexpr char HOOD_PORT = 'F';
+    constexpr char WING_PORT = 'E';
 
     // Physical dimensions - now using units::Length
-    inline const units::Length WHEEL_DIAMETER = units::Length::from_inches(2.75);
+    inline const units::Length WHEEL_DIAMETER = units::Length::from_inches(3.25);
     inline const units::Length TRACK_WIDTH = units::Length::from_inches(14.0);
     inline const units::Length Y_TRACKER_WHEEL_DIAMETER = units::Length::from_inches(2.0);
     inline const units::Length Y_TRACKER_OFFSET = units::Length::from_inches(0.0);
@@ -91,4 +92,8 @@ namespace abclib::robot_config
     constexpr double TURN_IN_PLACE_KS = 0.919850;
     constexpr double TURN_IN_PLACE_KV = 0.169750;
     constexpr double TURN_IN_PLACE_KA = 0;
+
+    constexpr double LATERAL_KS = 0;
+    constexpr double LATERAL_KV = 0;
+    constexpr double LATERAL_KA = 0;
 }

@@ -74,10 +74,12 @@ hardware::Chassis chassis(
 // Pneumatics - only for competition robot
 #if HAS_PNEUMATICS
 hardware::Pneumatic match_load_ramp(robot_config::MATCH_LOAD_RAMP_PORT);
-hardware::Pneumatic intake_lift(robot_config::INTAKE_LIFT_PORT);
+hardware::Pneumatic hood(robot_config::HOOD_PORT);
+hardware::Pneumatic wing(robot_config::WING_PORT);
 #else
 hardware::DummyPneumatic match_load_ramp;
-hardware::DummyPneumatic intake_lift;
+hardware::DummyPneumatic hood;
+hardware::DummyPneumatic wing;
 #endif
 
 #if HAS_INTAKE
@@ -125,7 +127,8 @@ void initialize()
     screen_manager.hide_calibration_screen();
 #if HAS_PNEUMATICS
     match_load_ramp.retract();
-    intake_lift.retract();
+    hood.retract();
+    wing.retract();
 #endif
     pros::Task screen_task([&]()
                            {
@@ -180,7 +183,9 @@ void autonomous()
         top_intake,
         bottom_intake,
         match_load_ramp,
-        intake_lift};
+        hood,
+        wing    
+    };
     run_selected_auton(robot);
     
     controller.print(0, 0, "done");
@@ -193,26 +198,37 @@ void opcontrol()
         int turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
         int throttle = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         chassis.drive(throttle, turn, 1, .65);
-#if HAS_INTAKE
+#if HAS_INTAKE && HAS_PNEUMATICS
+        // intake
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
         {
-            top_intake.set_voltage(units::Voltage::from_volts(3));
+            top_intake.set_voltage(4_V);
             bottom_intake.set_intake();
         }
+        // outake
         else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
         {
             top_intake.set_outtake();
             bottom_intake.set_outtake();
         }
+        // score mid
+        else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
+        {
+            top_intake.set_outtake();
+            bottom_intake.set_intake();
+        // score long
+        } 
         else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
         {
+            hood.extend();
             top_intake.set_intake();
             bottom_intake.set_intake();
         }
         else
         {
-            top_intake.set_idle();
+            top_intake.set_voltage(3_V);
             bottom_intake.set_idle();
+            hood.retract();
         }
 #endif
 
@@ -223,7 +239,7 @@ void opcontrol()
         }
         if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT))
         {
-            intake_lift.toggle();
+            wing.toggle();
         }
 #endif
         pros::delay(20);

@@ -3,7 +3,7 @@
 // uncomment/comment the define depending on which robot
 
 #define ROBOT_TEST_DRIVE
-// #define ROBOT_COMPETITION
+//#define ROBOT_COMPETITION
 
 // Set feature flags based on robot selection
 #if defined(ROBOT_TEST_DRIVE)

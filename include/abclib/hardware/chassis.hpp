@@ -10,7 +10,7 @@
 #include "abclib/units/units.hpp"
 #include "abclib/estimation/geometric_odometry_estimator.hpp"
 #include <functional>
-
+#include "abclib/control/pure_pursuit.hpp"
 namespace abclib::hardware
 {
     struct ChassisConfig
@@ -98,6 +98,10 @@ namespace abclib::hardware
         bool check_linear_settlement(units::Length error,      // Changed from Distance
                                      units::Velocity velocity, // Changed from BodyLinearVelocity
                                      int &settle_count) const;
+
+            double find_closest_arc_length_on_path(
+        const path::Path& path, 
+        const estimation::Pose& robot_pose) const;
 
     public:
         using CalibrationCallback = std::function<void(int, const char *)>;
@@ -302,6 +306,18 @@ namespace abclib::hardware
             right_config.kA = kA;
             right_motors->set_config(right_config);
         }
+
+        void follow_path_pure_pursuit(
+        const path::Path& path,
+        const control::PurePursuitConfig& config,
+        units::Time timeout = units::Time::from_seconds(15));
+        
+void quintic_pure_pursuit(
+    units::Length target_x,
+    units::Length target_y,
+    units::Angle target_heading,
+    const control::PurePursuitConfig& config,
+    units::Time timeout = units::Time::from_seconds(5));
 
         void move_to_pose_profiled(
             units::Length target_x,
