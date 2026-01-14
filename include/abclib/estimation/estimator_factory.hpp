@@ -12,7 +12,5 @@ namespace abclib::estimation
         const EstimatorConfig& config,
         IMeasurementModel<units::Length>* vertical_model,
         IMeasurementModel<units::Length>* horizontal_model,
-        IMeasurementModel<units::Angle>* imu_model,
-        pros::Distance* front_distance_sensor = nullptr,  // ADD with default
-        pros::Distance* back_distance_sensor = nullptr);  // ADD with default
+        IMeasurementModel<units::Angle>* imu_model);
 }

@@ -100,18 +100,8 @@ namespace abclib::robot_config
     inline estimation::EstimatorConfig get_estimator_config()
     {
         estimation::EstimatorConfig config;
-        config.type = estimation::FilterType::GEOMETRIC; // or GEOMETRIC
-        /*
-        config.ekf.front_sensor_offset_forward = units::Length::from_inches(6.0);
-        config.ekf.front_sensor_offset_lateral = units::Length::from_inches(0.0);
-        config.ekf.front_sensor_bearing = 0.0;
-
-        config.ekf.back_sensor_offset_forward = units::Length::from_inches(-6.0);
-        config.ekf.back_sensor_offset_lateral = units::Length::from_inches(0.0);
-        config.ekf.back_sensor_bearing = M_PI;
-
-        config.ekf.distance_sensor_noise = 0.5;
-        */
+        config.type = estimation::FilterType::EKF; // or GEOMETRIC/EKF
+        config.mode = estimation::FilterMode::PREDICTION_ONLY;
         return config;
     }
 
