@@ -4,6 +4,7 @@
 #include "abclib/units/units.hpp"
 #include "api.h"
 #include "abclib/control/ramsete.hpp"
+#include "abclib/estimation/estimator_config.hpp"
 namespace abclib::robot_config
 {
 
@@ -23,10 +24,10 @@ namespace abclib::robot_config
     inline hardware::motor_group_config get_left_motor_config()
     {
         return hardware::motor_group_config{
-            .kS = 0.919850,
-            .kV = 0.1594417,
+            .kS = 0.535278,
+            .kV = 0.158462,
             .kA = 0.012848,
-            .kPv = 0.18,
+            .kPv = 0.0,
             .kIv = 0.25,
             .kDv = 0.00,
             .enable_voltage_compensation = true,
@@ -37,11 +38,11 @@ namespace abclib::robot_config
     inline hardware::motor_group_config get_right_motor_config()
     {
         return hardware::motor_group_config{
-            .kS = 0.919850,
-            .kV = 0.1594417,
+            .kS = 0.535278,
+            .kV = 0.158462,
             .kA = 0.012848,
-            .kPv = 0.18,
-            .kIv = 0.25,
+            .kPv = 0.0,
+            .kIv = 0.0,
             .kDv = 0.00,
             .enable_voltage_compensation = true,
             .compensation_nominal = units::Voltage::from_volts(12.0),
@@ -64,8 +65,8 @@ namespace abclib::robot_config
     constexpr double TURN_IN_PLACE_KV = 0.170242;
     constexpr double TURN_IN_PLACE_KA = 0.012877;
 
-    constexpr double LATERAL_KS = 0.919850;
-    constexpr double LATERAL_KV = 0.1594417;
+    constexpr double LATERAL_KS = 0.535278;
+    constexpr double LATERAL_KV = 0.158462;
     constexpr double LATERAL_KA = 0.012848;
 
     // profiled turn pid constants
@@ -85,4 +86,19 @@ namespace abclib::robot_config
     {
         return control::RamseteConstants{2.0, 0.7}; // b, zeta
     }
+
+    inline estimation::EstimatorConfig get_estimator_config()
+    {
+        return estimation::EstimatorConfig{
+            .type = estimation::FilterType::EKF,  // Change to EKF when ready to test
+            .vertical_offset = Y_TRACKER_OFFSET,
+            .horizontal_offset = units::Length::from_inches(0.0),
+            .ekf = {
+                .process_noise_x = 0.01,
+                .process_noise_y = 0.01,
+                .process_noise_theta = 0.01
+            }
+        };
+    }
+
 }

@@ -34,6 +34,8 @@ namespace abclib::hardware
         double closest_s = find_closest_arc_length_on_path(path, robot_pose);
         current_arc_length = std::max(current_arc_length, closest_s);
 
+        double progress = current_arc_length / total_length;
+
         // NEW: Get velocity from profile or config
         units::Velocity target_velocity;
         if (config.use_motion_profile) {
@@ -47,7 +49,7 @@ namespace abclib::hardware
         units::Length current_lookahead;
         if (config.use_adaptive_lookahead) {
             double current_speed = robot_pose.v.to_ips();
-            double adaptive_lookahead = config.lookahead_velocity_gain * current_speed;
+            double adaptive_lookahead = current_speed * config.lookahead_time.to_seconds();
             current_lookahead = units::Length::from_inches(
                 std::clamp(adaptive_lookahead,
                           config.min_lookahead.to_inches(),
@@ -69,6 +71,18 @@ namespace abclib::hardware
             current_lookahead
         );
 
+        const auto& group = path.get_profile_groups()[0];
+        double target_heading = group.query_heading(lookahead_s);
+        
+        // Calculate heading correction
+        double heading_correction_rad_per_s = control::PurePursuit::calculate_heading_correction(
+            robot_pose.theta.to_radians(),
+            target_heading,
+            progress,
+            config
+        );
+
+
         // Convert to wheel velocities
         units::Velocity left_vel, right_vel;
         control::PurePursuit::curvature_to_wheel_velocities(
@@ -79,6 +93,15 @@ namespace abclib::hardware
             right_vel
         );
 
+        if (config.use_heading_correction) {
+            // Convert angular velocity [rad/s] to differential wheel velocity [in/s]
+            // \omega = (v_right - v_left) / track_width → \delta v = ω * track_width / 2
+            double correction_ips = heading_correction_rad_per_s * track_width.to_inches() / 2.0;
+            
+            left_vel = units::Velocity::from_ips(left_vel.to_ips() - correction_ips);
+            right_vel = units::Velocity::from_ips(right_vel.to_ips() + correction_ips);
+        }
+
         // Command motors
         move_velocity(left_vel, right_vel);
 
@@ -86,6 +109,25 @@ namespace abclib::hardware
     }
 
     stop_motors();
+    if (config.use_final_turn) {
+        estimation::Pose final_pose = get_pose();
+        const auto& group = path.get_profile_groups()[0];
+        path::Pose target_pose = group.get_end_pose();
+        double target_heading_rad = target_pose(2);
+        
+        // Calculate final heading error
+        double heading_error = target_heading_rad - final_pose.theta.to_radians();
+        while (heading_error > M_PI) heading_error -= 2.0 * M_PI;
+        while (heading_error < -M_PI) heading_error += 2.0 * M_PI;
+        
+        // Check if we need to correct
+        if (std::abs(heading_error) > config.final_heading_tolerance.to_radians()) {
+            turn_to_heading(
+                units::Angle::from_radians(target_heading_rad),
+                config.final_turn_timeout
+            );
+        }
+    }
 }
 
 

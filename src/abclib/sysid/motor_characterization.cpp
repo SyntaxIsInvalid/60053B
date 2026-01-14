@@ -44,7 +44,7 @@ namespace abclib::sysid
             double right_rpm = right_vel.to_rpm();
             double avg_rpm = (left_rpm + right_rpm) / 2.0;
 
-            file << voltage << ","
+            file << (direction * voltage) << "," // ← FIXED: Log actual applied voltage
                  << left_rpm << ","
                  << right_rpm << ","
                  << avg_rpm << "\n";
@@ -101,50 +101,74 @@ namespace abclib::sysid
     }
 
     void measure_velocity_pid(
-        hardware::Chassis &chassis,
-        bool forward,
-        const char *filename,
-        double target_rpm,
-        int settle_duration_ms)
+    hardware::Chassis &chassis,
+    bool forward,
+    const char *filename,
+    double target_rpm,
+    int settle_duration_ms)
+{
+    std::ofstream file(filename);
+    // Updated header with all needed columns
+    file << "time_ms,target_rpm,left_vel_rpm,right_vel_rpm,avg_vel_rpm,error_rpm,"
+         << "left_voltage,right_voltage,left_p,left_i,left_d,right_p,right_i,right_d\n";
+
+    AngularVelocity target_motor_velocity = AngularVelocity::from_rpm(forward ? target_rpm : -target_rpm);
+    
+    Length wheel_radius = chassis.get_wheel_radius();
+    Velocity linear_velocity = Velocity::from_ips(
+        target_motor_velocity.to_rad_per_sec() * wheel_radius.to_inches());
+
+    uint32_t start_time = pros::millis();
+    uint32_t current_time = 0;
+
+    while (current_time < static_cast<uint32_t>(settle_duration_ms))
     {
-        std::ofstream file(filename);
-        file << "time_ms,target_rpm,left_rpm,right_rpm,left_voltage,right_voltage\n";
+        current_time = pros::millis() - start_time;
 
-        AngularVelocity target_velocity = AngularVelocity::from_rpm(forward ? target_rpm : -target_rpm);
+        // Use move_velocity to test YOUR PID+FF
+        chassis.move_velocity(linear_velocity, linear_velocity, 0.0, 0.0);
 
-        uint32_t start_time = pros::millis();
-        uint32_t current_time = 0;
+        // Get telemetry data
+        const auto &telem = telemetry::g_telemetry.get_read_buffer();
+        
+        double left_rpm = telem.left_motor_actual_velocity.to_rpm();
+        double right_rpm = telem.right_motor_actual_velocity.to_rpm();
+        double avg_rpm = (left_rpm + right_rpm) / 2.0;
+        double error_rpm = target_rpm - avg_rpm;
+        
+        double left_voltage = telem.left_motor_voltage.to_volts();
+        double right_voltage = telem.right_motor_voltage.to_volts();
+        
+        // Get PID terms from telemetry
+        double left_p = telem.left_motor_velocity_p_term;
+        double left_i = telem.left_motor_velocity_i_term;
+        double left_d = telem.left_motor_velocity_d_term;
+        
+        double right_p = telem.right_motor_velocity_p_term;
+        double right_i = telem.right_motor_velocity_i_term;
+        double right_d = telem.right_motor_velocity_d_term;
 
-        // Get the wheel radius to convert linear velocity to angular velocity
-        Length wheel_radius = chassis.get_wheel_radius();
+        file << current_time << ","
+             << target_rpm << ","
+             << left_rpm << ","
+             << right_rpm << ","
+             << avg_rpm << ","
+             << error_rpm << ","
+             << left_voltage << ","
+             << right_voltage << ","
+             << left_p << ","
+             << left_i << ","
+             << left_d << ","
+             << right_p << ","
+             << right_i << ","
+             << right_d << "\n";
 
-        // Convert RPM to linear velocity (ips) then back to angular velocity for the motors
-        Velocity linear_velocity = Velocity::from_ips(
-            (target_velocity.to_rpm() / 60.0) * 2.0 * constants::PI * wheel_radius.to_inches());
-
-        while (current_time < static_cast<uint32_t>(settle_duration_ms))
-        {
-            current_time = pros::millis() - start_time;
-
-            // Use the chassis move_velocity method directly
-            chassis.move_velocity_pros(linear_velocity, linear_velocity);
-
-            // Get velocities from telemetry
-            const auto &telem = telemetry::g_telemetry.get_read_buffer();
-            double left_rpm = telem.left_motor_actual_velocity.to_rpm();
-            double right_rpm = telem.right_motor_actual_velocity.to_rpm();
-
-            file << current_time << ","
-                 << target_rpm << ","
-                 << left_rpm << ","
-                 << right_rpm << ",0,0\n"; // Voltage values from telemetry if needed
-
-            pros::delay(10);
-        }
-
-        chassis.stop_motors();
-        file.close();
+        pros::delay(10);
     }
+
+    chassis.stop_motors();
+    file.close();
+}
 
     void measure_ka(
         hardware::AdvancedMotorGroup &left,

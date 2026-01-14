@@ -326,5 +326,18 @@ void quintic_pure_pursuit(
             units::Velocity max_velocity,
             units::Acceleration max_acceleration,
             units::Time timeout);
+
+        void follow_path_ramsete(
+    const path::Path& path,
+    units::Time timeout = units::Time::from_seconds(15));
+
+void quintic_ramsete(
+    units::Length target_x,
+    units::Length target_y,
+    units::Angle target_heading,
+    units::Velocity max_velocity,
+    units::Acceleration max_acceleration,
+    units::Time timeout = units::Time::from_seconds(5));
+
     };
 }

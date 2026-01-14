@@ -13,6 +13,17 @@
 #include "abclib/trajectory/trajectory.hpp"
 #include "abclib/control/profiled_pid.hpp"
 #include "abclib/math/point.hpp"
+#include "abclib/estimation/ekf_odometry_estimator.hpp"
+#include "abclib/estimation/estimator_factory.hpp"
+#include "abclib/configs/robot_selection.hpp"
+#ifdef ROBOT_TEST_DRIVE
+#include "abclib/configs/test_robot.hpp"
+#elif defined(ROBOT_COMPETITION)
+#include "abclib/configs/competition_robot.hpp"
+#else
+#error "No robot configuration selected!"
+#endif
+
 using namespace abclib;
 
 namespace abclib::hardware
@@ -33,7 +44,7 @@ namespace abclib::hardware
     {
         // Create measurement models
         auto vertical_model = new estimation::WheelMeasurementModel(
-            sensors.motor_y_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_y_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.y_encoder));
+        sensors.motor_y_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_y_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.y_encoder));
 
         auto horizontal_model = (sensors.x_encoder || sensors.motor_x_encoder) ? new estimation::WheelMeasurementModel(
                                                                                      sensors.motor_x_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_x_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.x_encoder))
@@ -45,10 +56,18 @@ namespace abclib::hardware
         units::Length vertical_offset = sensors.motor_y_encoder ? sensors.motor_y_encoder->get_offset() : sensors.y_encoder->get_offset();
         units::Length horizontal_offset = (sensors.x_encoder || sensors.motor_x_encoder) ? (sensors.motor_x_encoder ? sensors.motor_x_encoder->get_offset() : sensors.x_encoder->get_offset()) : units::Length::from_inches(0.0);
 
-        // Create estimator
-        estimator_.reset(new estimation::GeometricOdometryEstimator(
-            vertical_model, horizontal_model, imu_model,
-            vertical_offset, horizontal_offset));
+        // Get estimator configuration from robot config
+        auto estimator_config = robot_config::get_estimator_config();
+        estimator_config.vertical_offset = vertical_offset;
+        estimator_config.horizontal_offset = horizontal_offset;
+        
+        // Use factory to create the appropriate estimator
+        estimator_ = estimation::create_estimator(
+            estimator_config,
+            vertical_model,
+            horizontal_model,
+            imu_model);
+    
         path_follower_ = std::make_unique<trajectory::PathFollower>(this, chassis_config.ramsete_constants);
     }
 

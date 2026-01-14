@@ -4,6 +4,7 @@
 #include "abclib/units/units.hpp"
 #include "api.h"
 #include "abclib/control/ramsete.hpp"
+#include "abclib/estimation/estimator_config.hpp"
 namespace abclib::robot_config
 {
 
@@ -87,6 +88,21 @@ namespace abclib::robot_config
     {
         return control::RamseteConstants{2.0, 0.7}; // b, zeta
     }
+
+    inline estimation::EstimatorConfig get_estimator_config()
+    {
+        return estimation::EstimatorConfig{
+            .type = estimation::FilterType::GEOMETRIC,  // Change to EKF when ready to test
+            .vertical_offset = Y_TRACKER_OFFSET,
+            .horizontal_offset = units::Length::from_inches(0.0),
+            .ekf = {
+                .process_noise_x = 0.01,
+                .process_noise_y = 0.01,
+                .process_noise_theta = 0.01
+            }
+        };
+    }
+
 
     // Chassis config values (untuned) - these remain as raw doubles since they're feedforward gains
     constexpr double TURN_IN_PLACE_KS = 0.919850;

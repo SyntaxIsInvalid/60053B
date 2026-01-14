@@ -1,11 +1,11 @@
 #include "abclib/control/pure_pursuit.hpp"
 #include <cmath>
-
+#include "abclib/math/angles.hpp"
 namespace abclib::control
 {
     double PurePursuit::calculate_curvature(
-        const path::Point& lookahead_point,
-        const estimation::Pose& robot_pose,
+        const path::Point &lookahead_point,
+        const estimation::Pose &robot_pose,
         units::Length lookahead_distance)
     {
         // Transform lookahead point to robot frame
@@ -31,8 +31,8 @@ namespace abclib::control
         double curvature,
         units::Velocity linear_velocity,
         units::Length track_width,
-        units::Velocity& left_velocity,
-        units::Velocity& right_velocity)
+        units::Velocity &left_velocity,
+        units::Velocity &right_velocity)
     {
         double v = linear_velocity.to_ips();
         double d = track_width.to_inches();
@@ -45,6 +45,38 @@ namespace abclib::control
 
         left_velocity = units::Velocity::from_ips(left);
         right_velocity = units::Velocity::from_ips(right);
+    }
+
+    double PurePursuit::calculate_heading_correction(
+        double current_heading,
+        double target_heading,
+        double progress,
+        const PurePursuitConfig &config)
+    {
+        if (!config.use_heading_correction)
+        {
+            return 0.0;
+        }
+
+        // Only apply correction when we're near the end
+        if (progress < config.heading_start_threshold)
+        {
+            return 0.0;
+        }
+
+        // Normalize heading error to [-pi, pi]
+        // double heading_error = target_heading - current_heading;
+        double heading_error = math::normalize_angle(target_heading - current_heading);
+
+        // Calculate blend factor (0 at threshold, 1 at end)
+        double blend_range = 1.0 - config.heading_start_threshold;
+        double blend_factor = (progress - config.heading_start_threshold) / blend_range;
+        blend_factor = std::clamp(blend_factor, 0.0, 1.0);
+
+        // Proportional controller: angular_velocity [rad/s] = kP [1/s] * error [rad]
+        double angular_velocity = heading_error * config.heading_correction_gain * blend_factor;
+
+        return angular_velocity; // rad/s
     }
 
 } // namespace abclib::control
