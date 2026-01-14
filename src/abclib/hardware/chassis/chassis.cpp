@@ -56,17 +56,21 @@ namespace abclib::hardware
         units::Length vertical_offset = sensors.motor_y_encoder ? sensors.motor_y_encoder->get_offset() : sensors.y_encoder->get_offset();
         units::Length horizontal_offset = (sensors.x_encoder || sensors.motor_x_encoder) ? (sensors.motor_x_encoder ? sensors.motor_x_encoder->get_offset() : sensors.x_encoder->get_offset()) : units::Length::from_inches(0.0);
 
+        auto [front_distance, back_distance] = robot_config::get_distance_sensors();
+
         // Get estimator configuration from robot config
         auto estimator_config = robot_config::get_estimator_config();
         estimator_config.vertical_offset = vertical_offset;
         estimator_config.horizontal_offset = horizontal_offset;
         
         // Use factory to create the appropriate estimator
-        estimator_ = estimation::create_estimator(
-            estimator_config,
-            vertical_model,
-            horizontal_model,
-            imu_model);
+estimator_ = estimation::create_estimator(
+    estimator_config,
+    vertical_model,
+    horizontal_model,
+    imu_model,
+    front_distance,     // ADD
+    back_distance);     // ADD
     
         path_follower_ = std::make_unique<trajectory::PathFollower>(this, chassis_config.ramsete_constants);
     }

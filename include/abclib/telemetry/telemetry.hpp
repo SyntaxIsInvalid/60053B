@@ -3,7 +3,7 @@
 #include "abclib/units/units.hpp"
 #include "abclib/estimation/pose.hpp"
 #include <atomic>
-
+#include "abclib/field/field_map.hpp"
 namespace abclib::telemetry
 {
 
@@ -54,7 +54,7 @@ namespace abclib::telemetry
 
         // Pose (from odometry)
         estimation::Pose pose;
-        
+
         // Raw velocities (before filtering)
         units::Velocity pose_v_raw = units::Velocity::from_ips(0);
         units::AngularVelocity pose_omega_raw = units::AngularVelocity::from_rad_per_sec(0);
@@ -136,6 +136,35 @@ namespace abclib::telemetry
         double right_motor_velocity_i_term = 0;
         double right_motor_velocity_d_term = 0;
         units::Voltage right_motor_velocity_output = units::Voltage::from_volts(0);
+
+        units::Length ekf_x;
+        units::Length ekf_y;
+        units::Angle ekf_theta;
+
+        // EKF uncertainty (standard deviations)
+        double ekf_x_std;
+        double ekf_y_std;
+        double ekf_theta_std;
+
+        // Distance sensor measurements
+        units::Length front_distance_measured;
+        units::Length front_distance_expected;
+        bool front_distance_valid;
+        field::FieldMap::Wall front_wall;
+
+        units::Length back_distance_measured;
+        units::Length back_distance_expected;
+        bool back_distance_valid;
+        field::FieldMap::Wall back_wall;
+
+        // EKF innovation (measurement - prediction)
+        units::Length front_innovation;
+        units::Length back_innovation;
+
+        // Kalman gain (how much we trust measurements)
+        double kalman_gain_x_front;
+        double kalman_gain_y_front;
+        double kalman_gain_theta_front;
     };
 
     // Double-buffered telemetry system
@@ -148,7 +177,7 @@ namespace abclib::telemetry
 
     public:
         // Writer (control loop) gets direct access to write buffer
-        TelemetryData& get_write_buffer()
+        TelemetryData &get_write_buffer()
         {
             return buffers[write_index];
         }
@@ -161,7 +190,7 @@ namespace abclib::telemetry
         }
 
         // Reader (display/logging) gets const access to read buffer
-        const TelemetryData& get_read_buffer() const
+        const TelemetryData &get_read_buffer() const
         {
             return buffers[read_index.load(std::memory_order_acquire)];
         }
@@ -171,7 +200,7 @@ namespace abclib::telemetry
     inline TelemetryBuffer g_telemetry;
 
     // Helper function to convert enum to string for display
-    inline const char* settlement_reason_to_string(SettlementReason reason)
+    inline const char *settlement_reason_to_string(SettlementReason reason)
     {
         switch (reason)
         {
@@ -188,7 +217,7 @@ namespace abclib::telemetry
         }
     }
 
-    inline const char* path_status_to_string(PathFollowerStatus status)
+    inline const char *path_status_to_string(PathFollowerStatus status)
     {
         switch (status)
         {

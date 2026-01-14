@@ -14,11 +14,21 @@ namespace abclib::robot_config
 
     // Sensor ports
     constexpr int8_t IMU_PORT = 9;
+    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 12;  // YOUR ACTUAL PORT
+    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 1;   // YOUR ACTUAL PORT
 
     // Physical dimensions (using typed units)
     inline constexpr units::Length WHEEL_DIAMETER = units::Length::from_inches(3.25);
     inline constexpr units::Length TRACK_WIDTH = units::Length::from_inches(14.0);
     inline constexpr units::Length Y_TRACKER_OFFSET = units::Length::from_inches(7.0);
+
+    inline std::pair<pros::Distance *, pros::Distance *> get_distance_sensors()
+    {
+        static pros::Distance front_sensor(FRONT_DISTANCE_SENSOR_PORT);
+        static pros::Distance back_sensor(BACK_DISTANCE_SENSOR_PORT);
+
+        return {&front_sensor, &back_sensor};
+    }
 
     // Motor configurations
     inline hardware::motor_group_config get_left_motor_config()
@@ -89,16 +99,20 @@ namespace abclib::robot_config
 
     inline estimation::EstimatorConfig get_estimator_config()
     {
-        return estimation::EstimatorConfig{
-            .type = estimation::FilterType::EKF,  // Change to EKF when ready to test
-            .vertical_offset = Y_TRACKER_OFFSET,
-            .horizontal_offset = units::Length::from_inches(0.0),
-            .ekf = {
-                .process_noise_x = 0.01,
-                .process_noise_y = 0.01,
-                .process_noise_theta = 0.01
-            }
-        };
+        estimation::EstimatorConfig config;
+        config.type = estimation::FilterType::GEOMETRIC; // or GEOMETRIC
+        /*
+        config.ekf.front_sensor_offset_forward = units::Length::from_inches(6.0);
+        config.ekf.front_sensor_offset_lateral = units::Length::from_inches(0.0);
+        config.ekf.front_sensor_bearing = 0.0;
+
+        config.ekf.back_sensor_offset_forward = units::Length::from_inches(-6.0);
+        config.ekf.back_sensor_offset_lateral = units::Length::from_inches(0.0);
+        config.ekf.back_sensor_bearing = M_PI;
+
+        config.ekf.distance_sensor_noise = 0.5;
+        */
+        return config;
     }
 
 }

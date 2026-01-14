@@ -196,6 +196,17 @@ namespace abclib::telemetry
             fprintf(file_, ",voltage_comp_scale,voltage_comp_active");
         }
 
+        if (fields_.ekf)
+        {
+            fprintf(file_, ",ekf_x_inches,ekf_y_inches,ekf_theta_deg");
+            fprintf(file_, ",ekf_x_std_inches,ekf_y_std_inches,ekf_theta_std_rad");
+            fprintf(file_, ",front_dist_measured_inches,front_dist_expected_inches");
+            fprintf(file_, ",front_dist_valid,front_wall");
+            fprintf(file_, ",back_dist_measured_inches,back_dist_expected_inches");
+            fprintf(file_, ",back_dist_valid,back_wall");
+            fprintf(file_, ",front_innovation_inches,back_innovation_inches");
+        }
+
         fprintf(file_, "\n");
         fflush(file_); // Ensure header is written immediately
     }
@@ -350,6 +361,30 @@ namespace abclib::telemetry
                     data.battery_capacity_percent,
                     data.voltage_compensation_scale,
                     data.voltage_compensation_active ? 1 : 0);
+        }
+
+        if (fields_.ekf)
+        {
+            fprintf(file_, ",%.3f,%.3f,%.3f",
+                    data.ekf_x.to_inches(), data.ekf_y.to_inches(),
+                    data.ekf_theta.to_degrees());
+            fprintf(file_, ",%.3f,%.3f,%.3f",
+                    data.ekf_x_std * 39.3701, // convert meters to inches
+                    data.ekf_y_std * 39.3701,
+                    data.ekf_theta_std);
+            fprintf(file_, ",%.3f,%.3f,%d,%s",
+                    data.front_distance_measured.to_inches(),
+                    data.front_distance_expected.to_inches(),
+                    data.front_distance_valid ? 1 : 0,
+                    field::FieldMap::wall_to_string(data.front_wall));
+            fprintf(file_, ",%.3f,%.3f,%d,%s",
+                    data.back_distance_measured.to_inches(),
+                    data.back_distance_expected.to_inches(),
+                    data.back_distance_valid ? 1 : 0,
+                    field::FieldMap::wall_to_string(data.back_wall));
+            fprintf(file_, ",%.3f,%.3f",
+                    data.front_innovation.to_inches(),
+                    data.back_innovation.to_inches());
         }
 
         fprintf(file_, "\n");

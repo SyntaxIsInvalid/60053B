@@ -26,6 +26,7 @@ namespace abclib::telemetry  // Changed from just 'abclib'
         bool turn_in_place = true;       // turn-in-place specific data
         bool timing = true;              // loop timing metrics
         bool battery = true;             // battery monitoring
+        bool ekf = false;
     };
 
     /**
