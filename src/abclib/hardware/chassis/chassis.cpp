@@ -44,7 +44,7 @@ namespace abclib::hardware
     {
         // Create measurement models
         auto vertical_model = new estimation::WheelMeasurementModel(
-        sensors.motor_y_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_y_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.y_encoder));
+            sensors.motor_y_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_y_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.y_encoder));
 
         auto horizontal_model = (sensors.x_encoder || sensors.motor_x_encoder) ? new estimation::WheelMeasurementModel(
                                                                                      sensors.motor_x_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_x_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.x_encoder))
@@ -60,14 +60,14 @@ namespace abclib::hardware
         auto estimator_config = robot_config::get_estimator_config();
         estimator_config.vertical_offset = vertical_offset;
         estimator_config.horizontal_offset = horizontal_offset;
-        
+
         // Use factory to create the appropriate estimator
-estimator_ = estimation::create_estimator(
-    estimator_config,
-    vertical_model,
-    horizontal_model,
-    imu_model);
-    
+        estimator_ = estimation::create_estimator(
+            estimator_config,
+            vertical_model,
+            horizontal_model,
+            imu_model);
+
         path_follower_ = std::make_unique<trajectory::PathFollower>(this, chassis_config.ramsete_constants);
     }
 
@@ -281,4 +281,61 @@ estimator_ = estimation::create_estimator(
         }
         update_motor_velocity_telemetry();
     }
+
+    void Chassis::set_pose_corner_origin(
+        units::Length x_corner,
+        units::Length y_corner,
+        units::Angle heading)
+    {
+        // Get field dimensions from config
+        // Assuming your EstimatorConfig is accessible via get_estimator_config()
+        // You may need to adjust this based on how you store the config
+        auto field_config = config_.field_config; // If stored in ChassisConfig
+
+        // Convert corner-origin to centered-origin
+        units::Length x_centered = x_corner - (field_config.width / 2.0);
+        units::Length y_centered = y_corner - (field_config.height / 2.0);
+
+        // Call existing set_pose with converted coordinates
+        set_pose(x_centered, y_centered, heading);
+    }
+
+    void Chassis::set_pose_corner_origin_nav(
+        units::Length x_corner,
+        units::Length y_corner,
+        units::Angle heading_nav)
+    {
+        // Convert navigation angle to math angle
+        // Nav: 0°=north, 90°=west (CCW)
+        // Math: 0°=east, 90°=north (CCW)
+        // Conversion: math = nav + 90°
+        units::Angle heading_math = heading_nav + units::Angle::from_degrees(90);
+
+        // Convert corner coords to centered and set pose
+        set_pose_corner_origin(x_corner, y_corner, heading_math);
+    }
+
+    estimation::Pose Chassis::get_pose_corner_origin_nav() const
+    {
+        // Get current pose in centered math frame
+        estimation::Pose centered_pose = get_pose();
+
+        // Convert from centered to corner-origin
+        units::Length x_corner = centered_pose.x + (config_.field_config.width / 2.0);
+        units::Length y_corner = centered_pose.y + (config_.field_config.height / 2.0);
+
+        // Convert from math angle to navigation angle
+        // Math: 0°=east, 90°=north
+        // Nav: 0°=north, 90°=west
+        // Conversion: nav = math - 90°
+        units::Angle theta_nav = centered_pose.theta - units::Angle::from_degrees(90);
+
+        // Return new pose with converted values
+        return estimation::Pose(x_corner, y_corner, theta_nav,
+                                centered_pose.v, centered_pose.omega);
+    }
+
+
+
+
 }

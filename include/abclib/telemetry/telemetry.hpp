@@ -25,6 +25,13 @@ namespace abclib::telemetry
         COMPLETE      // Successfully finished
     };
 
+    enum class CoordinateSystem
+    {
+        CENTERED_MATH,      // (0,0) at center, 0° = east
+        CORNER_NAVIGATION   // (0,0) at corner, 0° = north
+    };
+
+
     struct TelemetryData
     {
         // Timestamp
@@ -165,6 +172,12 @@ namespace abclib::telemetry
         double kalman_gain_x_front;
         double kalman_gain_y_front;
         double kalman_gain_theta_front;
+
+        CoordinateSystem display_coordinate_system = CoordinateSystem::CENTERED_MATH;
+        
+        // Display pose (converted based on coordinate system)
+        estimation::Pose display_pose;
+
     };
 
     // Double-buffered telemetry system

@@ -11,6 +11,7 @@
 #include "abclib/estimation/geometric_odometry_estimator.hpp"
 #include <functional>
 #include "abclib/control/pure_pursuit.hpp"
+
 namespace abclib::hardware
 {
     struct ChassisConfig
@@ -29,6 +30,7 @@ namespace abclib::hardware
         double lateral_kS = 0.0;
         double lateral_kV = 0.0;
         double lateral_kA = 0.0;
+        field::FieldConfig field_config = field::FieldConfig::standard_vex();
     };
 
     struct Sensors
@@ -99,9 +101,10 @@ namespace abclib::hardware
                                      units::Velocity velocity, // Changed from BodyLinearVelocity
                                      int &settle_count) const;
 
-            double find_closest_arc_length_on_path(
-        const path::Path& path, 
-        const estimation::Pose& robot_pose) const;
+        double find_closest_arc_length_on_path(
+            const path::Path &path,
+            const estimation::Pose &robot_pose) const;
+        telemetry::CoordinateSystem display_system_ = telemetry::CoordinateSystem::CENTERED_MATH;
 
     public:
         using CalibrationCallback = std::function<void(int, const char *)>;
@@ -308,16 +311,16 @@ namespace abclib::hardware
         }
 
         void follow_path_pure_pursuit(
-        const path::Path& path,
-        const control::PurePursuitConfig& config,
-        units::Time timeout = units::Time::from_seconds(15));
-        
-void quintic_pure_pursuit(
-    units::Length target_x,
-    units::Length target_y,
-    units::Angle target_heading,
-    const control::PurePursuitConfig& config,
-    units::Time timeout = units::Time::from_seconds(5));
+            const path::Path &path,
+            const control::PurePursuitConfig &config,
+            units::Time timeout = units::Time::from_seconds(15));
+
+        void quintic_pure_pursuit(
+            units::Length target_x,
+            units::Length target_y,
+            units::Angle target_heading,
+            const control::PurePursuitConfig &config,
+            units::Time timeout = units::Time::from_seconds(5));
 
         void move_to_pose_profiled(
             units::Length target_x,
@@ -328,16 +331,35 @@ void quintic_pure_pursuit(
             units::Time timeout);
 
         void follow_path_ramsete(
-    const path::Path& path,
-    units::Time timeout = units::Time::from_seconds(15));
+            const path::Path &path,
+            units::Time timeout = units::Time::from_seconds(15));
 
-void quintic_ramsete(
-    units::Length target_x,
-    units::Length target_y,
-    units::Angle target_heading,
-    units::Velocity max_velocity,
-    units::Acceleration max_acceleration,
-    units::Time timeout = units::Time::from_seconds(5));
+        void quintic_ramsete(
+            units::Length target_x,
+            units::Length target_y,
+            units::Angle target_heading,
+            units::Velocity max_velocity,
+            units::Acceleration max_acceleration,
+            units::Time timeout = units::Time::from_seconds(5));
 
+        void set_pose_corner_origin( // NEW - Corner-origin helper
+            units::Length x_corner,
+            units::Length y_corner,
+            units::Angle heading);
+
+        void set_pose_corner_origin_nav(
+            units::Length x_corner,
+            units::Length y_corner,
+            units::Angle heading_nav); // 0°=north, 90°=west (CCW positive)
+        estimation::Pose get_pose_corner_origin_nav() const;
+
+        void set_display_coordinate_system(telemetry::CoordinateSystem system)
+        {
+            display_system_ = system;
+        }
+        telemetry::CoordinateSystem get_display_coordinate_system() const
+        {
+            return display_system_;
+        }
     };
 }

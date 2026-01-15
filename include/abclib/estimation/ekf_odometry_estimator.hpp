@@ -10,6 +10,7 @@
 #include "abclib/filters/ekf.hpp"
 #include "distance_measurement_model.hpp" // ADD THIS
 #include "abclib/estimation/estimator_config.hpp"
+#include "abclib/field/field_map.hpp"
 namespace abclib::estimation
 {
     class EKFOdometryEstimator : public IStateEstimator
@@ -23,9 +24,16 @@ namespace abclib::estimation
         units::Length vertical_offset_;
         units::Length horizontal_offset_;
 
+        IMeasurementModel<units::Length> *front_distance_model_;
+
+        // Sensor mounting offsets (from tracking center to sensor)
+        static constexpr double SENSOR_FORWARD_OFFSET = 3.75; // inches
+        static constexpr double SENSOR_LATERAL_OFFSET = 0.0;  // inches
+        static constexpr double SENSOR_BEARING = 0.0;         // radians (pointing forward)
+
         // State: [x, y, theta] in SI units (meters, radians)
         // Measurements: [front_distance, back_distance] - CHANGE FROM <3,0> TO <3,2>
-        filters::ExtendedKalmanFilter<3, 0> ekf_; // CHANGED THIS LINE
+        filters::ExtendedKalmanFilter<3, 1> ekf_; // CHANGED THIS LINE
 
         Pose current_pose_{};
 
@@ -38,9 +46,8 @@ namespace abclib::estimation
         units::Length prev_horizontal_total_;
         units::Angle prev_imu_total_;
         bool first_update_;
-        int update_count_;                         // Track number of updates
-        static constexpr int WARMUP_UPDATES = 100; // 1 second at 100Hz
         FilterMode mode_;
+        field::FieldMap field_map_;
 
     public:
         // UPDATE CONSTRUCTOR SIGNATURE
@@ -48,8 +55,10 @@ namespace abclib::estimation
             IMeasurementModel<units::Length> *vertical_model,
             IMeasurementModel<units::Length> *horizontal_model,
             IMeasurementModel<units::Angle> *imu_model,
+            IMeasurementModel<units::Length> *front_distance_model,
             units::Length vertical_offset,
             units::Length horizontal_offset,
+            const field::FieldConfig &field_config,
             FilterMode mode = FilterMode::PREDICTION_ONLY);
 
         ~EKFOdometryEstimator();

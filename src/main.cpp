@@ -122,8 +122,9 @@ void initialize()
     // Calibrate with progress updates
     chassis.calibrate([](int progress, const char *status)
                       { screen_manager.update_calibration_progress(progress, status); });
-
     pros::delay(200);
+    //chassis.set_pose_corner_origin_nav(9_in,4.25_in,0_deg);
+    chassis.set_pose(-3_in,-19.75_in,90_deg);
     screen_manager.hide_calibration_screen();
 #if HAS_PNEUMATICS
     match_load_ramp.retract();

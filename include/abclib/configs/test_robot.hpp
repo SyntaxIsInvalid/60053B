@@ -14,7 +14,7 @@ namespace abclib::robot_config
 
     // Sensor ports
     constexpr int8_t IMU_PORT = 9;
-    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 12;  // YOUR ACTUAL PORT
+    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 12; // YOUR ACTUAL PORT
     constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 1;   // YOUR ACTUAL PORT
 
     // Physical dimensions (using typed units)
@@ -101,7 +101,11 @@ namespace abclib::robot_config
     {
         estimation::EstimatorConfig config;
         config.type = estimation::FilterType::EKF; // or GEOMETRIC/EKF
-        config.mode = estimation::FilterMode::PREDICTION_ONLY;
+        config.mode = estimation::FilterMode::FULL;
+        config.field_config = field::FieldConfig::custom(
+            units::Length::from_inches(24), // width 
+            units::Length::from_inches(48) // height 
+        );
         return config;
     }
 
