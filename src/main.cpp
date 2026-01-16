@@ -49,28 +49,16 @@ hardware::MotorTrackingWheel y_tracker(
 hardware::Sensors sensors(&imu, &y_tracker, nullptr);
 #endif
 
-hardware::ChassisConfig chassis_constant{
+hardware::ChassisConfig chassis_config{
     .left = &leftMotors,
     .right = &rightMotors,
     .diameter = robot_config::WHEEL_DIAMETER,
     .track_width = robot_config::TRACK_WIDTH,
     .field_config = robot_config::get_estimator_config().field_config,
-    .ramsete_constants = robot_config::get_ramsete_config(),
-    .turn_in_place_kS = robot_config::TURN_IN_PLACE_KS,
-    .turn_in_place_kV = robot_config::TURN_IN_PLACE_KV,
-    .turn_in_place_kA = robot_config::TURN_IN_PLACE_KA,
-    .profiled_turn_pid_constants = robot_config::get_profiled_turn_pid(),
-    .profiled_lateral_pid_constants = robot_config::get_profiled_lateral_pid(),
-    .lateral_kS = robot_config::LATERAL_KS,
-    .lateral_kV = robot_config::LATERAL_KV,
-    .lateral_kA = robot_config::LATERAL_KA
+    .controllers = robot_config::get_controller_config()
 };
 
-hardware::Chassis chassis(
-    chassis_constant,
-    sensors,
-    robot_config::get_lateral_pid(),
-    robot_config::get_angular_pid());
+hardware::Chassis chassis(chassis_config, sensors);
 
 // Pneumatics - only for competition robot
 #if HAS_PNEUMATICS
@@ -109,11 +97,11 @@ void initialize()
     using namespace abclib::auton;
 
     // Register autons with their categories
-    register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red, AutonCategory::RED);
-    register_auton(AutonRoutine::RED_LEFT, red_left, AutonCategory::RED);
-    register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test, AutonCategory::TEST);
-    register_auton(AutonRoutine::TEST_BOT_AUTON, test_bot_auton, AutonCategory::TEST);
-    register_auton(AutonRoutine::NONE, none, AutonCategory::TEST);
+    register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red, AutonCategory::RED, field::Alliance::RED);
+    register_auton(AutonRoutine::RED_LEFT, red_left, AutonCategory::RED, field::Alliance::RED);
+    register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test, AutonCategory::TEST, field::Alliance::RED);
+    register_auton(AutonRoutine::TEST_BOT_AUTON, test_bot_auton, AutonCategory::TEST, field::Alliance::RED);
+    register_auton(AutonRoutine::NONE, none, AutonCategory::TEST, field::Alliance::RED);
     lv_init();
     pros::lcd::initialize();
     screen_manager.initialize();
@@ -126,8 +114,6 @@ void initialize()
     pros::delay(200);
     chassis.set_alliance(field::Alliance::RED);
     chassis.set_pose(0_in, 0_in, 0_deg);
-    // chassis.set_pose_corner_origin_nav(9_in,4.25_in,0_deg);
-    //  chassis.set_pose(-3_in,-19.75_in,90_deg);
     screen_manager.hide_calibration_screen();
 #if HAS_PNEUMATICS
     match_load_ramp.retract();

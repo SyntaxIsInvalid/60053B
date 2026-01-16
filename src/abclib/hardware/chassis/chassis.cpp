@@ -29,20 +29,19 @@ using namespace abclib;
 namespace abclib::hardware
 {
 
-    Chassis::Chassis(ChassisConfig chassis_config, Sensors sensors,
-                     const control::PIDConstants lateral_constants,
-                     const control::PIDConstants angular_constants)
+    Chassis::Chassis(ChassisConfig chassis_config, Sensors sensors)
         : left_motors(chassis_config.left),
           right_motors(chassis_config.right),
           track_width(chassis_config.track_width),
           wheel_diameter(chassis_config.diameter),
           imu(sensors.imu),
-          lateral_pid(lateral_constants),
-          angular_pid(angular_constants),
+          lateral_pid(chassis_config.controllers.lateral_pid),
+          angular_pid(chassis_config.controllers.angular_pid),
           ticks(chassis_config.left->get_ticks()),
           config_(chassis_config),
           alliance_(field::Alliance::BLUE)
     {
+        settlement_config_ = chassis_config.controllers.settlement;
         // Create measurement models
         auto vertical_model = new estimation::WheelMeasurementModel(
             sensors.motor_y_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_y_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.y_encoder));
@@ -69,7 +68,9 @@ namespace abclib::hardware
             horizontal_model,
             imu_model);
 
-        path_follower_ = std::make_unique<trajectory::PathFollower>(this, chassis_config.ramsete_constants);
+        path_follower_ = std::make_unique<trajectory::PathFollower>(
+        this, 
+        chassis_config.controllers.ramsete);
     }
 
     Chassis::~Chassis()

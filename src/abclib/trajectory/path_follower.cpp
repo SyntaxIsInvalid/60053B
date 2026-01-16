@@ -201,9 +201,9 @@ namespace abclib::trajectory
                 {
                     chassis_->move_velocity(wheel_vels.left, wheel_vels.right,
                                             left_accel, right_accel,
-                                            chassis_config.turn_in_place_kS,
-                                            chassis_config.turn_in_place_kV,
-                                            chassis_config.turn_in_place_kA);
+                                            chassis_config.controllers.turn_in_place_kS,
+                                            chassis_config.controllers.turn_in_place_kV,
+                                            chassis_config.controllers.turn_in_place_kA);
                 }
 
                 // Populate ramsete_output for settlement checking and telemetry

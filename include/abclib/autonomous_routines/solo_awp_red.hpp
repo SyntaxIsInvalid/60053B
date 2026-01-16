@@ -10,7 +10,7 @@ namespace abclib::auton
             units::Length::from_inches(0),
             units::Length::from_inches(0),
             units::Angle::from_degrees(0));
-        //robot.chassis.drive_straight_relative(18_in, 5_s);
+        robot.chassis.drive_straight_relative(18_in, 5_s);
         //robot.chassis.turn_to_heading_profiled_pid(90_deg, 90_rad_per_sec, 180_rad_per_sec2, 10_s);
         /*
 control::PurePursuitConfig config;

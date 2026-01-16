@@ -11,10 +11,14 @@
 #include "abclib/builder/path_logger.hpp"
 #include "abclib/trajectory/trajectory_logger.hpp"
 #include "abclib/units/units.hpp"
+#include "abclib/field/alliance.hpp"
+
 using namespace abclib::units::literals;
 
-namespace abclib::auton {
-    enum class AutonRoutine {
+namespace abclib::auton
+{
+    enum class AutonRoutine
+    {
         SOLO_AWP_RED,
         SOLO_AWP_BLUE,
         RED_RIGHT,
@@ -27,7 +31,8 @@ namespace abclib::auton {
         PATH_BUILDER_TEST
     };
 
-    enum class AutonCategory {
+    enum class AutonCategory
+    {
         RED,
         BLUE,
         SKILLS,
@@ -35,22 +40,25 @@ namespace abclib::auton {
     };
 
     // Subsystems struct to reduce parameter passing
-    struct RobotSubsystems {
-        hardware::Chassis& chassis;
-        subsystems::Intake& top_intake;
-        subsystems::Intake& bottom_intake;
-        hardware::Pneumatic& match_load_ramp;
-        hardware::Pneumatic& hood;
-        hardware::Pneumatic& wing;
+    struct RobotSubsystems
+    {
+        hardware::Chassis &chassis;
+        subsystems::Intake &top_intake;
+        subsystems::Intake &bottom_intake;
+        hardware::Pneumatic &match_load_ramp;
+        hardware::Pneumatic &hood;
+        hardware::Pneumatic &wing;
     };
 
     // Function type for auton routines
-    using AutonFunction = std::function<void(RobotSubsystems&)>;
+    using AutonFunction = std::function<void(RobotSubsystems &)>;
 
     // Auton info structure
-    struct AutonInfo {
+    struct AutonInfo
+    {
         AutonFunction function;
         AutonCategory category;
+        field::Alliance alliance;
     };
 
     // Registry of all autons with their info
@@ -60,21 +68,26 @@ namespace abclib::auton {
     inline std::map<AutonCategory, std::vector<AutonRoutine>> category_order;
 
     // Register an auton with category
-    inline void register_auton(AutonRoutine routine, AutonFunction func, AutonCategory category) {
-        auton_registry[routine] = AutonInfo{func, category};
+    inline void register_auton(AutonRoutine routine, AutonFunction func,
+                               AutonCategory category, field::Alliance alliance)
+    {
+        auton_registry[routine] = AutonInfo{func, category, alliance};
         category_order[category].push_back(routine);
     }
 
     // Get all autons for a category in insertion order
-    inline std::vector<AutonRoutine> get_autons_for_category(AutonCategory category) {
-        if (category_order.count(category) > 0) {
+    inline std::vector<AutonRoutine> get_autons_for_category(AutonCategory category)
+    {
+        if (category_order.count(category) > 0)
+        {
             return category_order[category];
         }
         return std::vector<AutonRoutine>(); // Empty vector if category not found
     }
 
     // Convert enum to display name (SOLO_AWP_RED -> "SOLO AWP RED")
-    inline std::string get_display_name(AutonRoutine routine) {
+    inline std::string get_display_name(AutonRoutine routine)
+    {
         // Map of enum values to their string names
         static const std::map<AutonRoutine, std::string> enum_names = {
             {AutonRoutine::SOLO_AWP_RED, "SOLO_AWP_RED"},
@@ -86,18 +99,20 @@ namespace abclib::auton {
             {AutonRoutine::SKILLS, "SKILLS"},
             {AutonRoutine::NONE, "NONE"},
             {AutonRoutine::TEST_BOT_AUTON, "TEST_BOT_AUTON"},
-            {AutonRoutine::PATH_BUILDER_TEST, "PATH_BUILDER_TEST"}
-        };
+            {AutonRoutine::PATH_BUILDER_TEST, "PATH_BUILDER_TEST"}};
 
         auto it = enum_names.find(routine);
-        if (it == enum_names.end()) {
+        if (it == enum_names.end())
+        {
             return "UNKNOWN";
         }
 
         std::string name = it->second;
         // Replace underscores with spaces
-        for (size_t i = 0; i < name.length(); i++) {
-            if (name[i] == '_') {
+        for (size_t i = 0; i < name.length(); i++)
+        {
+            if (name[i] == '_')
+            {
                 name[i] = ' ';
             }
         }
@@ -108,8 +123,11 @@ namespace abclib::auton {
     inline AutonRoutine selected_auton = AutonRoutine::SOLO_AWP_RED;
 
     // Execute the selected auton
-    inline void run_selected_auton(RobotSubsystems& robot) {
-        if (auton_registry.count(selected_auton) > 0) {
+    inline void run_selected_auton(RobotSubsystems &robot)
+    {
+        if (auton_registry.count(selected_auton) > 0)
+        {
+            robot.chassis.set_alliance(auton_registry[selected_auton].alliance);
             auton_registry[selected_auton].function(robot);
         }
         // else: no auton selected or invalid selection

@@ -16,7 +16,7 @@ namespace abclib::hardware
         }
 
         // Create RAMSETE controller with your tuned constants
-        control::Ramsete ramsete(config_.ramsete_constants);
+        control::Ramsete ramsete(config_.controllers.ramsete);
 
         // Get the profile group and create trajectory
         const auto& group = path.get_profile_groups()[0];

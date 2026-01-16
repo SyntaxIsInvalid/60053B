@@ -53,7 +53,7 @@ namespace abclib::hardware
         config.max_velocity = max_velocity;
         config.max_acceleration = max_acceleration; // Already a unit now
         config.timeout = timeout;
-        config.ramsete_constants = config_.ramsete_constants;
+        config.ramsete_constants = config_.controllers.ramsete;
 
         // Execute the trajectory
         path_follower_->follow_segment(&segment, config);
@@ -88,7 +88,7 @@ namespace abclib::hardware
         config.max_velocity = units::Velocity::from_ips(max_wheel_linear_velocity);
         config.max_acceleration = units::Acceleration::from_mps2(max_wheel_linear_accel);
         config.timeout = timeout;
-        config.ramsete_constants = config_.ramsete_constants;
+        config.ramsete_constants = config_.controllers.ramsete;
         config.turn_kP = 0.35; // Can make this configurable via ChassisConfig later
 
         // 5. Let the path follower handle everything!
@@ -122,7 +122,7 @@ namespace abclib::hardware
 
         // Create ProfiledPID with doubles
         control::ProfiledPIDConstants profiled_constants;
-        profiled_constants.pid_constants = config_.profiled_turn_pid_constants;
+        profiled_constants.pid_constants = config_.controllers.profiled_turn_pid;
         profiled_constants.max_velocity = max_vel_rad_s;
         profiled_constants.max_acceleration = max_accel_rad_s2;
         profiled_constants.position_tolerance = settlement_config_.angular_threshold.to_radians();
@@ -162,9 +162,9 @@ namespace abclib::hardware
 
             double ff_sign = (std::abs(target_velocity) < 0.01) ? 0.0 : math::sgn(target_velocity);
 
-            double ff = config_.turn_in_place_kS * ff_sign +
-                        config_.turn_in_place_kV * target_velocity +
-                        config_.turn_in_place_kA * target_acceleration;
+            double ff = config_.controllers.turn_in_place_kS * ff_sign +
+                        config_.controllers.turn_in_place_kV * target_velocity +
+                        config_.controllers.turn_in_place_kA * target_acceleration;
 
             angular_output += ff;
             angular_output = std::clamp(angular_output, -12.0, 12.0);
@@ -239,7 +239,7 @@ namespace abclib::hardware
 
         // Create ProfiledPID for lateral control
         control::ProfiledPIDConstants lateral_profiled_constants;
-        lateral_profiled_constants.pid_constants = config_.profiled_lateral_pid_constants;
+        lateral_profiled_constants.pid_constants = config_.controllers.lateral_pid;
         lateral_profiled_constants.max_velocity = max_velocity.to_ips();
         lateral_profiled_constants.max_acceleration = max_acceleration.to_mps2();
         lateral_profiled_constants.position_tolerance = settlement_config_.position_threshold.to_inches();
@@ -275,9 +275,9 @@ namespace abclib::hardware
 
             // Calculate feedforward
             double ff_sign = (std::abs(target_velocity_ips) < 0.01) ? 0.0 : math::sgn(target_velocity_ips);
-            double ff = config_.lateral_kS * ff_sign +
-                        config_.lateral_kV * target_velocity_ips +
-                        config_.lateral_kA * target_acceleration;
+            double ff = config_.controllers.lateral_kS * ff_sign +
+                        config_.controllers.lateral_kV * target_velocity_ips +
+                        config_.controllers.lateral_kA * target_acceleration;
 
             lateral_output += ff;
 
@@ -372,7 +372,7 @@ namespace abclib::hardware
         config.max_velocity = max_velocity;
         config.max_acceleration = max_acceleration;
         config.timeout = timeout;
-        config.ramsete_constants = config_.ramsete_constants;
+        config.ramsete_constants = config_.controllers.ramsete;
 
         // 6. Execute the trajectory using path follower
         path_follower_->follow_segment(&segment, config);

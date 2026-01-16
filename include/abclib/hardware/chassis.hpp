@@ -16,24 +16,6 @@
 
 namespace abclib::hardware
 {
-    struct ChassisConfig
-    {
-        hardware::AdvancedMotorGroup *left;
-        hardware::AdvancedMotorGroup *right;
-        units::Length diameter;
-        units::Length track_width;
-        field::FieldConfig field_config = field::FieldConfig::standard_vex();
-        control::RamseteConstants ramsete_constants = {2.0, 0.7};
-        bool use_pros_controller = false;
-        double turn_in_place_kS = 0.0;
-        double turn_in_place_kV = 0.0;
-        double turn_in_place_kA = 0.0;
-        control::PIDConstants profiled_turn_pid_constants = {0.0, 0.0, 0.0};
-        control::PIDConstants profiled_lateral_pid_constants = {0.0, 0.0, 0.0};
-        double lateral_kS = 0.0;
-        double lateral_kV = 0.0;
-        double lateral_kA = 0.0;
-    };
 
     struct Sensors
     {
@@ -56,6 +38,51 @@ namespace abclib::hardware
               motor_y_encoder(motor_y_enc), motor_x_encoder(motor_x_enc)
         {
         }
+    };
+
+    struct SettlementConfig
+    {
+        units::Angle angular_threshold = units::Angle::from_degrees(1);     // Changed from Radians
+        units::Length position_threshold = units::Length::from_inches(0.5); // Changed from Distance
+        units::AngularVelocity angular_velocity_threshold = units::AngularVelocity::from_rad_per_sec(0.1);
+        units::Velocity linear_velocity_threshold = units::Velocity::from_ips(0.15);
+        int settle_count_required = 3;
+    };
+
+    struct ControllerConfig
+    {
+        control::PIDConstants lateral_pid;
+        control::PIDConstants angular_pid;
+        control::PIDConstants profiled_turn_pid;
+        control::PIDConstants profiled_lateral_pid;
+
+        double turn_in_place_kS;
+        double turn_in_place_kV;
+        double turn_in_place_kA;
+        double lateral_kS;
+        double lateral_kV;
+        double lateral_kA;
+
+        SettlementConfig settlement;
+        control::RamseteConstants ramsete;
+    };
+
+    struct ChassisConfig
+    {
+        // Hardware (required - no defaults)
+        hardware::AdvancedMotorGroup *left;
+        hardware::AdvancedMotorGroup *right;
+        units::Length diameter;
+        units::Length track_width;
+
+        // Field configuration (optional - has default)
+        field::FieldConfig field_config = field::FieldConfig::standard_vex();
+
+        // All controller configuration (optional - has defaults)
+        ControllerConfig controllers = ControllerConfig{};
+
+        // Motor control mode (optional - has default)
+        bool use_pros_controller = false;
     };
 
     estimation::Pose alliance_corner_to_field_center(
@@ -92,17 +119,6 @@ namespace abclib::hardware
         double ticks;
         std::unique_ptr<trajectory::PathFollower> path_follower_;
 
-        struct SettlementConfig
-        {
-            units::Angle angular_threshold = units::Angle::from_degrees(1);     // Changed from Radians
-            units::Length position_threshold = units::Length::from_inches(0.5); // Changed from Distance
-            units::AngularVelocity angular_velocity_threshold =
-                units::AngularVelocity::from_rad_per_sec(0.1); // Changed from BodyAngularVelocity
-            units::Velocity linear_velocity_threshold =
-                units::Velocity::from_ips(0.15); // Changed from BodyLinearVelocity
-            int settle_count_required = 3;
-        };
-
         SettlementConfig settlement_config_;
 
         bool check_angular_settlement(units::Angle error,           // Changed from Radians
@@ -120,9 +136,8 @@ namespace abclib::hardware
     public:
         using CalibrationCallback = std::function<void(int, const char *)>;
 
-        Chassis(ChassisConfig chassis_config, Sensors sensors,
-                const control::PIDConstants lateral_constants,
-                const control::PIDConstants angular_constants);
+        Chassis(ChassisConfig chassis_config, Sensors sensors);
+
         ~Chassis();
         void drive(int throttle, int turn, double throttle_coefficient, double turn_coefficient);
         units::Length get_wheel_radius() const { return wheel_diameter / 2.0; } // Changed return type
@@ -294,19 +309,19 @@ namespace abclib::hardware
 
         void set_profiled_turn_pid_constants(const control::PIDConstants &constants)
         {
-            config_.profiled_turn_pid_constants = constants;
+            config_.controllers.profiled_turn_pid = constants;
         }
 
         void set_ramsete_constants(const control::RamseteConstants &constants)
         {
-            config_.ramsete_constants = constants;
+            config_.controllers.ramsete = constants;
         }
 
         void set_turn_in_place_feedforward(double kS, double kV, double kA)
         {
-            config_.turn_in_place_kS = kS;
-            config_.turn_in_place_kV = kV;
-            config_.turn_in_place_kA = kA;
+            config_.controllers.turn_in_place_kS = kS;
+            config_.controllers.turn_in_place_kV = kV;
+            config_.controllers.turn_in_place_kA = kA;
         }
 
         void set_motor_feedforward(double kS, double kV, double kA)

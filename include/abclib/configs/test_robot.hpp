@@ -5,6 +5,8 @@
 #include "api.h"
 #include "abclib/control/ramsete.hpp"
 #include "abclib/estimation/estimator_config.hpp"
+#include "abclib/hardware/chassis.hpp"
+
 namespace abclib::robot_config
 {
 
@@ -59,42 +61,31 @@ namespace abclib::robot_config
             .compensation_min_battery = units::Voltage::from_volts(11.5)};
     }
 
-    // PID constants
-    inline control::PIDConstants get_lateral_pid()
+    inline hardware::SettlementConfig get_settlement_config()
     {
-        return control::PIDConstants(0.6, 5, 0);
+        return hardware::SettlementConfig{
+            .angular_threshold = units::Angle::from_degrees(1),
+            .position_threshold = units::Length::from_inches(0.5),
+            .angular_velocity_threshold = units::AngularVelocity::from_rad_per_sec(0.1),
+            .linear_velocity_threshold = units::Velocity::from_ips(0.15),
+            .settle_count_required = 3};
     }
 
-    inline control::PIDConstants get_angular_pid()
+    inline hardware::ControllerConfig get_controller_config()
     {
-        return control::PIDConstants(5, 50, 0);
-    }
-
-    // Turn-in-place feedforward constants (for turn_to_heading_profiled)
-    constexpr double TURN_IN_PLACE_KS = 1.278592;
-    constexpr double TURN_IN_PLACE_KV = 0.170242;
-    constexpr double TURN_IN_PLACE_KA = 0.012877;
-
-    constexpr double LATERAL_KS = 0.535278;
-    constexpr double LATERAL_KV = 0.158462;
-    constexpr double LATERAL_KA = 0.012848;
-
-    // profiled turn pid constants
-    inline control::PIDConstants get_profiled_turn_pid()
-    {
-        return control::PIDConstants(25, 0.0, 0.0); // Tune these values
-    }
-
-    // profiled lateral pid constants
-    inline control::PIDConstants get_profiled_lateral_pid()
-    {
-        return control::PIDConstants(2.0, 0.0, 0.0); // Tune these values
-    }
-
-    // Ramsete controller constants (for path following)
-    inline control::RamseteConstants get_ramsete_config()
-    {
-        return control::RamseteConstants{2.0, 0.7}; // b, zeta
+        return hardware::ControllerConfig{
+            .lateral_pid = {0.6, 5, 0},
+            .angular_pid = {5, 50, 0},
+            .profiled_turn_pid = {25, 0.0, 0.0},
+            .profiled_lateral_pid = {2.0, 0.0, 0.0},
+            .turn_in_place_kS = 1.278592,
+            .turn_in_place_kV = 0.170242,
+            .turn_in_place_kA = 0.012877,
+            .lateral_kS = 0.535278,
+            .lateral_kV = 0.158462,
+            .lateral_kA = 0.012848,
+            .settlement = get_settlement_config(), // uses defaults
+            .ramsete = {2.0, 0.7}};
     }
 
     inline estimation::EstimatorConfig get_estimator_config()
@@ -103,8 +94,8 @@ namespace abclib::robot_config
         config.type = estimation::FilterType::GEOMETRIC; // or GEOMETRIC/EKF
         config.mode = estimation::FilterMode::PREDICTION_ONLY;
         config.field_config = field::FieldConfig::custom(
-            units::Length::from_inches(24), // width 
-            units::Length::from_inches(48) // height 
+            units::Length::from_inches(24), // width
+            units::Length::from_inches(48)  // height
         );
         return config;
     }
