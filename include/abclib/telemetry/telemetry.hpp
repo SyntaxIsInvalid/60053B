@@ -25,13 +25,6 @@ namespace abclib::telemetry
         COMPLETE      // Successfully finished
     };
 
-    enum class CoordinateSystem
-    {
-        CENTERED_MATH,      // (0,0) at center, 0° = east
-        CORNER_NAVIGATION   // (0,0) at corner, 0° = north
-    };
-
-
     struct TelemetryData
     {
         // Timestamp
@@ -60,7 +53,8 @@ namespace abclib::telemetry
         units::Angle cumulative_angular_error = units::Angle::from_radians(0);
 
         // Pose (from odometry)
-        estimation::Pose pose;
+        estimation::Pose pose_corner; // Alliance corner frame (public API)
+        estimation::Pose pose_center; // Field center frame (internal)
 
         // Raw velocities (before filtering)
         units::Velocity pose_v_raw = units::Velocity::from_ips(0);
@@ -173,11 +167,7 @@ namespace abclib::telemetry
         double kalman_gain_y_front;
         double kalman_gain_theta_front;
 
-        CoordinateSystem display_coordinate_system = CoordinateSystem::CENTERED_MATH;
-        
-        // Display pose (converted based on coordinate system)
-        estimation::Pose display_pose;
-
+        field::Alliance current_alliance = field::Alliance::BLUE;
     };
 
     // Double-buffered telemetry system

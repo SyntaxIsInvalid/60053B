@@ -233,14 +233,14 @@ namespace abclib::telemetry
         if (fields_.pose)
         {
             fprintf(file_, ",%.3f,%.3f,%.3f",
-                    data.pose.x_inches(), data.pose.y_inches(), data.pose.theta_deg());
+                    data.pose_corner.x_inches(), data.pose_corner.y_inches(), data.pose_corner.theta_deg());
         }
 
         // Velocity data
         if (fields_.velocity)
         {
             fprintf(file_, ",%.3f,%.3f",
-                    data.pose.v.to_ips(), data.pose.omega.to_rad_per_sec());
+                    data.pose_corner.v.to_ips(), data.pose_corner.omega.to_rad_per_sec());
             fprintf(file_, ",%.3f,%.3f",
                     data.pose_v_raw.to_ips(), data.pose_omega_raw.to_rad_per_sec());
         }

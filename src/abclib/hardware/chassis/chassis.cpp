@@ -40,7 +40,8 @@ namespace abclib::hardware
           lateral_pid(lateral_constants),
           angular_pid(angular_constants),
           ticks(chassis_config.left->get_ticks()),
-          config_(chassis_config)
+          config_(chassis_config),
+          alliance_(field::Alliance::BLUE)
     {
         // Create measurement models
         auto vertical_model = new estimation::WheelMeasurementModel(
@@ -163,28 +164,6 @@ namespace abclib::hardware
         return units::Angle::from_radians(-imu->get_heading() * M_PI / 180.0);
     }
 
-    estimation::Pose Chassis::get_pose() const
-    {
-        return estimator_->get_pose();
-    }
-
-    void Chassis::set_pose(units::Length x, units::Length y, units::Angle heading)
-    {
-        // Create the new pose using the Pose struct from pose.hpp
-        estimation::Pose new_pose(
-            x,
-            y,
-            heading,
-            units::Velocity::from_ips(0.0),
-            units::AngularVelocity::from_rad_per_sec(0.0));
-
-        // Set the odometry pose (thread-safe with mutex)
-        estimator_->set_pose(new_pose);
-
-        // Set IMU heading to match (note the negation for IMU convention)
-        imu->set_heading(-heading.to_degrees());
-    }
-
     void Chassis::move_voltage(units::Voltage left_voltage, units::Voltage right_voltage)
     {
         left_motors->move_voltage(left_voltage);
@@ -282,60 +261,70 @@ namespace abclib::hardware
         update_motor_velocity_telemetry();
     }
 
-    void Chassis::set_pose_corner_origin(
-        units::Length x_corner,
-        units::Length y_corner,
-        units::Angle heading)
+    void Chassis::set_pose(units::Length x, units::Length y, units::Angle heading)
     {
-        // Get field dimensions from config
-        // Assuming your EstimatorConfig is accessible via get_estimator_config()
-        // You may need to adjust this based on how you store the config
-        auto field_config = config_.field_config; // If stored in ChassisConfig
-
-        // Convert corner-origin to centered-origin
-        units::Length x_centered = x_corner - (field_config.width / 2.0);
-        units::Length y_centered = y_corner - (field_config.height / 2.0);
-
-        // Call existing set_pose with converted coordinates
-        set_pose(x_centered, y_centered, heading);
+        // Default behavior: alliance corner frame (most common use case)
+        set_pose_alliance_corner(x, y, heading);
     }
 
-    void Chassis::set_pose_corner_origin_nav(
-        units::Length x_corner,
-        units::Length y_corner,
-        units::Angle heading_nav)
+    void Chassis::set_pose_alliance_corner(units::Length x, units::Length y, units::Angle heading)
     {
-        // Convert navigation angle to math angle
-        // Nav: 0°=north, 90°=west (CCW)
-        // Math: 0°=east, 90°=north (CCW)
-        // Conversion: math = nav + 90°
-        units::Angle heading_math = heading_nav + units::Angle::from_degrees(90);
+        // Create pose in alliance corner frame
+        estimation::Pose corner_pose;
+        corner_pose.set_x(x.to_inches());
+        corner_pose.set_y(y.to_inches());
+        corner_pose.set_theta(heading.to_radians());
+        corner_pose.v = units::Velocity::from_ips(0.0);
+        corner_pose.omega = units::AngularVelocity::from_rad_per_sec(0.0);
 
-        // Convert corner coords to centered and set pose
-        set_pose_corner_origin(x_corner, y_corner, heading_math);
+        // Convert to field center frame (what estimator uses internally)
+        estimation::Pose center_pose = alliance_corner_to_field_center(
+            corner_pose,
+            alliance_,
+            config_.field_config);
+
+        // Set the estimator's pose (in field center frame)
+        estimator_->set_pose(center_pose);
     }
 
-    estimation::Pose Chassis::get_pose_corner_origin_nav() const
+    void Chassis::set_pose_field_center(units::Length x, units::Length y, units::Angle heading)
     {
-        // Get current pose in centered math frame
-        estimation::Pose centered_pose = get_pose();
+        // Create pose directly in field center frame
+        estimation::Pose center_pose;
+        center_pose.set_x(x.to_inches());
+        center_pose.set_y(y.to_inches());
+        center_pose.set_theta(heading.to_radians());
+        center_pose.v = units::Velocity::from_ips(0.0);
+        center_pose.omega = units::AngularVelocity::from_rad_per_sec(0.0);
 
-        // Convert from centered to corner-origin
-        units::Length x_corner = centered_pose.x + (config_.field_config.width / 2.0);
-        units::Length y_corner = centered_pose.y + (config_.field_config.height / 2.0);
-
-        // Convert from math angle to navigation angle
-        // Math: 0°=east, 90°=north
-        // Nav: 0°=north, 90°=west
-        // Conversion: nav = math - 90°
-        units::Angle theta_nav = centered_pose.theta - units::Angle::from_degrees(90);
-
-        // Return new pose with converted values
-        return estimation::Pose(x_corner, y_corner, theta_nav,
-                                centered_pose.v, centered_pose.omega);
+        // No conversion needed - already in field center frame
+        estimator_->set_pose(center_pose);
     }
 
+    estimation::Pose Chassis::get_pose() const
+    {
+        // Wrapper - defaults to alliance corner frame (what users expect)
+        return get_pose_alliance_corner();
+    }
 
+    estimation::Pose Chassis::get_pose_alliance_corner() const
+    {
+        // Get the internal pose (field center frame)
+        estimation::Pose center_pose = estimator_->get_pose();
 
+        // Convert to alliance corner frame
+        estimation::Pose corner_pose = field_center_to_alliance_corner(
+            center_pose,
+            alliance_,
+            config_.field_config);
+
+        return corner_pose;
+    }
+
+    estimation::Pose Chassis::get_pose_field_center() const
+    {
+        // Return directly from estimator (already in field center frame)
+        return estimator_->get_pose();
+    }
 
 }

@@ -54,6 +54,7 @@ hardware::ChassisConfig chassis_constant{
     .right = &rightMotors,
     .diameter = robot_config::WHEEL_DIAMETER,
     .track_width = robot_config::TRACK_WIDTH,
+    .field_config = robot_config::get_estimator_config().field_config,
     .ramsete_constants = robot_config::get_ramsete_config(),
     .turn_in_place_kS = robot_config::TURN_IN_PLACE_KS,
     .turn_in_place_kV = robot_config::TURN_IN_PLACE_KV,
@@ -62,7 +63,7 @@ hardware::ChassisConfig chassis_constant{
     .profiled_lateral_pid_constants = robot_config::get_profiled_lateral_pid(),
     .lateral_kS = robot_config::LATERAL_KS,
     .lateral_kV = robot_config::LATERAL_KV,
-    .lateral_kA = robot_config::LATERAL_KA,
+    .lateral_kA = robot_config::LATERAL_KA
 };
 
 hardware::Chassis chassis(
@@ -106,7 +107,7 @@ ui::ScreenManager screen_manager;
 void initialize()
 {
     using namespace abclib::auton;
-    
+
     // Register autons with their categories
     register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red, AutonCategory::RED);
     register_auton(AutonRoutine::RED_LEFT, red_left, AutonCategory::RED);
@@ -123,8 +124,10 @@ void initialize()
     chassis.calibrate([](int progress, const char *status)
                       { screen_manager.update_calibration_progress(progress, status); });
     pros::delay(200);
-    //chassis.set_pose_corner_origin_nav(9_in,4.25_in,0_deg);
-    chassis.set_pose(-3_in,-19.75_in,90_deg);
+    chassis.set_alliance(field::Alliance::RED);
+    chassis.set_pose(0_in, 0_in, 0_deg);
+    // chassis.set_pose_corner_origin_nav(9_in,4.25_in,0_deg);
+    //  chassis.set_pose(-3_in,-19.75_in,90_deg);
     screen_manager.hide_calibration_screen();
 #if HAS_PNEUMATICS
     match_load_ramp.retract();
@@ -133,21 +136,32 @@ void initialize()
 #endif
     pros::Task screen_task([&]()
                            {
-        while (1) {
-            // Update battery info in the write buffer
-            auto& write_buf = abclib::telemetry::g_telemetry.get_write_buffer();
-            write_buf.battery_voltage = units::Voltage::from_millivolts(
-                pros::battery::get_voltage()
-            );
-            write_buf.battery_capacity_percent = pros::battery::get_capacity();
-            abclib::telemetry::g_telemetry.swap();
-            
-            // Update screen with read buffer
-            const abclib::telemetry::TelemetryData& data = abclib::telemetry::g_telemetry.get_read_buffer();
-            screen_manager.update_telemetry(data);
-            
-            pros::delay(100);
-        } });
+    while (1) {
+        // Update telemetry data in write buffer
+        auto& write_buf = abclib::telemetry::g_telemetry.get_write_buffer();
+        
+        // Battery info
+        write_buf.battery_voltage = units::Voltage::from_millivolts(
+            pros::battery::get_voltage()
+        );
+        write_buf.battery_capacity_percent = pros::battery::get_capacity();
+        
+        // Get both poses from chassis
+        write_buf.pose_corner = chassis.get_pose_alliance_corner();
+        write_buf.pose_center = chassis.get_pose_field_center();
+        
+        // Get current alliance
+        write_buf.current_alliance = chassis.get_alliance();
+        
+        abclib::telemetry::g_telemetry.swap();
+        
+        // Update screen with read buffer
+        const abclib::telemetry::TelemetryData& data = 
+            abclib::telemetry::g_telemetry.get_read_buffer();
+        screen_manager.update_telemetry(data);
+        
+        pros::delay(100);
+    } });
 }
 
 /**
@@ -185,10 +199,11 @@ void autonomous()
         bottom_intake,
         match_load_ramp,
         hood,
-        wing    
-    };
+        wing};
     run_selected_auton(robot);
-    //sysid::measure_velocity_pid(chassis, true, "/usd/vel_200rpm.csv", 200.0, 4500);
+    // sysid::measure_ks_kv(leftMotors, rightMotors, true, "ks_kv_comp_forward", 5.5, 0.25, 300);
+    // sysid::measure_ks_kv_turn(leftMotors,rightMotors, true, "ks_kv_ccw_comp.csv", 11, 0.25, 500);
+    // sysid::measure_velocity_pid(chassis, true, "/usd/vel_200rpm.csv", 200.0, 4500);
     controller.print(0, 0, "done");
 }
 
@@ -217,8 +232,8 @@ void opcontrol()
         {
             top_intake.set_outtake();
             bottom_intake.set_intake();
-        // score long
-        } 
+            // score long
+        }
         else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
         {
             hood.extend();

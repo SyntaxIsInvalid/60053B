@@ -2,6 +2,7 @@
 
 #include "abclib/units/units.hpp"
 #include "abclib/field/field_config.hpp"
+#include "abclib/field/alliance.hpp"
 #include <cmath>
 #include <algorithm>
 
@@ -11,7 +12,8 @@ namespace abclib::field
     {
     private:
         FieldConfig config_;
-        
+        Alliance alliance_;
+
         // Computed wall positions (assuming center at origin)
         double north_wall() const { return config_.height.to_inches() / 2.0; }
         double south_wall() const { return -config_.height.to_inches() / 2.0; }
@@ -28,8 +30,13 @@ namespace abclib::field
             NONE
         };
 
-        explicit FieldMap(const FieldConfig& config = FieldConfig::standard_vex())
-            : config_(config) {}
+        explicit FieldMap(
+            const FieldConfig &config = FieldConfig::standard_vex(),
+            Alliance alliance = Alliance::BLUE)
+            : config_(config), alliance_(alliance) {}
+
+        void set_alliance(Alliance alliance) { alliance_ = alliance; }
+        Alliance get_alliance() const { return alliance_; }
 
         double compute_expected_distance(
             double robot_x,
@@ -55,7 +62,7 @@ namespace abclib::field
 
         bool is_inside_field(double x, double y, double margin = 0.0);
 
-        static const char* wall_to_string(Wall wall);
+        static const char *wall_to_string(Wall wall);
 
     private:
         void compute_sensor_global_position(
@@ -64,7 +71,7 @@ namespace abclib::field
             double robot_theta,
             double sensor_offset_forward,
             double sensor_offset_lateral,
-            double& sensor_x_out,
-            double& sensor_y_out);
+            double &sensor_x_out,
+            double &sensor_y_out);
     };
 }

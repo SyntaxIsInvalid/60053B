@@ -11,6 +11,8 @@
 #include "abclib/estimation/geometric_odometry_estimator.hpp"
 #include <functional>
 #include "abclib/control/pure_pursuit.hpp"
+#include "abclib/field/alliance.hpp"     // Add this include
+#include "abclib/field/field_config.hpp" // Add this include
 
 namespace abclib::hardware
 {
@@ -18,8 +20,9 @@ namespace abclib::hardware
     {
         hardware::AdvancedMotorGroup *left;
         hardware::AdvancedMotorGroup *right;
-        units::Length diameter;    // Changed from Distance
-        units::Length track_width; // Changed from Distance
+        units::Length diameter;
+        units::Length track_width;
+        field::FieldConfig field_config = field::FieldConfig::standard_vex();
         control::RamseteConstants ramsete_constants = {2.0, 0.7};
         bool use_pros_controller = false;
         double turn_in_place_kS = 0.0;
@@ -30,7 +33,6 @@ namespace abclib::hardware
         double lateral_kS = 0.0;
         double lateral_kV = 0.0;
         double lateral_kA = 0.0;
-        field::FieldConfig field_config = field::FieldConfig::standard_vex();
     };
 
     struct Sensors
@@ -56,6 +58,16 @@ namespace abclib::hardware
         }
     };
 
+    estimation::Pose alliance_corner_to_field_center(
+        const estimation::Pose &corner_pose,
+        field::Alliance alliance,
+        const field::FieldConfig &field_config);
+
+    estimation::Pose field_center_to_alliance_corner(
+        const estimation::Pose &center_pose,
+        field::Alliance alliance,
+        const field::FieldConfig &field_config);
+
     class Chassis
     {
     private:
@@ -76,7 +88,7 @@ namespace abclib::hardware
         units::Length track_width;    // Changed from Distance
         units::Length wheel_diameter; // Changed from Distance
         ChassisConfig config_;
-
+        field::Alliance alliance_;
         double ticks;
         std::unique_ptr<trajectory::PathFollower> path_follower_;
 
@@ -104,7 +116,6 @@ namespace abclib::hardware
         double find_closest_arc_length_on_path(
             const path::Path &path,
             const estimation::Pose &robot_pose) const;
-        telemetry::CoordinateSystem display_system_ = telemetry::CoordinateSystem::CENTERED_MATH;
 
     public:
         using CalibrationCallback = std::function<void(int, const char *)>;
@@ -117,7 +128,10 @@ namespace abclib::hardware
         units::Length get_wheel_radius() const { return wheel_diameter / 2.0; } // Changed return type
         void move_left_motors(units::Voltage voltage);
         void move_right_motors(units::Voltage voltage);
-
+        void set_alliance(field::Alliance alliance) { alliance_ = alliance; }
+        field::Alliance get_alliance() const { return alliance_; }
+        estimation::Pose get_pose_alliance_corner() const;
+        estimation::Pose get_pose_field_center() const;
         void calibrate(CalibrationCallback progress_callback = nullptr);
         void reset_chassis_position();
         units::Angle get_heading(); // Changed return type from BodyHeading
@@ -342,24 +356,9 @@ namespace abclib::hardware
             units::Acceleration max_acceleration,
             units::Time timeout = units::Time::from_seconds(5));
 
-        void set_pose_corner_origin( // NEW - Corner-origin helper
-            units::Length x_corner,
-            units::Length y_corner,
-            units::Angle heading);
+        void set_pose_alliance_corner(units::Length x, units::Length y, units::Angle heading);
+        void set_pose_field_center(units::Length x, units::Length y, units::Angle heading);
 
-        void set_pose_corner_origin_nav(
-            units::Length x_corner,
-            units::Length y_corner,
-            units::Angle heading_nav); // 0°=north, 90°=west (CCW positive)
         estimation::Pose get_pose_corner_origin_nav() const;
-
-        void set_display_coordinate_system(telemetry::CoordinateSystem system)
-        {
-            display_system_ = system;
-        }
-        telemetry::CoordinateSystem get_display_coordinate_system() const
-        {
-            return display_system_;
-        }
     };
 }

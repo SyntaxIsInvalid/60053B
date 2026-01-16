@@ -79,7 +79,7 @@ namespace abclib::trajectory
         telem.reference_arc_position = units::Length::from_inches(reference_state.arc_length);
 
         // Current pose
-        telem.pose = current_pose;
+        telem.pose_corner = current_pose;
 
         // Tracking errors
         telem.lateral_error = ramsete_output.e_y;

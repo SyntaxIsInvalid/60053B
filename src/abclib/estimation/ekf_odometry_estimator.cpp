@@ -285,7 +285,7 @@ namespace abclib::estimation
                 auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
 
                 // Basic pose (this was already here)
-                telem.pose = current_pose_;
+                telem.pose_corner = current_pose_;
                 telem.pose_v_raw = units::Velocity::from_ips(v_raw);
                 telem.pose_omega_raw = units::AngularVelocity::from_rad_per_sec(omega_raw);
 

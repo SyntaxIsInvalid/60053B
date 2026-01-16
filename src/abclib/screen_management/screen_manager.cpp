@@ -491,7 +491,7 @@ namespace abclib::ui
     void ScreenManager::create_overview_tab()
     {
         // Create labels for overview data
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 4; i++)
         {
             lv_obj_t *label = lv_label_create(tab_overview);
             lv_label_set_text(label, "Loading...");
@@ -607,32 +607,43 @@ namespace abclib::ui
 
     void ScreenManager::update_overview_tab(const telemetry::TelemetryData &data)
     {
-        if (overview_labels.size() >= 3)
+        if (overview_labels.size() >= 4)
         {
-            char buf0[64];
-            char buf1[64];
+            char buf0[128];
+            char buf1[256];
             char buf2[64];
+            char buf3[64];
 
-            // Label 0: Pose (using the new units API)
-            snprintf(buf0, sizeof(buf0), "X:%.2f Y:%.2f Th:%.1f",
-                     data.pose.x_inches(),
-                     data.pose.y_inches(),
-                     data.pose.theta_deg());
+            // Label 0: Alliance
+            const char *alliance_str = (data.current_alliance == field::Alliance::RED) ? "RED" : "BLUE";
+            snprintf(buf0, sizeof(buf0), "Alliance: %s", alliance_str);
             lv_label_set_text(overview_labels[0], buf0);
 
-            // Label 1: Velocity (using the new units API)
-            snprintf(buf1, sizeof(buf1), "V:%.2f W:%.2f",
-                     data.pose_v_raw.to_ips(),
-                     data.pose_omega_raw.to_rad_per_sec());
+            // Label 1: Both poses on one line
+            snprintf(buf1, sizeof(buf1),
+                     "Corner: X:%.1f Y:%.1f Th:%.1f  |  Center: X:%.1f Y:%.1f Th:%.1f",
+                     data.pose_corner.x_inches(),  // CHANGED: pose → pose_corner
+                     data.pose_corner.y_inches(),  // CHANGED: pose → pose_corner
+                     data.pose_corner.theta_deg(), // CHANGED: pose → pose_corner
+                     data.pose_center.x_inches(),  // CHANGED: Added center pose
+                     data.pose_center.y_inches(),  // CHANGED: Added center pose
+                     data.pose_center.theta_deg()  // CHANGED: Added center pose
+            );
             lv_label_set_text(overview_labels[1], buf1);
 
-            // Label 2: Battery (using the new units API)
-            snprintf(buf2, sizeof(buf2), "%.2fV %.0f%% [%s%.2fx]",
+            // Label 2: Velocity (unchanged - these fields don't reference pose)
+            snprintf(buf2, sizeof(buf2), "V:%.2f W:%.2f",
+                     data.pose_v_raw.to_ips(),
+                     data.pose_omega_raw.to_rad_per_sec());
+            lv_label_set_text(overview_labels[2], buf2);
+
+            // Label 3: Battery (unchanged)
+            snprintf(buf3, sizeof(buf3), "%.2fV %.0f%% [%s%.2fx]",
                      data.battery_voltage.to_volts(),
                      data.battery_capacity_percent,
                      data.voltage_compensation_active ? "C" : "-",
                      data.voltage_compensation_scale);
-            lv_label_set_text(overview_labels[2], buf2);
+            lv_label_set_text(overview_labels[3], buf3);
         }
     }
 

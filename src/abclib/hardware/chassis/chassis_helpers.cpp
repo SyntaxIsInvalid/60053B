@@ -18,14 +18,70 @@ using namespace abclib;
 
 namespace abclib::hardware
 {
+
+    estimation::Pose alliance_corner_to_field_center(
+        const estimation::Pose &corner_pose,
+        field::Alliance alliance,
+        const field::FieldConfig &field_config)
+    {
+        estimation::Pose center_pose;
+        double half_width = field_config.width.to_inches() / 2.0;
+        double half_height = field_config.height.to_inches() / 2.0;
+
+        if (alliance == field::Alliance::BLUE)
+        {
+            // Blue is at North, facing South (180° rotation from center frame)
+            center_pose.set_x(-corner_pose.x_inches() + half_height); // Flip + translate
+            center_pose.set_y(-corner_pose.y_inches() + half_width);
+            center_pose.set_theta(corner_pose.theta_rad() + M_PI); // Add 180°
+        }
+        else
+        {
+            center_pose.set_x(corner_pose.x_inches() - half_height);
+            center_pose.set_y(corner_pose.y_inches() - half_width);
+            center_pose.set_theta(corner_pose.theta_rad());
+        }
+
+        center_pose.v = corner_pose.v;
+        center_pose.omega = corner_pose.omega;
+        return center_pose;
+    }
+
+    estimation::Pose field_center_to_alliance_corner(
+        const estimation::Pose &center_pose,
+        field::Alliance alliance,
+        const field::FieldConfig &field_config)
+    {
+        estimation::Pose corner_pose;
+        double half_width = field_config.width.to_inches() / 2.0;
+        double half_height = field_config.height.to_inches() / 2.0;
+
+        if (alliance == field::Alliance::BLUE)
+        {
+            corner_pose.set_x(-center_pose.x_inches() + half_height); // Inverse of what you just fixed
+            corner_pose.set_y(-center_pose.y_inches() + half_width);
+            corner_pose.set_theta(center_pose.theta_rad() - M_PI); // Subtract 180°
+        }
+        else
+        {
+            corner_pose.set_x(center_pose.x_inches() + half_height);
+            corner_pose.set_y(center_pose.y_inches() + half_width);
+            corner_pose.set_theta(center_pose.theta_rad());
+        }
+
+        corner_pose.v = center_pose.v;
+        corner_pose.omega = center_pose.omega;
+        return corner_pose;
+    }
+
     bool Chassis::check_angular_settlement(
         units::Angle error,
         units::AngularVelocity omega,
         int &settle_count) const
     {
         bool error_ok = std::abs(error.to_radians()) <= settlement_config_.angular_threshold.to_radians();
-        bool velocity_ok = std::abs(omega.to_rad_per_sec()) <= 
-                   settlement_config_.angular_velocity_threshold.to_rad_per_sec();
+        bool velocity_ok = std::abs(omega.to_rad_per_sec()) <=
+                           settlement_config_.angular_velocity_threshold.to_rad_per_sec();
 
         if (error_ok && velocity_ok)
         {
@@ -43,8 +99,8 @@ namespace abclib::hardware
         int &settle_count) const
     {
         bool error_ok = std::abs(error.to_inches()) <= settlement_config_.position_threshold.to_inches();
-        bool velocity_ok = std::abs(velocity.to_ips()) <= 
-                   settlement_config_.linear_velocity_threshold.to_ips();
+        bool velocity_ok = std::abs(velocity.to_ips()) <=
+                           settlement_config_.linear_velocity_threshold.to_ips();
 
         if (error_ok && velocity_ok)
         {
@@ -58,7 +114,7 @@ namespace abclib::hardware
 
     void Chassis::reset_telemetry_accumulators()
     {
-        auto& data = telemetry::g_telemetry.get_write_buffer();
+        auto &data = telemetry::g_telemetry.get_write_buffer();
         data.max_lateral_error = units::Length::from_inches(0);
         data.max_angular_error = units::Angle::from_radians(0);
         data.cumulative_lateral_error = units::Length::from_inches(0);
@@ -73,7 +129,7 @@ namespace abclib::hardware
         units::Length actual,
         double dt)
     {
-        auto& data = telemetry::g_telemetry.get_write_buffer();
+        auto &data = telemetry::g_telemetry.get_write_buffer();
 
         data.lateral_error = error;
         data.lateral_output = units::Voltage::from_volts(output_volts);
@@ -97,7 +153,7 @@ namespace abclib::hardware
         double actual_rad,
         double dt)
     {
-        auto& data = telemetry::g_telemetry.get_write_buffer();
+        auto &data = telemetry::g_telemetry.get_write_buffer();
 
         data.angular_error = units::Angle::from_radians(error_rad);
         data.angular_output = units::Voltage::from_volts(output_volts);
@@ -116,22 +172,22 @@ namespace abclib::hardware
 
     void Chassis::update_pose_telemetry(const estimation::Pose &pose)
     {
-        auto& data = telemetry::g_telemetry.get_write_buffer();
-        data.pose = pose;
+        auto &data = telemetry::g_telemetry.get_write_buffer();
+        data.pose_corner = pose;
     }
 
     void Chassis::update_motor_voltage_telemetry(
         units::Voltage left_voltage,
         units::Voltage right_voltage)
     {
-        auto& data = telemetry::g_telemetry.get_write_buffer();
+        auto &data = telemetry::g_telemetry.get_write_buffer();
         data.left_motor_voltage = left_voltage;
         data.right_motor_voltage = right_voltage;
     }
 
     void Chassis::update_motor_velocity_telemetry()
     {
-        auto& data = telemetry::g_telemetry.get_write_buffer();
+        auto &data = telemetry::g_telemetry.get_write_buffer();
 
         // Left motor
         data.left_motor_actual_velocity = left_motors->get_raw_velocity();
@@ -158,7 +214,7 @@ namespace abclib::hardware
         telemetry::SettlementReason reason,
         uint32_t start_time)
     {
-        auto& data = telemetry::g_telemetry.get_write_buffer();
+        auto &data = telemetry::g_telemetry.get_write_buffer();
         data.is_settled = is_settled;
         data.settle_count = settle_count;
         data.settlement_reason = reason;

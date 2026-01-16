@@ -10,7 +10,8 @@ namespace abclib::auton
             units::Length::from_inches(0),
             units::Length::from_inches(0),
             units::Angle::from_degrees(0));
-
+        //robot.chassis.drive_straight_relative(18_in, 5_s);
+        //robot.chassis.turn_to_heading_profiled_pid(90_deg, 90_rad_per_sec, 180_rad_per_sec2, 10_s);
         /*
 control::PurePursuitConfig config;
 config.target_velocity = units::Velocity::from_ips(36.0);
@@ -29,6 +30,6 @@ config.use_final_turn = true;
             units::Time::from_seconds(10)     // timeout
         );
         */
-        robot.chassis.quintic_ramsete(24_in, 24_in, 90_deg, 18_ips, 36_ips2, 10_s);
+        //robot.chassis.quintic_ramsete(24_in, 24_in, 90_deg, 18_ips, 36_ips2, 10_s);
     }
 }

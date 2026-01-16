@@ -100,8 +100,8 @@ namespace abclib::robot_config
     inline estimation::EstimatorConfig get_estimator_config()
     {
         estimation::EstimatorConfig config;
-        config.type = estimation::FilterType::EKF; // or GEOMETRIC/EKF
-        config.mode = estimation::FilterMode::FULL;
+        config.type = estimation::FilterType::GEOMETRIC; // or GEOMETRIC/EKF
+        config.mode = estimation::FilterMode::PREDICTION_ONLY;
         config.field_config = field::FieldConfig::custom(
             units::Length::from_inches(24), // width 
             units::Length::from_inches(48) // height 
