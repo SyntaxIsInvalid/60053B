@@ -116,7 +116,7 @@ namespace abclib::ui
         static constexpr uint32_t CONFIRM_COLOR_NORMAL = 0x808080;       // Gray
 
         void confirm_auton_selection();
-
+        const char* wall_to_string(field::FieldMap::Wall wall);
     public:
         ScreenManager() = default;
 

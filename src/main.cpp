@@ -55,8 +55,7 @@ hardware::ChassisConfig chassis_config{
     .diameter = robot_config::WHEEL_DIAMETER,
     .track_width = robot_config::TRACK_WIDTH,
     .field_config = robot_config::get_estimator_config().field_config,
-    .controllers = robot_config::get_controller_config()
-};
+    .controllers = robot_config::get_controller_config()};
 
 hardware::Chassis chassis(chassis_config, sensors);
 
@@ -96,7 +95,6 @@ void initialize()
 {
     using namespace abclib::auton;
 
-    // Register autons with their categories
     register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red, AutonCategory::RED, field::Alliance::RED);
     register_auton(AutonRoutine::RED_LEFT, red_left, AutonCategory::RED, field::Alliance::RED);
     register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test, AutonCategory::TEST, field::Alliance::RED);
@@ -107,13 +105,12 @@ void initialize()
     screen_manager.initialize();
 
     screen_manager.show_calibration_screen();
-
-    // Calibrate with progress updates
     chassis.calibrate([](int progress, const char *status)
                       { screen_manager.update_calibration_progress(progress, status); });
     pros::delay(200);
     chassis.set_alliance(field::Alliance::RED);
     chassis.set_pose(0_in, 0_in, 0_deg);
+    auto test_config = robot_config::get_estimator_config();
     screen_manager.hide_calibration_screen();
 #if HAS_PNEUMATICS
     match_load_ramp.retract();

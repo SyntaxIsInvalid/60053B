@@ -24,7 +24,8 @@ namespace abclib::estimation
         case FilterType::GEOMETRIC:
             return std::make_unique<GeometricOdometryEstimator>(
                 vertical_model, horizontal_model, imu_model,
-                config.vertical_offset, config.horizontal_offset);
+                config.vertical_offset, config.horizontal_offset,
+                config.field_config);
 
         case FilterType::EKF:
         {
@@ -54,7 +55,8 @@ namespace abclib::estimation
         default:
             return std::make_unique<GeometricOdometryEstimator>(
                 vertical_model, horizontal_model, imu_model,
-                config.vertical_offset, config.horizontal_offset);
+                config.vertical_offset, config.horizontal_offset,
+                config.field_config);
         }
     }
 

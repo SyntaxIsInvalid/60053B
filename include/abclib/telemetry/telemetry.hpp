@@ -168,6 +168,12 @@ namespace abclib::telemetry
         double kalman_gain_theta_front;
 
         field::Alliance current_alliance = field::Alliance::BLUE;
+        field::FieldMap::Wall heading_wall = field::FieldMap::Wall::NONE;
+        units::Length heading_distance_to_wall = units::Length::from_inches(0);
+        bool heading_wall_valid = false;
+
+        units::Length field_width = units::Length::from_inches(0);
+        units::Length field_height = units::Length::from_inches(0);
     };
 
     // Double-buffered telemetry system

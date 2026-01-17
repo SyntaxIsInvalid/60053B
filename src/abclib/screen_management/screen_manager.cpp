@@ -495,7 +495,7 @@ namespace abclib::ui
         {
             lv_obj_t *label = lv_label_create(tab_overview);
             lv_label_set_text(label, "Loading...");
-            lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 60 + i * 40); // Offset for nav bar
+            lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 60 + i * 40);
             lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
             lv_obj_set_width(label, 450);
             overview_labels.push_back(label);
@@ -609,35 +609,39 @@ namespace abclib::ui
     {
         if (overview_labels.size() >= 4)
         {
-            char buf0[128];
+            char buf0[128]; // Increased size for wall info
             char buf1[256];
             char buf2[64];
             char buf3[64];
 
-            // Label 0: Alliance
+            // Label 0: Alliance and Wall info
             const char *alliance_str = (data.current_alliance == field::Alliance::RED) ? "RED" : "BLUE";
-            snprintf(buf0, sizeof(buf0), "Alliance: %s", alliance_str);
+            const char *wall_str = wall_to_string(data.heading_wall);
+            snprintf(buf0, sizeof(buf0), "Alliance: %s | Wall: %s (%.1f\") [%s]",
+                     alliance_str,
+                     wall_str,
+                     data.heading_distance_to_wall.to_inches(),
+                     data.heading_wall_valid ? "OK" : "--");
             lv_label_set_text(overview_labels[0], buf0);
 
             // Label 1: Both poses on one line
             snprintf(buf1, sizeof(buf1),
                      "Corner: X:%.1f Y:%.1f Th:%.1f  |  Center: X:%.1f Y:%.1f Th:%.1f",
-                     data.pose_corner.x_inches(),  // CHANGED: pose → pose_corner
-                     data.pose_corner.y_inches(),  // CHANGED: pose → pose_corner
-                     data.pose_corner.theta_deg(), // CHANGED: pose → pose_corner
-                     data.pose_center.x_inches(),  // CHANGED: Added center pose
-                     data.pose_center.y_inches(),  // CHANGED: Added center pose
-                     data.pose_center.theta_deg()  // CHANGED: Added center pose
-            );
+                     data.pose_corner.x_inches(),
+                     data.pose_corner.y_inches(),
+                     data.pose_corner.theta_deg(),
+                     data.pose_center.x_inches(),
+                     data.pose_center.y_inches(),
+                     data.pose_center.theta_deg());
             lv_label_set_text(overview_labels[1], buf1);
 
-            // Label 2: Velocity (unchanged - these fields don't reference pose)
+            // Label 2: Velocity
             snprintf(buf2, sizeof(buf2), "V:%.2f W:%.2f",
                      data.pose_v_raw.to_ips(),
                      data.pose_omega_raw.to_rad_per_sec());
             lv_label_set_text(overview_labels[2], buf2);
 
-            // Label 3: Battery (unchanged)
+            // Label 3: Battery
             snprintf(buf3, sizeof(buf3), "%.2fV %.0f%% [%s%.2fx]",
                      data.battery_voltage.to_volts(),
                      data.battery_capacity_percent,
@@ -687,6 +691,25 @@ namespace abclib::ui
     void ScreenManager::hide_calibration_screen()
     {
         lv_obj_add_flag(calibration_screen, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    const char *ScreenManager::wall_to_string(field::FieldMap::Wall wall)
+    {
+        switch (wall)
+        {
+        case field::FieldMap::Wall::NORTH:
+            return "N";
+        case field::FieldMap::Wall::SOUTH:
+            return "S";
+        case field::FieldMap::Wall::EAST:
+            return "E";
+        case field::FieldMap::Wall::WEST:
+            return "W";
+        case field::FieldMap::Wall::NONE:
+            return "-";
+        default:
+            return "?";
+        }
     }
 
     // Stub implementations for tabs not yet implemented

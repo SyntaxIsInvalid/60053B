@@ -33,7 +33,7 @@ namespace abclib::hardware
             // Blue is at North, facing South (180° rotation from center frame)
             center_pose.set_x(-corner_pose.x_inches() + half_height); // Flip + translate
             center_pose.set_y(-corner_pose.y_inches() + half_width);
-            center_pose.set_theta(corner_pose.theta_rad() + M_PI); // Add 180°
+            center_pose.set_theta(corner_pose.theta_rad() - M_PI); // Add 180°
         }
         else
         {
@@ -60,7 +60,7 @@ namespace abclib::hardware
         {
             corner_pose.set_x(-center_pose.x_inches() + half_height); // Inverse of what you just fixed
             corner_pose.set_y(-center_pose.y_inches() + half_width);
-            corner_pose.set_theta(center_pose.theta_rad() - M_PI); // Subtract 180°
+            corner_pose.set_theta(center_pose.theta_rad() + M_PI); // Subtract 180°
         }
         else
         {

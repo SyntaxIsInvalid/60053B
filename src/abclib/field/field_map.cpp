@@ -1,6 +1,6 @@
 #include "abclib/field/field_map.hpp"
 #include <limits>
-
+#include "abclib/math/angles.hpp"
 namespace abclib::field
 {
     double FieldMap::compute_expected_distance(
@@ -31,67 +31,69 @@ namespace abclib::field
     {
         double sensor_heading = robot_theta + sensor_bearing;
 
-        while (sensor_heading < 0.0) sensor_heading += 2.0 * M_PI;
-        while (sensor_heading >= 2.0 * M_PI) sensor_heading -= 2.0 * M_PI;
-
+        sensor_heading = math::normalize_angle(sensor_heading);
         double heading_deg = sensor_heading * 180.0 / M_PI;
 
+        // Display coords: 0° = North, 90° = West, 180° = South, 270° = East
         if (heading_deg >= 315.0 || heading_deg < 45.0)
         {
-            return Wall::EAST;
+            return Wall::NORTH; // Changed from EAST
         }
         else if (heading_deg >= 45.0 && heading_deg < 135.0)
         {
-            return Wall::NORTH;
+            return Wall::WEST; // This stays
         }
         else if (heading_deg >= 135.0 && heading_deg < 225.0)
         {
-            return Wall::WEST;
+            return Wall::SOUTH; // Changed from WEST
         }
-        else
+        else // 225-315
         {
-            return Wall::SOUTH;
+            return Wall::EAST; // Changed from SOUTH
         }
     }
 
     double FieldMap::compute_distance_to_wall(
-        double x,
-        double y,
+        double x, // This is the VERTICAL coordinate (display coords)
+        double y, // This is the HORIZONTAL coordinate (display coords)
         double direction,
         Wall wall)
     {
-        double cos_dir = std::cos(direction);
-        double sin_dir = std::sin(direction);
+        // Display coords: 0° points North (+X), so:
+        // dx/dt = cos(theta) for VERTICAL motion (X-axis)
+        // dy/dt = sin(theta) for HORIZONTAL motion (Y-axis)
+        double dx_component = std::cos(direction); // VERTICAL (X-axis) component - FIXED
+        double dy_component = std::sin(direction); // HORIZONTAL (Y-axis) component - FIXED
 
         const double epsilon = 1e-9;
 
         switch (wall)
         {
-        case Wall::NORTH:
-            if (sin_dir > epsilon)
+        case Wall::NORTH:               // +X direction (vertical up)
+            if (dx_component > epsilon) // Moving in +X direction
             {
-                return (north_wall() - y) / sin_dir;
+                return (north_wall() - x) / dx_component; // Use X not Y!
             }
             return -1.0;
 
-        case Wall::SOUTH:
-            if (sin_dir < -epsilon)
+        case Wall::SOUTH:                // -X direction (vertical down)
+            if (dx_component < -epsilon) // Moving in -X direction
             {
-                return (south_wall() - y) / sin_dir;
+                return (south_wall() - x) / dx_component; // Use X not Y!
             }
             return -1.0;
 
-        case Wall::EAST:
-            if (cos_dir > epsilon)
+        case Wall::EAST:                // +Y direction (horizontal right)
+            if (dy_component > epsilon) // Moving in +Y direction
             {
-                return (east_wall() - x) / cos_dir;
+                return (east_wall() - y) / dy_component; // Use Y
             }
             return -1.0;
 
-        case Wall::WEST:
-            if (cos_dir < -epsilon)
+        case Wall::WEST:                 // -Y direction (horizontal left)
+            if (dy_component < -epsilon) // Moving in -Y direction
             {
-                return (west_wall() - x) / cos_dir;
+                return (west_wall() - y) / dy_component; // Use Y
             }
             return -1.0;
 
@@ -127,16 +129,22 @@ namespace abclib::field
                 y <= north_wall() - margin);
     }
 
-    const char* FieldMap::wall_to_string(Wall wall)
+    const char *FieldMap::wall_to_string(Wall wall)
     {
         switch (wall)
         {
-        case Wall::NORTH: return "NORTH";
-        case Wall::SOUTH: return "SOUTH";
-        case Wall::EAST: return "EAST";
-        case Wall::WEST: return "WEST";
-        case Wall::NONE: return "NONE";
-        default: return "UNKNOWN";
+        case Wall::NORTH:
+            return "NORTH";
+        case Wall::SOUTH:
+            return "SOUTH";
+        case Wall::EAST:
+            return "EAST";
+        case Wall::WEST:
+            return "WEST";
+        case Wall::NONE:
+            return "NONE";
+        default:
+            return "UNKNOWN";
         }
     }
 
@@ -146,12 +154,12 @@ namespace abclib::field
         double robot_theta,
         double sensor_offset_forward,
         double sensor_offset_lateral,
-        double& sensor_x_out,
-        double& sensor_y_out)
+        double &sensor_x_out,
+        double &sensor_y_out)
     {
         double cos_theta = std::cos(robot_theta);
         double sin_theta = std::sin(robot_theta);
-        
+
         sensor_x_out = robot_x + sensor_offset_forward * cos_theta - sensor_offset_lateral * sin_theta;
         sensor_y_out = robot_y + sensor_offset_forward * sin_theta + sensor_offset_lateral * cos_theta;
     }

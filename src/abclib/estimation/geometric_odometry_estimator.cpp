@@ -11,12 +11,14 @@ namespace abclib::estimation
         IMeasurementModel<units::Length> *horizontal_model,
         IMeasurementModel<units::Angle> *imu_model,
         units::Length vertical_offset,
-        units::Length horizontal_offset)
+        units::Length horizontal_offset,
+        const field::FieldConfig &field_config)
         : vertical_model_(vertical_model),
           horizontal_model_(horizontal_model),
           imu_model_(imu_model),
           vertical_offset_(vertical_offset),
-          horizontal_offset_(horizontal_offset)
+          horizontal_offset_(horizontal_offset),
+          field_map_(field_config)
     {
     }
 
@@ -125,7 +127,32 @@ namespace abclib::estimation
 
             {
                 auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
-                // telem.pose_corner = current_pose_;
+                telem.heading_wall = field_map_.get_nearest_wall(
+                    current_pose_.x_inches(),
+                    current_pose_.y_inches(),
+                    current_pose_.theta_rad(),
+                    0.0 // sensor_bearing = 0 for pure robot heading
+                );
+
+                // How far to that wall?
+                double distance = field_map_.compute_distance_to_wall(
+                    current_pose_.x_inches(),
+                    current_pose_.y_inches(),
+                    current_pose_.theta_rad(),
+                    telem.heading_wall);
+
+                // Check if valid (distance >= 0 means ray hits wall)
+                telem.heading_wall_valid = (distance >= 0.0);
+
+                if (telem.heading_wall_valid)
+                {
+                    telem.heading_distance_to_wall = units::Length::from_inches(distance);
+                }
+                else
+                {
+                    telem.heading_distance_to_wall = units::Length::from_inches(-1.0);
+                }
+
                 telem.pose_v_raw = units::Velocity::from_ips(v_raw);
                 telem.pose_omega_raw = units::AngularVelocity::from_rad_per_sec(omega_raw);
                 abclib::telemetry::g_telemetry.swap();
