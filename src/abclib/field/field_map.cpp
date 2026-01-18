@@ -30,70 +30,75 @@ namespace abclib::field
         double sensor_bearing)
     {
         double sensor_heading = robot_theta + sensor_bearing;
-
         sensor_heading = math::normalize_angle(sensor_heading);
-        double heading_deg = sensor_heading * 180.0 / M_PI;
 
-        // Display coords: 0° = North, 90° = West, 180° = South, 270° = East
+        double heading_deg = std::fmod(sensor_heading * 180.0 / M_PI, 360.0);
+        if (heading_deg < 0.0)
+            heading_deg += 360.0; // C++ modulo can be negative
+
+        // Same thresholds as Python - these are correct!
         if (heading_deg >= 315.0 || heading_deg < 45.0)
         {
-            return Wall::NORTH; // Changed from EAST
+            return Wall::NORTH;
         }
         else if (heading_deg >= 45.0 && heading_deg < 135.0)
         {
-            return Wall::WEST; // This stays
+            return Wall::WEST;
         }
         else if (heading_deg >= 135.0 && heading_deg < 225.0)
         {
-            return Wall::SOUTH; // Changed from WEST
+            return Wall::SOUTH;
         }
         else // 225-315
         {
-            return Wall::EAST; // Changed from SOUTH
+            return Wall::EAST;
         }
     }
 
     double FieldMap::compute_distance_to_wall(
-        double x, // This is the VERTICAL coordinate (display coords)
-        double y, // This is the HORIZONTAL coordinate (display coords)
+        double x,
+        double y,
         double direction,
         Wall wall)
     {
-        // Display coords: 0° points North (+X), so:
-        // dx/dt = cos(theta) for VERTICAL motion (X-axis)
-        // dy/dt = sin(theta) for HORIZONTAL motion (Y-axis)
-        double dx_component = std::cos(direction); // VERTICAL (X-axis) component - FIXED
-        double dy_component = std::sin(direction); // HORIZONTAL (Y-axis) component - FIXED
+        double dy_component = -std::sin(direction);
+        double dx_component = std::cos(direction);
 
-        const double epsilon = 1e-9;
+        // Don't use epsilon checks - we already know which wall from get_nearest_wall()
+        // Just calculate the distance if the component is non-zero enough to divide safely
+        const double min_component = 1e-5; // Just to avoid division by near-zero
 
         switch (wall)
         {
-        case Wall::NORTH:               // +X direction (vertical up)
-            if (dx_component > epsilon) // Moving in +X direction
+        case Wall::NORTH:
+            if (std::abs(dx_component) > min_component)
             {
-                return (north_wall() - x) / dx_component; // Use X not Y!
+                double dist = (north_wall() - x) / dx_component;
+                return (dist >= 0) ? dist : -1.0;
+            }
+            return -1.0; // Parallel to wall
+
+        case Wall::SOUTH:
+            if (std::abs(dx_component) > min_component)
+            {
+                double dist = (south_wall() - x) / dx_component;
+                return (dist >= 0) ? dist : -1.0;
             }
             return -1.0;
 
-        case Wall::SOUTH:                // -X direction (vertical down)
-            if (dx_component < -epsilon) // Moving in -X direction
+        case Wall::EAST:
+            if (std::abs(dy_component) > min_component)
             {
-                return (south_wall() - x) / dx_component; // Use X not Y!
+                double dist = (east_wall() - y) / dy_component;
+                return (dist >= 0) ? dist : -1.0;
             }
             return -1.0;
 
-        case Wall::EAST:                // +Y direction (horizontal right)
-            if (dy_component > epsilon) // Moving in +Y direction
+        case Wall::WEST:
+            if (std::abs(dy_component) > min_component)
             {
-                return (east_wall() - y) / dy_component; // Use Y
-            }
-            return -1.0;
-
-        case Wall::WEST:                 // -Y direction (horizontal left)
-            if (dy_component < -epsilon) // Moving in -Y direction
-            {
-                return (west_wall() - y) / dy_component; // Use Y
+                double dist = (west_wall() - y) / dy_component;
+                return (dist >= 0) ? dist : -1.0;
             }
             return -1.0;
 

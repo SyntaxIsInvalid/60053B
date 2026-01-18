@@ -19,61 +19,6 @@ using namespace abclib;
 namespace abclib::hardware
 {
 
-    estimation::Pose alliance_corner_to_field_center(
-        const estimation::Pose &corner_pose,
-        field::Alliance alliance,
-        const field::FieldConfig &field_config)
-    {
-        estimation::Pose center_pose;
-        double half_width = field_config.width.to_inches() / 2.0;
-        double half_height = field_config.height.to_inches() / 2.0;
-
-        if (alliance == field::Alliance::BLUE)
-        {
-            // Blue is at North, facing South (180° rotation from center frame)
-            center_pose.set_x(-corner_pose.x_inches() + half_height); // Flip + translate
-            center_pose.set_y(-corner_pose.y_inches() + half_width);
-            center_pose.set_theta(corner_pose.theta_rad() - M_PI); // Add 180°
-        }
-        else
-        {
-            center_pose.set_x(corner_pose.x_inches() - half_height);
-            center_pose.set_y(corner_pose.y_inches() - half_width);
-            center_pose.set_theta(corner_pose.theta_rad());
-        }
-
-        center_pose.v = corner_pose.v;
-        center_pose.omega = corner_pose.omega;
-        return center_pose;
-    }
-
-    estimation::Pose field_center_to_alliance_corner(
-        const estimation::Pose &center_pose,
-        field::Alliance alliance,
-        const field::FieldConfig &field_config)
-    {
-        estimation::Pose corner_pose;
-        double half_width = field_config.width.to_inches() / 2.0;
-        double half_height = field_config.height.to_inches() / 2.0;
-
-        if (alliance == field::Alliance::BLUE)
-        {
-            corner_pose.set_x(-center_pose.x_inches() + half_height); // Inverse of what you just fixed
-            corner_pose.set_y(-center_pose.y_inches() + half_width);
-            corner_pose.set_theta(center_pose.theta_rad() + M_PI); // Subtract 180°
-        }
-        else
-        {
-            corner_pose.set_x(center_pose.x_inches() + half_height);
-            corner_pose.set_y(center_pose.y_inches() + half_width);
-            corner_pose.set_theta(center_pose.theta_rad());
-        }
-
-        corner_pose.v = center_pose.v;
-        corner_pose.omega = center_pose.omega;
-        return corner_pose;
-    }
-
     bool Chassis::check_angular_settlement(
         units::Angle error,
         units::AngularVelocity omega,

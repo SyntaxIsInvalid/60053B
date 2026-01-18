@@ -11,9 +11,9 @@
 #include "abclib/estimation/geometric_odometry_estimator.hpp"
 #include <functional>
 #include "abclib/control/pure_pursuit.hpp"
-#include "abclib/field/alliance.hpp"     // Add this include
-#include "abclib/field/field_config.hpp" // Add this include
-
+#include "abclib/field/alliance.hpp"
+#include "abclib/field/field_config.hpp"
+#include "abclib/field/coordinate_transform.hpp"
 namespace abclib::hardware
 {
 
@@ -85,15 +85,7 @@ namespace abclib::hardware
         bool use_pros_controller = false;
     };
 
-    estimation::Pose alliance_corner_to_field_center(
-        const estimation::Pose &corner_pose,
-        field::Alliance alliance,
-        const field::FieldConfig &field_config);
 
-    estimation::Pose field_center_to_alliance_corner(
-        const estimation::Pose &center_pose,
-        field::Alliance alliance,
-        const field::FieldConfig &field_config);
 
     class Chassis
     {
@@ -373,7 +365,11 @@ namespace abclib::hardware
 
         void set_pose_alliance_corner(units::Length x, units::Length y, units::Angle heading);
         void set_pose_field_center(units::Length x, units::Length y, units::Angle heading);
-
-        estimation::Pose get_pose_corner_origin_nav() const;
+        void enable_distance_correction(bool enable);
+        void configure_distance_correction(
+            units::Length sensor_offset_forward,
+            units::Length sensor_offset_lateral,
+            double blend_factor);
+        bool is_distance_correction_enabled() const;
     };
 }

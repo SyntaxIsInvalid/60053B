@@ -69,8 +69,8 @@ namespace abclib::hardware
             imu_model);
 
         path_follower_ = std::make_unique<trajectory::PathFollower>(
-        this, 
-        chassis_config.controllers.ramsete);
+            this,
+            chassis_config.controllers.ramsete);
     }
 
     Chassis::~Chassis()
@@ -326,6 +326,47 @@ namespace abclib::hardware
     {
         // Return directly from estimator (already in field center frame)
         return estimator_->get_pose();
+    }
+
+    void Chassis::enable_distance_correction(bool enable)
+    {
+        if (estimator_)
+        {
+            auto *geo_estimator = dynamic_cast<estimation::GeometricOdometryEstimator *>(estimator_.get());
+            if (geo_estimator)
+            {
+                geo_estimator->enable_distance_correction(enable);
+            }
+        }
+    }
+
+    void Chassis::configure_distance_correction(
+        units::Length sensor_offset_forward,
+        units::Length sensor_offset_lateral,
+        double blend_factor)
+    {
+        if (estimator_)
+        {
+            auto *geo_estimator = dynamic_cast<estimation::GeometricOdometryEstimator *>(estimator_.get());
+            if (geo_estimator)
+            {
+                geo_estimator->set_distance_sensor_offset(sensor_offset_forward, sensor_offset_lateral);
+                geo_estimator->set_distance_blend_factor(blend_factor);
+            }
+        }
+    }
+
+    bool Chassis::is_distance_correction_enabled() const
+    {
+        if (estimator_)
+        {
+            auto *geo_estimator = dynamic_cast<estimation::GeometricOdometryEstimator *>(estimator_.get());
+            if (geo_estimator)
+            {
+                return geo_estimator->is_distance_correction_enabled();
+            }
+        }
+        return false;
     }
 
 }

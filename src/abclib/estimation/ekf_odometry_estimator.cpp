@@ -177,71 +177,66 @@ namespace abclib::estimation
 
         // EKF prediction step
         ekf_.predict_only(prediction_function, prediction_jacobian, dt);
-
+        // Measurement update (only if in FULL mode)
         if (mode_ == FilterMode::FULL && front_distance_model_)
         {
-            // Get actual distance measurement from sensor
-            units::Length measured_distance = front_distance_model_->get_measurement();
 
-            // Only update if measurement is valid (sensor returns 0 for invalid)
-            if (measured_distance.to_meters() > 0.02) // > 20mm (sensor min range)
-            {
-                // Get current state estimate
-                Eigen::Vector3d state = ekf_.get_state();
+            // Cast to concrete type to access is_valid()
+            auto *distance_sensor = dynamic_cast<DistanceSensorMeasurementModel *>(front_distance_model_);
 
-                // Create measurement vector (1x1 for single distance sensor)
-                Eigen::Matrix<double, 1, 1> z;
-                z << measured_distance.to_meters();
+            if (distance_sensor)
+            { // Check cast succeeded
 
-                // Define measurement function h(x): state -> expected distance
+                // Measurement function: h(x) = expected sensor reading
                 auto measurement_function = [&](const Eigen::Vector3d &state) -> Eigen::Matrix<double, 1, 1>
                 {
-                    double x = state(0);     // meters
-                    double y = state(1);     // meters
-                    double theta = state(2); // radians
+                    double x_m = state(0);
+                    double y_m = state(1);
+                    double theta_rad = state(2);
 
-                    // Convert to inches for FieldMap (it works in inches)
-                    double x_inches = x * 39.3701;
-                    double y_inches = y * 39.3701;
+                    double x_in = units::Length::from_meters(x_m).to_inches();
+                    double y_in = units::Length::from_meters(y_m).to_inches();
 
-                    // Compute expected distance using field map
-                    double expected_distance_inches = field_map_.compute_expected_distance(
-                        x_inches, y_inches, theta,
-                        SENSOR_FORWARD_OFFSET,
-                        SENSOR_LATERAL_OFFSET,
-                        SENSOR_BEARING);
+                    double expected_distance_in = field_map_.compute_expected_distance(
+                        x_in, y_in, theta_rad,
+                        SENSOR_FORWARD_OFFSET, SENSOR_LATERAL_OFFSET, SENSOR_BEARING);
 
-                    Eigen::Matrix<double, 1, 1> h_x;
-                    h_x << expected_distance_inches * 0.0254; // Convert back to meters
-                    return h_x;
+                    Eigen::Matrix<double, 1, 1> z_predicted;
+                    z_predicted(0) = units::Length::from_inches(expected_distance_in).to_meters();
+                    return z_predicted;
                 };
 
-                // Define measurement Jacobian H = ∂h/∂x
-                // For now, we'll use NUMERICAL differentiation (we'll optimize later)
+                // Numerical Jacobian: H = ∂h/∂x
                 auto measurement_jacobian = [&](const Eigen::Vector3d &state) -> Eigen::Matrix<double, 1, 3>
                 {
-                    const double epsilon = 1e-6; // Small perturbation
+                    const double epsilon = 1e-6;
                     Eigen::Matrix<double, 1, 3> H;
-
-                    // Numerical derivative: (h(x+ε) - h(x)) / ε
-                    Eigen::Matrix<double, 1, 1> h_nominal = measurement_function(state);
+                    double h_nominal = measurement_function(state)(0);
 
                     for (int i = 0; i < 3; i++)
                     {
                         Eigen::Vector3d state_perturbed = state;
                         state_perturbed(i) += epsilon;
-                        Eigen::Matrix<double, 1, 1> h_perturbed = measurement_function(state_perturbed);
-                        H(0, i) = (h_perturbed(0) - h_nominal(0)) / epsilon;
+                        double h_perturbed = measurement_function(state_perturbed)(0);
+                        H(0, i) = (h_perturbed - h_nominal) / epsilon;
                     }
-
                     return H;
                 };
 
-                // Perform EKF update step
-                ekf_.update(z, measurement_function, measurement_jacobian);
+                // Get actual measurement from sensor
+                units::Length measured_distance = distance_sensor->get_measurement();
+
+                // Only correct if sensor reading is valid
+                if (distance_sensor->is_valid())
+                {
+                    Eigen::Matrix<double, 1, 1> z_measured;
+                    z_measured(0) = measured_distance.to_meters();
+
+                    // Perform EKF correction step
+                    ekf_.update(z_measured, measurement_function, measurement_jacobian);
+                }
             }
         }
-
         // ============================================================
         // GET FINAL STATE AND UPDATE POSE
         // ============================================================
@@ -289,12 +284,39 @@ namespace abclib::estimation
                 telem.pose_v_raw = units::Velocity::from_ips(v_raw);
                 telem.pose_omega_raw = units::AngularVelocity::from_rad_per_sec(omega_raw);
 
-                // EKF-specific state
+                // ADD THIS: Wall information (same as geometric)
+                telem.heading_wall = field_map_.get_nearest_wall(
+                    current_pose_.x_inches(),
+                    current_pose_.y_inches(),
+                    current_pose_.theta_rad(),
+                    0.0 // sensor_bearing = 0 for pure robot heading
+                );
+
+                // How far to that wall?
+                double distance = field_map_.compute_distance_to_wall(
+                    current_pose_.x_inches(),
+                    current_pose_.y_inches(),
+                    current_pose_.theta_rad(),
+                    telem.heading_wall);
+
+                // Check if valid (distance >= 0 means ray hits wall)
+                telem.heading_wall_valid = (distance >= 0.0);
+
+                if (telem.heading_wall_valid)
+                {
+                    telem.heading_distance_to_wall = units::Length::from_inches(distance);
+                }
+                else
+                {
+                    telem.heading_distance_to_wall = units::Length::from_inches(-1.0);
+                }
+
+                // EKF-specific state (this was already here)
                 telem.ekf_x = units::Length::from_meters(state(0));
                 telem.ekf_y = units::Length::from_meters(state(1));
                 telem.ekf_theta = units::Angle::from_radians(state(2));
 
-                // EKF uncertainty (standard deviations)
+                // EKF uncertainty (standard deviations) (this was already here)
                 telem.ekf_x_std = ekf_.get_state_uncertainty(0);     // in meters
                 telem.ekf_y_std = ekf_.get_state_uncertainty(1);     // in meters
                 telem.ekf_theta_std = ekf_.get_state_uncertainty(2); // in radians

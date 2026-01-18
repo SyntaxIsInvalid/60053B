@@ -39,4 +39,11 @@ namespace abclib::estimation
 
         } ekf;
     };
+
+    struct DistanceCorrectionConfig
+    {
+        units::Length sensor_offset_forward = units::Length::from_inches(0.0);
+        units::Length sensor_offset_lateral = units::Length::from_inches(0.0);
+        double blend_factor = 0.2;
+    };
 }

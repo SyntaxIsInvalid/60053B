@@ -27,7 +27,7 @@ namespace abclib::estimation
         IMeasurementModel<units::Length> *front_distance_model_;
 
         // Sensor mounting offsets (from tracking center to sensor)
-        static constexpr double SENSOR_FORWARD_OFFSET = 3.75; // inches
+        static constexpr double SENSOR_FORWARD_OFFSET = 3.35; // inches
         static constexpr double SENSOR_LATERAL_OFFSET = 0.0;  // inches
         static constexpr double SENSOR_BEARING = 0.0;         // radians (pointing forward)
 

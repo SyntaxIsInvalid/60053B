@@ -22,13 +22,22 @@ namespace abclib::estimation
         switch (config.type)
         {
         case FilterType::GEOMETRIC:
+        { // ADD THIS BRACE
+            // Get distance sensors from robot config
+            auto [front_sensor, back_sensor] = robot_config::get_distance_sensors();
+
+            // Create distance sensor measurement model
+            auto distance_model = front_sensor ? new DistanceSensorMeasurementModel(front_sensor) : nullptr;
+
             return std::make_unique<GeometricOdometryEstimator>(
                 vertical_model, horizontal_model, imu_model,
                 config.vertical_offset, config.horizontal_offset,
-                config.field_config);
+                config.field_config,
+                distance_model);
+        } // ADD THIS BRACE
 
         case FilterType::EKF:
-        {
+        { // ADD THIS BRACE
             // Get distance sensors from robot config
             auto [front_sensor, back_sensor] = robot_config::get_distance_sensors();
 
@@ -50,13 +59,16 @@ namespace abclib::estimation
 
             ekf->set_process_noise(process_noise);
             return ekf;
-        }
+        } // ADD THIS BRACE
 
         default:
+        { // ADD THIS BRACE
             return std::make_unique<GeometricOdometryEstimator>(
                 vertical_model, horizontal_model, imu_model,
                 config.vertical_offset, config.horizontal_offset,
-                config.field_config);
+                config.field_config,
+                nullptr); // No distance sensor for default
+        } // ADD THIS BRACE
         }
     }
 

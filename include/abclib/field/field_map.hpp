@@ -64,7 +64,6 @@ namespace abclib::field
 
         static const char *wall_to_string(Wall wall);
 
-    private:
         void compute_sensor_global_position(
             double robot_x,
             double robot_y,
@@ -73,5 +72,7 @@ namespace abclib::field
             double sensor_offset_lateral,
             double &sensor_x_out,
             double &sensor_y_out);
+
+    private:
     };
 }

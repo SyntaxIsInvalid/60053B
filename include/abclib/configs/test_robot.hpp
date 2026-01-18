@@ -88,6 +88,15 @@ namespace abclib::robot_config
             .ramsete = {2.0, 0.7}};
     }
 
+    inline estimation::DistanceCorrectionConfig get_distance_correction_config()
+    {
+        return estimation::DistanceCorrectionConfig{
+            .sensor_offset_forward = units::Length::from_inches(3.35), // Adjust to your actual sensor position
+            .sensor_offset_lateral = units::Length::from_inches(0), // Adjust to your actual sensor position
+            .blend_factor = 0.2                                       // 20% sensor, 80% odometry
+        };
+    }
+
     inline estimation::EstimatorConfig get_estimator_config()
     {
         estimation::EstimatorConfig config;

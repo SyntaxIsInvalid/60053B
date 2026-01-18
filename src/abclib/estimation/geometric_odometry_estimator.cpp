@@ -3,7 +3,8 @@
 #include <mutex>
 #include "abclib/math/angles.hpp"
 #include "abclib/telemetry/telemetry.hpp"
-
+#include "abclib/estimation/distance_measurement_model.hpp"
+#include "abclib/field/field_map.hpp"
 namespace abclib::estimation
 {
     GeometricOdometryEstimator::GeometricOdometryEstimator(
@@ -12,10 +13,12 @@ namespace abclib::estimation
         IMeasurementModel<units::Angle> *imu_model,
         units::Length vertical_offset,
         units::Length horizontal_offset,
-        const field::FieldConfig &field_config)
+        const field::FieldConfig &field_config,
+        IMeasurementModel<units::Length> *distance_sensor)
         : vertical_model_(vertical_model),
           horizontal_model_(horizontal_model),
           imu_model_(imu_model),
+          distance_sensor_(distance_sensor),
           vertical_offset_(vertical_offset),
           horizontal_offset_(horizontal_offset),
           field_map_(field_config)
@@ -73,6 +76,70 @@ namespace abclib::estimation
         return current_pose_;
     }
 
+    void GeometricOdometryEstimator::apply_distance_correction()
+    {
+        // Early exit if correction is disabled or no sensor
+        if (!distance_correction_enabled_ || !distance_sensor_)
+        {
+            return;
+        }
+
+        // Get measurement from sensor
+        units::Length measured_distance = distance_sensor_->get_measurement();
+
+        // Check if reading is valid
+        auto *distance_model = dynamic_cast<DistanceSensorMeasurementModel *>(distance_sensor_);
+        if (!distance_model || !distance_model->is_valid())
+        {
+            return;
+        }
+
+        // Get sensor position in field frame
+        double sensor_x_field, sensor_y_field;
+        field_map_.compute_sensor_global_position(
+            current_pose_.x_inches(),
+            current_pose_.y_inches(),
+            current_pose_.theta_rad(),
+            sensor_offset_forward_.to_inches(),
+            sensor_offset_lateral_.to_inches(),
+            sensor_x_field,
+            sensor_y_field);
+
+        // Get which wall the sensor is facing
+        field::FieldMap::Wall wall = field_map_.get_nearest_wall(
+            current_pose_.x_inches(),
+            current_pose_.y_inches(),
+            current_pose_.theta_rad(),
+            0.0);
+
+        // Compute expected distance to that wall
+        double expected_distance = field_map_.compute_distance_to_wall(
+            sensor_x_field,
+            sensor_y_field,
+            current_pose_.theta_rad(),
+            wall);
+
+        // If ray doesn't hit wall (parallel case), skip correction
+        if (expected_distance < 0.0)
+        {
+            return;
+        }
+
+        // Compute error
+        double error_inches = measured_distance.to_inches() - expected_distance;
+
+        // Compute correction vector in field frame
+        double cos_theta = std::cos(current_pose_.theta_rad());
+        double sin_theta = std::sin(current_pose_.theta_rad());
+
+        double correction_x = -error_inches * cos_theta;
+        double correction_y = -error_inches * sin_theta;
+
+        // Apply blended correction
+        current_pose_.set_x(current_pose_.x_inches() + distance_blend_factor_ * correction_x);
+        current_pose_.set_y(current_pose_.y_inches() + distance_blend_factor_ * correction_y);
+    }
+
     void GeometricOdometryEstimator::update()
     {
         units::Length delta_vertical = vertical_model_ ? vertical_model_->get_measurement() : units::Length::from_inches(0.0);
@@ -103,7 +170,7 @@ namespace abclib::estimation
                             local_motion.y.to_inches() * std::sin(avg_heading) -
                             local_motion.x.to_inches() * std::cos(avg_heading));
         current_pose_.set_theta(heading);
-
+        apply_distance_correction();
         if (!first_update)
         {
             const double dt = 0.01;
@@ -190,4 +257,5 @@ namespace abclib::estimation
 
         current_pose_ = Pose();
     }
+
 }
