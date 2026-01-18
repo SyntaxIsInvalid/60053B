@@ -76,8 +76,8 @@ namespace abclib::hardware
         
         // Calculate heading correction
         double heading_correction_rad_per_s = control::PurePursuit::calculate_heading_correction(
-            robot_pose.theta.to_radians(),
-            target_heading,
+            robot_pose.theta(),
+            units::Angle::from_radians(target_heading),
             progress,
             config
         );
@@ -116,7 +116,7 @@ namespace abclib::hardware
         double target_heading_rad = target_pose(2);
         
         // Calculate final heading error
-        double heading_error = target_heading_rad - final_pose.theta.to_radians();
+        double heading_error = target_heading_rad - final_pose.theta().to_radians();
         while (heading_error > M_PI) heading_error -= 2.0 * M_PI;
         while (heading_error < -M_PI) heading_error += 2.0 * M_PI;
         
@@ -148,8 +148,8 @@ namespace abclib::hardware
             double s = (static_cast<double>(i) / num_samples) * total_length;
             path::Point path_point = path.get_point_at_arc_length(s);
 
-            double dx = path_point.x() - robot_pose.x.to_inches();
-            double dy = path_point.y() - robot_pose.y.to_inches();
+            double dx = path_point.x() - robot_pose.x().to_inches();
+            double dy = path_point.y() - robot_pose.y().to_inches();
             double distance_sq = dx * dx + dy * dy;
 
             if (distance_sq < min_distance_sq)
@@ -170,8 +170,8 @@ namespace abclib::hardware
             
             path::Point path_point = path.get_point_at_arc_length(s);
             
-            double dx = path_point.x() - robot_pose.x.to_inches();
-            double dy = path_point.y() - robot_pose.y.to_inches();
+            double dx = path_point.x() - robot_pose.x().to_inches();
+            double dy = path_point.y() - robot_pose.y().to_inches();
             double distance_sq = dx * dx + dy * dy;
             
             if (distance_sq < min_distance_sq)
@@ -194,9 +194,9 @@ namespace abclib::hardware
     estimation::Pose current = get_pose();
     
     path::Pose start(
-        current.x.to_inches(),
-        current.y.to_inches(),
-        current.theta.to_radians()
+        current.x().to_inches(),
+        current.y().to_inches(),
+        current.theta().to_radians()
     );
     
     path::Pose end(

@@ -9,20 +9,19 @@ namespace abclib::control
         units::Length lookahead_distance)
     {
         // Transform lookahead point to robot frame
-        double dx = lookahead_point.x() - robot_pose.x.to_inches();
-        double dy = lookahead_point.y() - robot_pose.y.to_inches();
+        units::Length dx = units::Length::from_inches(lookahead_point.x()) - robot_pose.x();
+        units::Length dy = units::Length::from_inches(lookahead_point.y()) - robot_pose.y();
 
-        double heading = robot_pose.theta.to_radians();
-        double cos_h = std::cos(heading);
-        double sin_h = std::sin(heading);
+        units::Angle heading = robot_pose.theta();
+        double cos_h = cos(heading);
+        double sin_h = sin(heading);
 
         // Rotate to robot frame (robot at origin, facing +x)
-        double local_x = cos_h * dx + sin_h * dy;
-        double local_y = -sin_h * dx + cos_h * dy;
+        units::Length local_x = dx * cos_h + dy * sin_h;
+        units::Length local_y = dx * (-sin_h) + dy * cos_h;
 
         // Pure pursuit curvature formula: κ = 2y / L²
-        double L = lookahead_distance.to_inches();
-        double curvature = 2.0 * local_y / (L * L);
+        double curvature = 2.0 * local_y.to_inches() / (lookahead_distance.to_inches() * lookahead_distance.to_inches());
 
         return curvature;
     }
@@ -48,8 +47,8 @@ namespace abclib::control
     }
 
     double PurePursuit::calculate_heading_correction(
-        double current_heading,
-        double target_heading,
+        units::Angle current_heading,
+        units::Angle target_heading,
         double progress,
         const PurePursuitConfig &config)
     {
@@ -65,8 +64,8 @@ namespace abclib::control
         }
 
         // Normalize heading error to [-pi, pi]
-        // double heading_error = target_heading - current_heading;
-        double heading_error = math::normalize_angle(target_heading - current_heading);
+        units::Angle heading_error = target_heading - current_heading;
+        double error_rad = math::normalize_angle(heading_error.to_radians());
 
         // Calculate blend factor (0 at threshold, 1 at end)
         double blend_range = 1.0 - config.heading_start_threshold;
@@ -74,7 +73,7 @@ namespace abclib::control
         blend_factor = std::clamp(blend_factor, 0.0, 1.0);
 
         // Proportional controller: angular_velocity [rad/s] = kP [1/s] * error [rad]
-        double angular_velocity = heading_error * config.heading_correction_gain * blend_factor;
+        double angular_velocity = error_rad * config.heading_correction_gain * blend_factor;
 
         return angular_velocity; // rad/s
     }

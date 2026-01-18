@@ -6,7 +6,7 @@
 #include "abclib/math/angles.hpp"
 #include "motor_tracking_wheel.hpp"
 #include "abclib/telemetry/telemetry.hpp"
-#include "abclib/trajectory/path_follower.hpp"
+// #include "abclib/trajectory/path_follower.hpp"
 #include "abclib/units/units.hpp"
 #include "abclib/estimation/geometric_odometry_estimator.hpp"
 #include <functional>
@@ -14,6 +14,8 @@
 #include "abclib/field/alliance.hpp"
 #include "abclib/field/field_config.hpp"
 #include "abclib/field/coordinate_transform.hpp"
+#include "abclib/builder/path.hpp"
+#include "abclib/control/ramsete.hpp"
 namespace abclib::hardware
 {
 
@@ -109,7 +111,7 @@ namespace abclib::hardware
         ChassisConfig config_;
         field::Alliance alliance_;
         double ticks;
-        std::unique_ptr<trajectory::PathFollower> path_follower_;
+        //std::unique_ptr<trajectory::PathFollower> path_follower_;
 
         SettlementConfig settlement_config_;
 
@@ -138,7 +140,7 @@ namespace abclib::hardware
         void set_alliance(field::Alliance alliance) { alliance_ = alliance; }
         field::Alliance get_alliance() const { return alliance_; }
         estimation::Pose get_pose_alliance_corner() const;
-        estimation::Pose get_pose_field_center() const;
+        estimation::Pose get_pose_standard() const;
         void calibrate(CalibrationCallback progress_callback = nullptr);
         void reset_chassis_position();
         units::Angle get_heading(); // Changed return type from BodyHeading
@@ -213,7 +215,7 @@ namespace abclib::hardware
         units::Length get_track_width() const { return track_width; } // Changed return type
 
         void stop_motors();
-
+        /*
         void follow_segment(const path::IPathSegment *segment,
                             const trajectory::FollowerConfig &config)
         {
@@ -225,7 +227,7 @@ namespace abclib::hardware
         {
             path_follower_->follow_path(path, timeout);
         }
-
+        */
         void move_velocity_pros(units::Velocity left_velocity,   // Changed from WheelLinearVelocity
                                 units::Velocity right_velocity); // Changed from WheelLinearVelocity
 
@@ -364,7 +366,7 @@ namespace abclib::hardware
             units::Time timeout = units::Time::from_seconds(5));
 
         void set_pose_alliance_corner(units::Length x, units::Length y, units::Angle heading);
-        void set_pose_field_center(units::Length x, units::Length y, units::Angle heading);
+        void set_pose_standard(units::Length x, units::Length y, units::Angle heading);
         void enable_distance_correction(bool enable);
         void configure_distance_correction(
             units::Length sensor_offset_forward,

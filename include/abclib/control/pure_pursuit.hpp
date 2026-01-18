@@ -67,8 +67,8 @@ namespace abclib::control
             units::Velocity &right_velocity);
 
         static double calculate_heading_correction(
-            double current_heading,
-            double target_heading,
+            units::Angle current_heading,
+            units::Angle target_heading,
             double progress,
             const PurePursuitConfig &config);
     };

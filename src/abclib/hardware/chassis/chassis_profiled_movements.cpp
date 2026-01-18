@@ -1,3 +1,4 @@
+#if 0
 #include "abclib/hardware/chassis.hpp"
 #include "api.h"
 #include <mutex>
@@ -379,3 +380,4 @@ namespace abclib::hardware
     }
 
 }
+#endif

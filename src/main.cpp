@@ -130,7 +130,6 @@ void initialize()
         
         // Get both poses from chassis
         write_buf.pose_corner = chassis.get_pose_alliance_corner();
-        write_buf.pose_center = chassis.get_pose_field_center();
         
         // Get current alliance
         write_buf.current_alliance = chassis.get_alliance();

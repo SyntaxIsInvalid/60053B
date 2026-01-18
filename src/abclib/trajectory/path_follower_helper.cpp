@@ -1,3 +1,4 @@
+#if 0
 #include "abclib/trajectory/path_follower.hpp"
 
 namespace abclib::trajectory
@@ -127,3 +128,4 @@ namespace abclib::trajectory
         abclib::telemetry::g_telemetry.swap();
     }
 }
+#endif

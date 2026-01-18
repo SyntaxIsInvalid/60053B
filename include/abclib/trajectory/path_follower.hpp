@@ -1,3 +1,4 @@
+#if 0
 #pragma once
 
 #include "abclib/trajectory/trajectory.hpp"
@@ -131,3 +132,4 @@ namespace abclib::trajectory
     };
 
 } // namespace abclib::trajectory
+#endif

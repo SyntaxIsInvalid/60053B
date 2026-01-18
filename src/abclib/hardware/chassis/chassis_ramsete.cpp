@@ -1,4 +1,4 @@
-// chassis_ramsete.cpp (updated)
+#if 0
 #include "abclib/hardware/chassis.hpp"
 #include "abclib/control/ramsete.hpp"
 #include "abclib/path/quintic_hermite_segment.hpp"
@@ -129,3 +129,4 @@ namespace abclib::hardware
     }
 
 } // namespace abclib::hardware
+#endif

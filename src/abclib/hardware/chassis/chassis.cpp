@@ -67,10 +67,11 @@ namespace abclib::hardware
             vertical_model,
             horizontal_model,
             imu_model);
-
+        /*
         path_follower_ = std::make_unique<trajectory::PathFollower>(
             this,
             chassis_config.controllers.ramsete);
+        */
     }
 
     Chassis::~Chassis()
@@ -262,72 +263,6 @@ namespace abclib::hardware
         update_motor_velocity_telemetry();
     }
 
-    void Chassis::set_pose(units::Length x, units::Length y, units::Angle heading)
-    {
-        // Default behavior: alliance corner frame (most common use case)
-        set_pose_alliance_corner(x, y, heading);
-    }
-
-    void Chassis::set_pose_alliance_corner(units::Length x, units::Length y, units::Angle heading)
-    {
-        // Create pose in alliance corner frame
-        estimation::Pose corner_pose;
-        corner_pose.set_x(x.to_inches());
-        corner_pose.set_y(y.to_inches());
-        corner_pose.set_theta(heading.to_radians());
-        corner_pose.v = units::Velocity::from_ips(0.0);
-        corner_pose.omega = units::AngularVelocity::from_rad_per_sec(0.0);
-
-        // Convert to field center frame (what estimator uses internally)
-        estimation::Pose center_pose = alliance_corner_to_field_center(
-            corner_pose,
-            alliance_,
-            config_.field_config);
-
-        // Set the estimator's pose (in field center frame)
-        estimator_->set_pose(center_pose);
-    }
-
-    void Chassis::set_pose_field_center(units::Length x, units::Length y, units::Angle heading)
-    {
-        // Create pose directly in field center frame
-        estimation::Pose center_pose;
-        center_pose.set_x(x.to_inches());
-        center_pose.set_y(y.to_inches());
-        center_pose.set_theta(heading.to_radians());
-        center_pose.v = units::Velocity::from_ips(0.0);
-        center_pose.omega = units::AngularVelocity::from_rad_per_sec(0.0);
-
-        // No conversion needed - already in field center frame
-        estimator_->set_pose(center_pose);
-    }
-
-    estimation::Pose Chassis::get_pose() const
-    {
-        // Wrapper - defaults to alliance corner frame (what users expect)
-        return get_pose_alliance_corner();
-    }
-
-    estimation::Pose Chassis::get_pose_alliance_corner() const
-    {
-        // Get the internal pose (field center frame)
-        estimation::Pose center_pose = estimator_->get_pose();
-
-        // Convert to alliance corner frame
-        estimation::Pose corner_pose = field_center_to_alliance_corner(
-            center_pose,
-            alliance_,
-            config_.field_config);
-
-        return corner_pose;
-    }
-
-    estimation::Pose Chassis::get_pose_field_center() const
-    {
-        // Return directly from estimator (already in field center frame)
-        return estimator_->get_pose();
-    }
-
     void Chassis::enable_distance_correction(bool enable)
     {
         if (estimator_)
@@ -338,6 +273,68 @@ namespace abclib::hardware
                 geo_estimator->enable_distance_correction(enable);
             }
         }
+    }
+
+    void Chassis::set_pose(units::Length x, units::Length y, units::Angle heading)
+    {
+        // Default behavior: alliance corner frame (most common use case)
+        set_pose_alliance_corner(x, y, heading);
+    }
+
+    void Chassis::set_pose_alliance_corner(units::Length x, units::Length y, units::Angle heading)
+    {
+        // Create pose in alliance corner frame
+        estimation::Pose corner_pose;
+        corner_pose.se2 = math::SE2(x.to_inches(), y.to_inches(), heading.to_radians());
+        corner_pose.v = units::Velocity::from_ips(0.0);
+        corner_pose.omega = units::AngularVelocity::from_rad_per_sec(0.0);
+
+        // Convert to standard frame (what estimator uses internally)
+        estimation::Pose standard_pose = field::alliance_corner_to_standard(
+            corner_pose,
+            alliance_,
+            config_.field_config);
+
+        // Set the estimator's pose (in standard frame)
+        estimator_->set_pose(standard_pose);
+    }
+
+    void Chassis::set_pose_standard(units::Length x, units::Length y, units::Angle heading)
+    {
+        // Create pose directly in standard frame
+        estimation::Pose standard_pose;
+        standard_pose.se2 = math::SE2(x.to_inches(), y.to_inches(), heading.to_radians());
+        standard_pose.v = units::Velocity::from_ips(0.0);
+        standard_pose.omega = units::AngularVelocity::from_rad_per_sec(0.0);
+
+        // No conversion needed - already in standard frame
+        estimator_->set_pose(standard_pose);
+    }
+
+    estimation::Pose Chassis::get_pose() const
+    {
+        // Wrapper - defaults to alliance corner frame (what users expect)
+        return get_pose_alliance_corner();
+    }
+
+    estimation::Pose Chassis::get_pose_alliance_corner() const
+    {
+        // Get the internal pose (standard frame)
+        estimation::Pose standard_pose = estimator_->get_pose();
+
+        // Convert to alliance corner frame
+        estimation::Pose corner_pose = field::standard_to_alliance_corner(
+            standard_pose,
+            alliance_,
+            config_.field_config);
+
+        return corner_pose;
+    }
+
+    estimation::Pose Chassis::get_pose_standard() const
+    {
+        // Return directly from estimator (already in standard frame)
+        return estimator_->get_pose();
     }
 
     void Chassis::configure_distance_correction(

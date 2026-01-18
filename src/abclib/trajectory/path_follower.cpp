@@ -1,3 +1,4 @@
+#if 0
 #include "abclib/trajectory/path_follower.hpp"
 #include "abclib/kinematics/differential_drive.hpp"
 #include "abclib/hardware/chassis.hpp"
@@ -416,3 +417,4 @@ namespace abclib::trajectory
     }
 
 } // namespace abclib::trajectory
+#endif
