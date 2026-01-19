@@ -44,10 +44,10 @@ namespace abclib::hardware
         settlement_config_ = chassis_config.controllers.settlement;
         // Create measurement models
         auto vertical_model = new estimation::WheelMeasurementModel(
-            sensors.motor_y_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_y_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.y_encoder));
+            sensors.motor_x_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_x_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.x_encoder));
 
-        auto horizontal_model = (sensors.x_encoder || sensors.motor_x_encoder) ? new estimation::WheelMeasurementModel(
-                                                                                     sensors.motor_x_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_x_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.x_encoder))
+        auto horizontal_model = (sensors.y_encoder || sensors.motor_y_encoder) ? new estimation::WheelMeasurementModel(
+                                                                                     sensors.motor_y_encoder ? static_cast<hardware::ITrackingWheel *>(sensors.motor_y_encoder) : static_cast<hardware::ITrackingWheel *>(sensors.y_encoder))
                                                                                : nullptr;
 
         auto imu_model = new estimation::IMUMeasurementModel(sensors.imu);

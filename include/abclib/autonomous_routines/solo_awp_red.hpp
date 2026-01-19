@@ -7,6 +7,6 @@ namespace abclib::auton
     {
         // Set starting position
         robot.chassis.set_pose(0_in, 0_in, 0_deg);
-        robot.chassis.drive_straight_relative(12_in, 1_s);
+        robot.chassis.turn_to_heading_profiled_pid(90_deg, 180_deg_per_sec, 360_deg_per_sec2, 5_s);
     }
 }
