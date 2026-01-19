@@ -54,7 +54,7 @@ namespace abclib::telemetry
 
         // Pose (from odometry)
         estimation::Pose pose_corner; // Alliance corner frame (public API)
-        estimation::Pose pose_center; // Field center frame (internal)
+        estimation::Pose pose_standard; // Field center frame (internal)
 
         // Raw velocities (before filtering)
         units::Velocity pose_v_raw = units::Velocity::from_ips(0);

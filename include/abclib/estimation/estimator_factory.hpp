@@ -1,7 +1,7 @@
 #pragma once
 
 #include "state_estimator.hpp"
-#include "measurement_model.hpp"
+#include "abclib/measurement/measurement_model.hpp"
 #include "estimator_config.hpp"
 #include "api.h"  // ADD THIS for pros::Distance
 #include <memory>

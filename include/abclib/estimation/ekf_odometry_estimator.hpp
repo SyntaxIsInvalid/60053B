@@ -3,12 +3,12 @@
 #include "api.h"
 #include <optional>
 #include "state_estimator.hpp"
-#include "measurement_model.hpp"
+#include "abclib/measurement/measurement_model.hpp"
 #include "arc_length_differential_drive.hpp"
 #include "abclib/units/units.hpp"
 #include "pose.hpp"
 #include "abclib/filters/ekf.hpp"
-#include "distance_measurement_model.hpp" // ADD THIS
+#include "abclib/measurement/distance_measurement_model.hpp"
 #include "abclib/estimation/estimator_config.hpp"
 #include "abclib/field/field_map.hpp"
 namespace abclib::estimation

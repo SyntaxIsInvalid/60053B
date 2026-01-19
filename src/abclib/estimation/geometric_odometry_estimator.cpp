@@ -3,8 +3,9 @@
 #include <mutex>
 #include "abclib/math/angles.hpp"
 #include "abclib/telemetry/telemetry.hpp"
-#include "abclib/estimation/distance_measurement_model.hpp"
+#include "abclib/measurement/distance_measurement_model.hpp"
 #include "abclib/field/field_map.hpp"
+#include "abclib/field/coordinate_transform.hpp"
 namespace abclib::estimation
 {
     GeometricOdometryEstimator::GeometricOdometryEstimator(
@@ -94,39 +95,31 @@ namespace abclib::estimation
             return;
         }
 
-        // Get sensor position in field frame
-        double sensor_x_field, sensor_y_field;
-        field_map_.compute_sensor_global_position(
-            current_pose_.x_inches(),
-            current_pose_.y_inches(),
-            current_pose_.theta_rad(),
-            sensor_offset_forward_.to_inches(),
-            sensor_offset_lateral_.to_inches(),
-            sensor_x_field,
-            sensor_y_field);
+        // Compute sensor's global pose using SE2 composition
+        math::SE2 sensor_pose = field_map_.compute_sensor_global_pose(
+            current_pose_,
+            sensor_offset_forward_,
+            sensor_offset_lateral_,
+            units::Angle::from_radians(0.0)); // Assuming forward-facing sensor
 
         // Get which wall the sensor is facing
         field::FieldMap::Wall wall = field_map_.get_nearest_wall(
-            current_pose_.x_inches(),
-            current_pose_.y_inches(),
-            current_pose_.theta_rad(),
-            0.0);
+            current_pose_,
+            units::Angle::from_radians(0.0)); // Sensor bearing relative to robot
 
         // Compute expected distance to that wall
-        double expected_distance = field_map_.compute_distance_to_wall(
-            sensor_x_field,
-            sensor_y_field,
-            current_pose_.theta_rad(),
+        units::Length expected_distance = field_map_.compute_distance_to_wall(
+            sensor_pose,
             wall);
 
         // If ray doesn't hit wall (parallel case), skip correction
-        if (expected_distance < 0.0)
+        if (expected_distance.to_inches() < 0.0)
         {
             return;
         }
 
         // Compute error
-        double error_inches = measured_distance.to_inches() - expected_distance;
+        double error_inches = measured_distance.to_inches() - expected_distance.to_inches();
 
         // Compute correction vector in field frame
         double cos_theta = std::cos(current_pose_.theta_rad());
@@ -186,21 +179,29 @@ namespace abclib::estimation
         // Telemetry
         {
             auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
+            telem.pose_standard = current_pose_;
+            telem.pose_corner = field::standard_to_alliance_corner(
+                current_pose_,
+                telem.current_alliance, // Make sure this is set!
+                field_map_.get_field_config());
 
             telem.heading_wall = field_map_.get_nearest_wall(
-                current_pose_.x_inches(),
-                current_pose_.y_inches(),
-                current_pose_.theta_rad(),
-                0.0);
+                current_pose_,
+                units::Angle::from_radians(0.0));
 
-            double distance = field_map_.compute_distance_to_wall(
-                current_pose_.x_inches(),
-                current_pose_.y_inches(),
-                current_pose_.theta_rad(),
+            // Compute sensor pose for distance calculation
+            math::SE2 sensor_pose = field_map_.compute_sensor_global_pose(
+                current_pose_,
+                units::Length::from_inches(0.0), // Assuming robot center for telemetry
+                units::Length::from_inches(0.0),
+                units::Angle::from_radians(0.0));
+
+            units::Length distance = field_map_.compute_distance_to_wall(
+                sensor_pose,
                 telem.heading_wall);
 
-            telem.heading_wall_valid = (distance >= 0.0);
-            telem.heading_distance_to_wall = telem.heading_wall_valid ? units::Length::from_inches(distance) : units::Length::from_inches(-1.0);
+            telem.heading_wall_valid = (distance.to_inches() >= 0.0);
+            telem.heading_distance_to_wall = telem.heading_wall_valid ? distance : units::Length::from_inches(-1.0);
 
             telem.pose_v_raw = units::Velocity::from_ips(v_raw);
             telem.pose_omega_raw = units::AngularVelocity::from_rad_per_sec(omega_raw);

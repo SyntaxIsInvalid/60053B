@@ -26,7 +26,7 @@ namespace abclib::path
         angular_displacement_ = math::normalize_angle(end_heading - center_pose(2));
 
         // Enforce non-zero turn
-        if (std::abs(angular_displacement_) < 1e-6)
+        if (std::abs(angular_displacement_) < 1e-4)
         {
             throw std::invalid_argument(
                 "TurnInPlaceSegment: angular displacement is too small. "

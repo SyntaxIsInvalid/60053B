@@ -1,137 +1,173 @@
 #include "abclib/field/field_map.hpp"
-#include <limits>
 #include "abclib/math/angles.hpp"
+#include <limits>
+
 namespace abclib::field
 {
-    double FieldMap::compute_expected_distance(
-        double robot_x,
-        double robot_y,
-        double robot_theta,
-        double sensor_offset_forward,
-        double sensor_offset_lateral,
-        double sensor_bearing)
+    units::Length FieldMap::compute_expected_distance(
+        const estimation::Pose& robot_pose,
+        units::Length sensor_offset_forward,
+        units::Length sensor_offset_lateral,
+        units::Angle sensor_bearing)
     {
-        double sensor_x, sensor_y;
-        compute_sensor_global_position(
-            robot_x, robot_y, robot_theta,
-            sensor_offset_forward, sensor_offset_lateral,
-            sensor_x, sensor_y);
+        // Compute sensor's global pose using SE2 composition
+        math::SE2 sensor_pose = compute_sensor_global_pose(
+            robot_pose,
+            sensor_offset_forward,
+            sensor_offset_lateral,
+            sensor_bearing);
 
-        double sensor_global_heading = robot_theta + sensor_bearing;
-        Wall wall = get_nearest_wall(robot_x, robot_y, robot_theta, sensor_bearing);
+        // Determine which wall the sensor is facing
+        Wall wall = get_nearest_wall(robot_pose, sensor_bearing);
 
-        return compute_distance_to_wall(sensor_x, sensor_y, sensor_global_heading, wall);
+        // Compute distance to that wall
+        return compute_distance_to_wall(sensor_pose, wall);
+    }
+
+    math::SE2 FieldMap::compute_sensor_global_pose(
+        const estimation::Pose& robot_pose,
+        units::Length sensor_offset_forward,
+        units::Length sensor_offset_lateral,
+        units::Angle sensor_bearing)
+    {
+        // Create SE2 transformation from robot to sensor
+        // Sensor is offset by (forward, lateral) in robot's local frame
+        // and rotated by sensor_bearing relative to robot
+        double forward = sensor_offset_forward.to_inches();
+        double lateral = sensor_offset_lateral.to_inches();
+        double bearing = sensor_bearing.to_radians();
+
+        math::SE2 robot_to_sensor(forward, lateral, bearing);
+
+        // Compose transformations: world -> robot -> sensor
+        return robot_pose.se2 * robot_to_sensor;
     }
 
     FieldMap::Wall FieldMap::get_nearest_wall(
-        double robot_x,
-        double robot_y,
-        double robot_theta,
-        double sensor_bearing)
+        const estimation::Pose& robot_pose,
+        units::Angle sensor_bearing)
     {
-        double sensor_heading = robot_theta + sensor_bearing;
+        // Sensor's global heading = robot heading + sensor bearing
+        double sensor_heading = robot_pose.theta_rad() + sensor_bearing.to_radians();
         sensor_heading = math::normalize_angle(sensor_heading);
 
         double heading_deg = std::fmod(sensor_heading * 180.0 / M_PI, 360.0);
         if (heading_deg < 0.0)
-            heading_deg += 360.0; // C++ modulo can be negative
+            heading_deg += 360.0; // Ensure positive [0, 360)
 
-        // Same thresholds as Python - these are correct!
+        // Standard Math Frame Convention:
+        // 0° = East, 90° = North, 180° = West, 270° = South
         if (heading_deg >= 315.0 || heading_deg < 45.0)
         {
-            return Wall::NORTH;
+            return Wall::EAST;  // 0° faces East
         }
         else if (heading_deg >= 45.0 && heading_deg < 135.0)
         {
-            return Wall::WEST;
+            return Wall::NORTH;  // 90° faces North
         }
         else if (heading_deg >= 135.0 && heading_deg < 225.0)
         {
-            return Wall::SOUTH;
+            return Wall::WEST;  // 180° faces West
         }
         else // 225-315
         {
-            return Wall::EAST;
+            return Wall::SOUTH;  // 270° faces South
         }
     }
 
-    double FieldMap::compute_distance_to_wall(
-        double x,
-        double y,
-        double direction,
+    units::Length FieldMap::compute_distance_to_wall(
+        const math::SE2& sensor_pose,
         Wall wall)
     {
-        double dy_component = -std::sin(direction);
+        double x = sensor_pose.x();
+        double y = sensor_pose.y();
+        double direction = sensor_pose.theta();
+
+        // Standard math frame: direction is angle from +X axis (East)
         double dx_component = std::cos(direction);
+        double dy_component = std::sin(direction);
 
-        // Don't use epsilon checks - we already know which wall from get_nearest_wall()
-        // Just calculate the distance if the component is non-zero enough to divide safely
-        const double min_component = 1e-5; // Just to avoid division by near-zero
+        const double min_component = 1e-5; // Avoid division by near-zero
+
+        double dist_inches = -1.0;
 
         switch (wall)
         {
         case Wall::NORTH:
-            if (std::abs(dx_component) > min_component)
+            if (std::abs(dy_component) > min_component)
             {
-                double dist = (north_wall() - x) / dx_component;
-                return (dist >= 0) ? dist : -1.0;
+                double dist = (north_wall() - y) / dy_component;
+                dist_inches = (dist >= 0) ? dist : -1.0;
             }
-            return -1.0; // Parallel to wall
+            break;
 
         case Wall::SOUTH:
-            if (std::abs(dx_component) > min_component)
+            if (std::abs(dy_component) > min_component)
             {
-                double dist = (south_wall() - x) / dx_component;
-                return (dist >= 0) ? dist : -1.0;
+                double dist = (south_wall() - y) / dy_component;
+                dist_inches = (dist >= 0) ? dist : -1.0;
             }
-            return -1.0;
+            break;
 
         case Wall::EAST:
-            if (std::abs(dy_component) > min_component)
+            if (std::abs(dx_component) > min_component)
             {
-                double dist = (east_wall() - y) / dy_component;
-                return (dist >= 0) ? dist : -1.0;
+                double dist = (east_wall() - x) / dx_component;
+                dist_inches = (dist >= 0) ? dist : -1.0;
             }
-            return -1.0;
+            break;
 
         case Wall::WEST:
-            if (std::abs(dy_component) > min_component)
+            if (std::abs(dx_component) > min_component)
             {
-                double dist = (west_wall() - y) / dy_component;
-                return (dist >= 0) ? dist : -1.0;
+                double dist = (west_wall() - x) / dx_component;
+                dist_inches = (dist >= 0) ? dist : -1.0;
             }
-            return -1.0;
+            break;
 
         case Wall::NONE:
         default:
-            return -1.0;
+            break;
         }
+
+        return units::Length::from_inches(dist_inches);
     }
 
-    double FieldMap::get_wall_position(Wall wall)
+    units::Length FieldMap::get_wall_position(Wall wall)
     {
+        double pos_inches;
         switch (wall)
         {
         case Wall::NORTH:
-            return north_wall();
+            pos_inches = north_wall();
+            break;
         case Wall::SOUTH:
-            return south_wall();
+            pos_inches = south_wall();
+            break;
         case Wall::EAST:
-            return east_wall();
+            pos_inches = east_wall();
+            break;
         case Wall::WEST:
-            return west_wall();
+            pos_inches = west_wall();
+            break;
         case Wall::NONE:
         default:
-            return 0.0;
+            pos_inches = 0.0;
+            break;
         }
+        return units::Length::from_inches(pos_inches);
     }
 
-    bool FieldMap::is_inside_field(double x, double y, double margin)
+    bool FieldMap::is_inside_field(const math::SE2& pose, units::Length margin)
     {
-        return (x >= west_wall() + margin &&
-                x <= east_wall() - margin &&
-                y >= south_wall() + margin &&
-                y <= north_wall() - margin);
+        double x = pose.x();
+        double y = pose.y();
+        double m = margin.to_inches();
+
+        return (x >= west_wall() + m &&
+                x <= east_wall() - m &&
+                y >= south_wall() + m &&
+                y <= north_wall() - m);
     }
 
     const char *FieldMap::wall_to_string(Wall wall)
@@ -151,21 +187,5 @@ namespace abclib::field
         default:
             return "UNKNOWN";
         }
-    }
-
-    void FieldMap::compute_sensor_global_position(
-        double robot_x,
-        double robot_y,
-        double robot_theta,
-        double sensor_offset_forward,
-        double sensor_offset_lateral,
-        double &sensor_x_out,
-        double &sensor_y_out)
-    {
-        double cos_theta = std::cos(robot_theta);
-        double sin_theta = std::sin(robot_theta);
-
-        sensor_x_out = robot_x + sensor_offset_forward * cos_theta - sensor_offset_lateral * sin_theta;
-        sensor_y_out = robot_y + sensor_offset_forward * sin_theta + sensor_offset_lateral * cos_theta;
     }
 }

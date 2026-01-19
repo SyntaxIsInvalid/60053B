@@ -609,8 +609,8 @@ namespace abclib::ui
     {
         if (overview_labels.size() >= 4)
         {
-            char buf0[128]; // Increased size for wall info
-            char buf1[256];
+            char buf0[128];
+            char buf1[320]; // Increased size for both poses
             char buf2[64];
             char buf3[64];
 
@@ -624,15 +624,15 @@ namespace abclib::ui
                      data.heading_wall_valid ? "OK" : "--");
             lv_label_set_text(overview_labels[0], buf0);
 
-            // Label 1: Both poses on one line
+            // Label 1: Both poses - Corner frame and Math/Center frame
             snprintf(buf1, sizeof(buf1),
-                     "Corner: X:%.1f Y:%.1f Th:%.1f  |  Center: X:%.1f Y:%.1f Th:%.1f",
+                     "Corner: X:%.1f Y:%.1f Th:%.1f | Center: X:%.1f Y:%.1f Th:%.1f",
                      data.pose_corner.x_inches(),
                      data.pose_corner.y_inches(),
                      data.pose_corner.theta_deg(),
-                     data.pose_center.x_inches(),
-                     data.pose_center.y_inches(),
-                     data.pose_center.theta_deg());
+                     data.pose_standard.x_inches(),
+                     data.pose_standard.y_inches(),
+                     data.pose_standard.theta_deg());
             lv_label_set_text(overview_labels[1], buf1);
 
             // Label 2: Velocity

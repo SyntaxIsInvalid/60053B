@@ -3,6 +3,8 @@
 #include "abclib/units/units.hpp"
 #include "abclib/field/field_config.hpp"
 #include "abclib/field/alliance.hpp"
+#include "abclib/estimation/pose.hpp"
+#include "abclib/math/SE2.hpp"
 #include <cmath>
 #include <algorithm>
 
@@ -37,42 +39,53 @@ namespace abclib::field
 
         void set_alliance(Alliance alliance) { alliance_ = alliance; }
         Alliance get_alliance() const { return alliance_; }
+        const FieldConfig& get_field_config() const { return config_; }
+        /**
+         * Compute expected distance reading from a sensor
+         * All inputs in standard math frame
+         */
+        units::Length compute_expected_distance(
+            const estimation::Pose& robot_pose,
+            units::Length sensor_offset_forward,
+            units::Length sensor_offset_lateral,
+            units::Angle sensor_bearing);
 
-        double compute_expected_distance(
-            double robot_x,
-            double robot_y,
-            double robot_theta,
-            double sensor_offset_forward,
-            double sensor_offset_lateral,
-            double sensor_bearing);
-
+        /**
+         * Determine which wall a sensor is facing
+         */
         Wall get_nearest_wall(
-            double robot_x,
-            double robot_y,
-            double robot_theta,
-            double sensor_bearing);
+            const estimation::Pose& robot_pose,
+            units::Angle sensor_bearing);
 
-        double compute_distance_to_wall(
-            double x,
-            double y,
-            double direction,
+        /**
+         * Compute distance from sensor pose to a specific wall
+         */
+        units::Length compute_distance_to_wall(
+            const math::SE2& sensor_pose,
             Wall wall);
 
-        double get_wall_position(Wall wall);
+        /**
+         * Get the position of a wall (returns coordinate value)
+         */
+        units::Length get_wall_position(Wall wall);
 
-        bool is_inside_field(double x, double y, double margin = 0.0);
+        /**
+         * Check if a pose is inside the field with optional margin
+         */
+        bool is_inside_field(const math::SE2& pose, units::Length margin = units::Length::from_inches(0));
 
+        /**
+         * Convert wall enum to string
+         */
         static const char *wall_to_string(Wall wall);
 
-        void compute_sensor_global_position(
-            double robot_x,
-            double robot_y,
-            double robot_theta,
-            double sensor_offset_forward,
-            double sensor_offset_lateral,
-            double &sensor_x_out,
-            double &sensor_y_out);
-
-    private:
+        /**
+         * Compute sensor's global pose using SE2 transformations
+         */
+        math::SE2 compute_sensor_global_pose(
+            const estimation::Pose& robot_pose,
+            units::Length sensor_offset_forward,
+            units::Length sensor_offset_lateral,
+            units::Angle sensor_bearing);
     };
 }

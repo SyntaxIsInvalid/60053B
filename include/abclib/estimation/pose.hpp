@@ -6,14 +6,14 @@ namespace abclib::estimation
 {
     struct Pose
     {
-        math::SE2 se2;  // Position and orientation
+        math::SE2 se2; // Position and orientation
         units::Velocity v;
         units::AngularVelocity omega;
 
         // ============= CONSTRUCTORS =============
-        
+
         /** Default constructor - identity pose at origin */
-        Pose() 
+        Pose()
             : se2(math::SE2::Identity()),
               v(units::Velocity::from_ips(0)),
               omega(units::AngularVelocity::from_rad_per_sec(0)) {}
@@ -31,46 +31,46 @@ namespace abclib::estimation
               v(vel), omega(ang_vel) {}
 
         /** Construct from SE2 + velocities */
-        Pose(const math::SE2& transformation, 
-             units::Velocity vel, 
+        Pose(const math::SE2 &transformation,
+             units::Velocity vel,
              units::AngularVelocity ang_vel)
             : se2(transformation), v(vel), omega(ang_vel) {}
 
         /** Construct from SE2 only (zero velocities) */
-        explicit Pose(const math::SE2& transformation)
+        explicit Pose(const math::SE2 &transformation)
             : se2(transformation),
               v(units::Velocity::from_ips(0)),
               omega(units::AngularVelocity::from_rad_per_sec(0)) {}
 
         // ============= ACCESSORS =============
-        
+
         /** Get x position in inches */
         double x_inches() const { return se2.x(); }
-        
+
         /** Get y position in inches */
         double y_inches() const { return se2.y(); }
-        
+
         /** Get heading in radians */
         double theta_rad() const { return se2.theta(); }
-        
+
         /** Get heading in degrees */
         double theta_deg() const { return se2.theta() * 180.0 / M_PI; }
 
         /** Get x position as Length */
         units::Length x() const { return units::Length::from_inches(se2.x()); }
-        
+
         /** Get y position as Length */
         units::Length y() const { return units::Length::from_inches(se2.y()); }
-        
+
         /** Get heading as Angle */
         units::Angle theta() const { return units::Angle::from_radians(se2.theta()); }
 
         /** Get underlying SE2 transform */
-        const math::SE2& transform() const { return se2; }
-        math::SE2& transform() { return se2; }
-        
+        const math::SE2 &transform() const { return se2; }
+        math::SE2 &transform() { return se2; }
+
         // ============= SETTERS =============
-        
+
         void set_x(double x_in) { se2 = math::SE2(x_in, se2.y(), se2.theta()); }
         void set_y(double y_in) { se2 = math::SE2(se2.x(), y_in, se2.theta()); }
         void set_theta(double theta_radians) { se2 = math::SE2(se2.x(), se2.y(), theta_radians); }
@@ -82,15 +82,25 @@ namespace abclib::estimation
         // ============= SE2 OPERATIONS =============
 
         /** Transform this pose by another SE2 transformation */
-        Pose operator*(const math::SE2& transform) const
+        Pose operator*(const math::SE2 &transform) const
         {
             return Pose(se2 * transform, v, omega);
         }
 
         /** Get relative transformation to another pose */
-        math::SE2 relative_to(const Pose& other) const
+        math::SE2 relative_to(const Pose &other) const
         {
             return other.se2.inverse() * se2;
+        }
+
+        Eigen::Vector2d global_to_local(const Eigen::Vector2d &global_point) const
+        {
+            return se2.inverse() * global_point;
+        }
+
+        Eigen::Vector2d local_to_global(const Eigen::Vector2d &local_point) const
+        {
+            return se2 * local_point;
         }
     };
 }

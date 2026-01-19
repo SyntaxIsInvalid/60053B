@@ -56,5 +56,4 @@ namespace abclib::path
         double arc_length_;           // Arc length traced by wheels
         units::Length track_width_;   // Robot track width
     };
-
 } // namespace abclib::path

@@ -2,7 +2,7 @@
 #include "api.h"
 #include <optional>
 #include "state_estimator.hpp"
-#include "measurement_model.hpp"
+#include "abclib/measurement/measurement_model.hpp"
 #include "arc_length_differential_drive.hpp"
 #include "abclib/units/units.hpp"
 #include "pose.hpp"

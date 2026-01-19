@@ -1,6 +1,7 @@
 #include "abclib/control/pure_pursuit.hpp"
 #include <cmath>
 #include "abclib/math/angles.hpp"
+
 namespace abclib::control
 {
     double PurePursuit::calculate_curvature(
@@ -8,21 +9,16 @@ namespace abclib::control
         const estimation::Pose &robot_pose,
         units::Length lookahead_distance)
     {
-        // Transform lookahead point to robot frame
-        units::Length dx = units::Length::from_inches(lookahead_point.x()) - robot_pose.x();
-        units::Length dy = units::Length::from_inches(lookahead_point.y()) - robot_pose.y();
-
-        units::Angle heading = robot_pose.theta();
-        double cos_h = cos(heading);
-        double sin_h = sin(heading);
-
-        // Rotate to robot frame (robot at origin, facing +x)
-        units::Length local_x = dx * cos_h + dy * sin_h;
-        units::Length local_y = dx * (-sin_h) + dy * cos_h;
-
+        // Convert lookahead point to Eigen vector
+        Eigen::Vector2d global_point(lookahead_point.x(), lookahead_point.y());
+        
+        // Transform to robot's local frame
+        Eigen::Vector2d local_point = robot_pose.global_to_local(global_point);
+        
         // Pure pursuit curvature formula: κ = 2y / L²
-        double curvature = 2.0 * local_y.to_inches() / (lookahead_distance.to_inches() * lookahead_distance.to_inches());
-
+        double curvature = 2.0 * local_point.y() / 
+                          (lookahead_distance.to_inches() * lookahead_distance.to_inches());
+        
         return curvature;
     }
 
@@ -39,11 +35,8 @@ namespace abclib::control
         // Differential drive kinematics with curvature
         // v_left = v(1 - κd/2)
         // v_right = v(1 + κd/2)
-        double left = v * (1.0 - curvature * d / 2.0);
-        double right = v * (1.0 + curvature * d / 2.0);
-
-        left_velocity = units::Velocity::from_ips(left);
-        right_velocity = units::Velocity::from_ips(right);
+        left_velocity = units::Velocity::from_ips(v * (1.0 - curvature * d / 2.0));
+        right_velocity = units::Velocity::from_ips(v * (1.0 + curvature * d / 2.0));
     }
 
     double PurePursuit::calculate_heading_correction(
@@ -63,7 +56,7 @@ namespace abclib::control
             return 0.0;
         }
 
-        // Normalize heading error to [-pi, pi]
+        // Normalize heading error to [-π, π]
         units::Angle heading_error = target_heading - current_heading;
         double error_rad = math::normalize_angle(heading_error.to_radians());
 
@@ -72,10 +65,10 @@ namespace abclib::control
         double blend_factor = (progress - config.heading_start_threshold) / blend_range;
         blend_factor = std::clamp(blend_factor, 0.0, 1.0);
 
-        // Proportional controller: angular_velocity [rad/s] = kP [1/s] * error [rad]
+        // Proportional controller: ω [rad/s] = kP [1/s] × error [rad]
         double angular_velocity = error_rad * config.heading_correction_gain * blend_factor;
 
-        return angular_velocity; // rad/s
+        return angular_velocity;
     }
 
 } // namespace abclib::control

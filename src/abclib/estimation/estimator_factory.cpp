@@ -1,7 +1,7 @@
 #include "abclib/estimation/estimator_factory.hpp"
 #include "abclib/estimation/geometric_odometry_estimator.hpp"
 #include "abclib/estimation/ekf_odometry_estimator.hpp"
-#include "abclib/estimation/distance_measurement_model.hpp" // ADD THIS
+#include "abclib/measurement/distance_measurement_model.hpp" // ADD THIS
 #include "abclib/configs/robot_selection.hpp"
 #ifdef ROBOT_TEST_DRIVE
 #include "abclib/configs/test_robot.hpp"

@@ -4,6 +4,7 @@
 #include "abclib/math/angles.hpp"
 #include "abclib/telemetry/telemetry.hpp"
 #include "abclib/field/field_map.hpp"
+
 namespace abclib::estimation
 {
     EKFOdometryEstimator::EKFOdometryEstimator(
@@ -117,62 +118,47 @@ namespace abclib::estimation
 
     void EKFOdometryEstimator::update()
     {
-        const double dt = 0.01; // 10ms update rate
+        const double dt = 0.01;
 
-        // Get delta measurements (same as geometric)
+        // Get delta measurements
         units::Length delta_vertical = vertical_model_ ? vertical_model_->get_measurement() : units::Length::from_inches(0.0);
         units::Length delta_horizontal = horizontal_model_ ? horizontal_model_->get_measurement() : units::Length::from_inches(0.0);
         units::Angle delta_imu = imu_model_ ? imu_model_->get_measurement() : units::Angle::from_radians(0.0);
 
-        // Compute local motion using the same arc-length model
-        LocalMotion local_motion = ArcLengthDifferentialDrive::compute_local_motion(
+        // Compute local SE2 transformation (this is already correct!)
+        math::SE2 local_transform = ArcLengthDifferentialDrive::compute_local_transformation(
             delta_vertical,
             delta_horizontal,
             delta_imu,
             vertical_offset_,
             horizontal_offset_);
 
-        // Define the prediction function: f(x, dt)
+        // Define prediction using SE2 composition
         auto prediction_function = [&](const Eigen::Vector3d &state, double dt_unused) -> Eigen::Vector3d
         {
-            (void)dt_unused; // dt is already baked into the deltas
+            (void)dt_unused;
 
-            double x = state(0);
-            double y = state(1);
-            double theta = state(2);
+            // Convert state vector to SE2
+            math::SE2 current_pose(state(0), state(1), state(2));
 
-            // Average heading for integration
-            double avg_heading = theta + delta_imu.value() / 2.0;
+            // Compose: new_pose = current_pose * local_transform
+            math::SE2 new_pose = current_pose * local_transform;
 
-            // New state
+            // Convert back to state vector
             Eigen::Vector3d new_state;
-            new_state(0) = x + local_motion.y.value() * std::cos(avg_heading) +
-                           local_motion.x.value() * std::sin(avg_heading);
-            new_state(1) = y + local_motion.y.value() * std::sin(avg_heading) -
-                           local_motion.x.value() * std::cos(avg_heading);
-            new_state(2) = theta + delta_imu.value();
+            new_state << new_pose.x(), new_pose.y(), new_pose.theta();
 
             return new_state;
         };
 
-        // Define the Jacobian of the prediction function: F = ∂f/∂x
+        // Define Jacobian using SE2's Adjoint
         auto prediction_jacobian = [&](const Eigen::Vector3d &state, double dt_unused) -> Eigen::Matrix3d
         {
             (void)dt_unused;
 
-            double theta = state(2);
-            double avg_heading = theta + delta_imu.value() / 2.0;
-
-            double dx_local = local_motion.y.value();
-            double dy_local = local_motion.x.value();
-
-            // Jacobian matrix
-            Eigen::Matrix3d F;
-            F << 1.0, 0.0, -dx_local * std::sin(avg_heading) + dy_local * std::cos(avg_heading),
-                0.0, 1.0, dx_local * std::cos(avg_heading) + dy_local * std::sin(avg_heading),
-                0.0, 0.0, 1.0;
-
-            return F;
+            // The Jacobian for SE2 composition is the Adjoint matrix
+            math::SE2 current_pose(state(0), state(1), state(2));
+            return current_pose.Adjoint();
         };
 
         // EKF prediction step
@@ -196,13 +182,17 @@ namespace abclib::estimation
 
                     double x_in = units::Length::from_meters(x_m).to_inches();
                     double y_in = units::Length::from_meters(y_m).to_inches();
-
+                    #if 0
                     double expected_distance_in = field_map_.compute_expected_distance(
                         x_in, y_in, theta_rad,
                         SENSOR_FORWARD_OFFSET, SENSOR_LATERAL_OFFSET, SENSOR_BEARING);
 
                     Eigen::Matrix<double, 1, 1> z_predicted;
                     z_predicted(0) = units::Length::from_inches(expected_distance_in).to_meters();
+                    // return z_predicted;
+                    #endif
+                    Eigen::Matrix<double, 1, 1> z_predicted;
+                    z_predicted << 0;
                     return z_predicted;
                 };
 
@@ -283,7 +273,7 @@ namespace abclib::estimation
                 telem.pose_corner = current_pose_;
                 telem.pose_v_raw = units::Velocity::from_ips(v_raw);
                 telem.pose_omega_raw = units::AngularVelocity::from_rad_per_sec(omega_raw);
-
+                #if 0
                 // ADD THIS: Wall information (same as geometric)
                 telem.heading_wall = field_map_.get_nearest_wall(
                     current_pose_.x_inches(),
@@ -320,7 +310,7 @@ namespace abclib::estimation
                 telem.ekf_x_std = ekf_.get_state_uncertainty(0);     // in meters
                 telem.ekf_y_std = ekf_.get_state_uncertainty(1);     // in meters
                 telem.ekf_theta_std = ekf_.get_state_uncertainty(2); // in radians
-
+                #endif
                 abclib::telemetry::g_telemetry.swap();
             }
         }

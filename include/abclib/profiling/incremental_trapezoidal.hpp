@@ -1,4 +1,3 @@
-// incremental_trapezoidal.hpp
 #pragma once
 
 #include <algorithm>

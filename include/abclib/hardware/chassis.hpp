@@ -158,27 +158,12 @@ namespace abclib::hardware
 
         void turn_to_heading(units::Angle target_heading, // Changed from Degrees
                              units::Time timeout = units::Time::from_seconds(3),
-                             units::Voltage angular_min = units::Voltage::from_volts(0),
                              units::Voltage angular_max = units::Voltage::from_volts(6),
                              bool reset_position = false);
 
         void turn_relative(units::Angle angle_delta, // Changed from Degrees
                            units::Time timeout = units::Time::from_seconds(3),
-                           units::Voltage angular_min = units::Voltage::from_volts(0),
                            units::Voltage angular_max = units::Voltage::from_volts(6));
-
-        void euclidean_move_to_pose(
-            units::Length target_x,      // Changed from Distance
-            units::Length target_y,      // Changed from Distance
-            units::Angle target_heading, // Changed from Degrees
-            units::Time total_timeout = units::Time::from_seconds(15),
-            units::Time turn1_timeout = units::Time::from_seconds(5),
-            units::Time drive_timeout = units::Time::from_seconds(5),
-            units::Time turn2_timeout = units::Time::from_seconds(5),
-            units::Voltage lateral_min = units::Voltage::from_volts(0),
-            units::Voltage lateral_max = units::Voltage::from_volts(12),
-            units::Voltage angular_min = units::Voltage::from_volts(0),
-            units::Voltage angular_max = units::Voltage::from_volts(6));
 
         void move_voltage(units::Voltage left_voltage, units::Voltage right_voltage);
 
@@ -244,12 +229,6 @@ namespace abclib::hardware
             units::AngularVelocity max_angular_velocity,         // Changed from double
             units::AngularAcceleration max_angular_acceleration, // Changed from double
             units::Time timeout = units::Time::from_seconds(3));
-
-        void turn_to_heading_test(units::Angle target_heading, // Changed from Degrees
-                                  units::Time timeout,
-                                  units::Voltage angular_min,
-                                  units::Voltage angular_max,
-                                  bool reset_position = false);
 
         void set_settlement_config(const SettlementConfig &config)
         {
