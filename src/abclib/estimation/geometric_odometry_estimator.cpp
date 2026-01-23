@@ -15,11 +15,11 @@ namespace abclib::estimation
         units::Length vertical_offset,
         units::Length horizontal_offset,
         const field::FieldConfig &field_config,
-        IMeasurementModel<units::Length> *distance_sensor)
+        const std::vector<DistanceSensorConfig> &distance_sensors)
         : vertical_model_(vertical_model),
           horizontal_model_(horizontal_model),
           imu_model_(imu_model),
-          distance_sensor_(distance_sensor),
+          distance_sensors_(distance_sensors), // Store the sensor array
           vertical_offset_(vertical_offset),
           horizontal_offset_(horizontal_offset),
           field_map_(field_config)
@@ -77,60 +77,129 @@ namespace abclib::estimation
         return current_pose_;
     }
 
+    void GeometricOdometryEstimator::enable_sensor(size_t index, bool enable)
+    {
+        if (index < distance_sensors_.size())
+        {
+            distance_sensors_[index].enabled = enable;
+        }
+    }
+
+    void GeometricOdometryEstimator::set_sensor_blend_factor(size_t index, double factor)
+    {
+        if (index < distance_sensors_.size())
+        {
+            distance_sensors_[index].blend_factor = factor;
+        }
+    }
+
+    void GeometricOdometryEstimator::set_sensor_config(
+        size_t index,
+        units::Length offset_x,
+        units::Length offset_y,
+        units::Angle bearing,
+        double blend_factor)
+    {
+        if (index < distance_sensors_.size())
+        {
+            distance_sensors_[index].offset_x = offset_x;
+            distance_sensors_[index].offset_y = offset_y;
+            distance_sensors_[index].bearing = bearing;
+            distance_sensors_[index].blend_factor = blend_factor;
+        }
+    }
+
+    // geometric_odometry_estimator.cpp
+
     void GeometricOdometryEstimator::apply_distance_correction()
     {
-        // Early exit if correction is disabled or no sensor
-        if (!distance_correction_enabled_ || !distance_sensor_)
+        // Early exit if correction is disabled
+        if (!distance_correction_enabled_)
         {
             return;
         }
 
-        // Get measurement from sensor
-        units::Length measured_distance = distance_sensor_->get_measurement();
-
-        // Check if reading is valid
-        auto *distance_model = dynamic_cast<DistanceSensorMeasurementModel *>(distance_sensor_);
-        if (!distance_model || !distance_model->is_valid())
+        // Early exit if no sensors configured
+        if (distance_sensors_.empty())
         {
             return;
         }
 
-        // Compute sensor's global pose using SE2 composition
-        math::SE2 sensor_pose = field_map_.compute_sensor_global_pose(
-            current_pose_,
-            sensor_offset_forward_,
-            sensor_offset_lateral_,
-            units::Angle::from_radians(0.0)); // Assuming forward-facing sensor
+        // Accumulate weighted corrections from all sensors
+        Eigen::Vector2d total_correction(0.0, 0.0);
+        double total_weight = 0.0;
 
-        // Get which wall the sensor is facing
-        field::FieldMap::Wall wall = field_map_.get_nearest_wall(
-            current_pose_,
-            units::Angle::from_radians(0.0)); // Sensor bearing relative to robot
-
-        // Compute expected distance to that wall
-        units::Length expected_distance = field_map_.compute_distance_to_wall(
-            sensor_pose,
-            wall);
-
-        // If ray doesn't hit wall (parallel case), skip correction
-        if (expected_distance.to_inches() < 0.0)
+        // Loop through all sensors
+        for (const auto &sensor_config : distance_sensors_)
         {
-            return;
+            // Skip if sensor is disabled or null
+            if (!sensor_config.enabled || !sensor_config.sensor)
+            {
+                continue;
+            }
+
+            // Get measurement from sensor
+            units::Length measured_distance = sensor_config.sensor->get_measurement();
+
+            // Check if reading is valid
+            auto *distance_model = dynamic_cast<DistanceSensorMeasurementModel *>(sensor_config.sensor);
+            if (!distance_model || !distance_model->is_valid())
+            {
+                continue;
+            }
+
+            // Compute sensor's global pose using SE2 composition
+            math::SE2 sensor_pose = field_map_.compute_sensor_global_pose(
+                current_pose_,
+                sensor_config.offset_x,
+                sensor_config.offset_y,
+                sensor_config.bearing);
+
+            // Get which wall the sensor is facing
+            field::FieldMap::Wall wall = field_map_.get_nearest_wall(
+                current_pose_,
+                sensor_config.bearing);
+
+            // Compute expected distance to that wall
+            units::Length expected_distance = field_map_.compute_distance_to_wall(
+                sensor_pose,
+                wall);
+
+            // If ray doesn't hit wall (parallel case), skip this sensor
+            if (expected_distance.to_inches() < 0.0)
+            {
+                continue;
+            }
+
+            // Compute error (positive = measured > expected = robot further from wall)
+            double error_inches = measured_distance.to_inches() - expected_distance.to_inches();
+
+            // Compute correction vector in field frame using sensor's heading
+            double sensor_heading = sensor_pose.theta();
+            double cos_theta = std::cos(sensor_heading);
+            double sin_theta = std::sin(sensor_heading);
+
+            // Correction points in sensor direction (negative error to correct closer)
+            double correction_x = -error_inches * cos_theta;
+            double correction_y = -error_inches * sin_theta;
+
+            // Accumulate weighted correction
+            total_correction.x() += correction_x * sensor_config.blend_factor;
+            total_correction.y() += correction_y * sensor_config.blend_factor;
+            total_weight += sensor_config.blend_factor;
         }
 
-        // Compute error
-        double error_inches = measured_distance.to_inches() - expected_distance.to_inches();
+        // Apply the total weighted correction if any valid sensors contributed
+        if (total_weight > 0.0)
+        {
+            // Average the weighted corrections
+            double avg_correction_x = total_correction.x() / total_weight;
+            double avg_correction_y = total_correction.y() / total_weight;
 
-        // Compute correction vector in field frame
-        double cos_theta = std::cos(current_pose_.theta_rad());
-        double sin_theta = std::sin(current_pose_.theta_rad());
-
-        double correction_x = -error_inches * cos_theta;
-        double correction_y = -error_inches * sin_theta;
-
-        // Apply blended correction
-        current_pose_.set_x(current_pose_.x_inches() + distance_blend_factor_ * correction_x);
-        current_pose_.set_y(current_pose_.y_inches() + distance_blend_factor_ * correction_y);
+            // Apply blended correction to pose
+            current_pose_.set_x(current_pose_.x_inches() + avg_correction_x);
+            current_pose_.set_y(current_pose_.y_inches() + avg_correction_y);
+        }
     }
 
     void GeometricOdometryEstimator::update()

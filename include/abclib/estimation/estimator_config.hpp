@@ -1,7 +1,10 @@
+// estimator_config.hpp
 #pragma once
 
 #include "abclib/units/units.hpp"
 #include "abclib/field/field_config.hpp"
+#include "abclib/measurement/measurement_model.hpp"  // ADD THIS
+#include <vector>  // ADD THIS
 
 namespace abclib::estimation
 {
@@ -15,7 +18,17 @@ namespace abclib::estimation
     {
         FULL,           // Predict + Update with measurements
         PREDICTION_ONLY // Predict only, no corrections
-        // Future: UPDATE_ONLY for testing
+    };
+
+    // ADD THIS STRUCT
+    struct DistanceSensorConfig
+    {
+        IMeasurementModel<units::Length>* sensor = nullptr;
+        units::Length offset_x = units::Length::from_inches(0.0);      // Forward offset from tracking center
+        units::Length offset_y = units::Length::from_inches(0.0);      // Lateral offset from tracking center
+        units::Angle bearing = units::Angle::from_degrees(0);          // Direction sensor faces (robot-relative)
+        double blend_factor = 0.2;                                     // Weight for this sensor (0.0-1.0)
+        bool enabled = true;
     };
 
     struct EstimatorConfig
@@ -38,12 +51,5 @@ namespace abclib::estimation
             double process_noise_theta = 0.01;
 
         } ekf;
-    };
-
-    struct DistanceCorrectionConfig
-    {
-        units::Length sensor_offset_forward = units::Length::from_inches(0.0);
-        units::Length sensor_offset_lateral = units::Length::from_inches(0.0);
-        double blend_factor = 0.2;
     };
 }

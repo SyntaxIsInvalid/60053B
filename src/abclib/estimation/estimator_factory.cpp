@@ -1,7 +1,8 @@
+// estimator_factory.cpp
 #include "abclib/estimation/estimator_factory.hpp"
 #include "abclib/estimation/geometric_odometry_estimator.hpp"
 #include "abclib/estimation/ekf_odometry_estimator.hpp"
-#include "abclib/measurement/distance_measurement_model.hpp" // ADD THIS
+#include "abclib/measurement/distance_measurement_model.hpp"
 #include "abclib/configs/robot_selection.hpp"
 #ifdef ROBOT_TEST_DRIVE
 #include "abclib/configs/test_robot.hpp"
@@ -22,32 +23,48 @@ namespace abclib::estimation
         switch (config.type)
         {
         case FilterType::GEOMETRIC:
-        { // ADD THIS BRACE
-            // Get distance sensors from robot config
+        {
+            // Get hardware sensors
             auto [front_sensor, back_sensor] = robot_config::get_distance_sensors();
 
-            // Create distance sensor measurement model
-            auto distance_model = front_sensor ? new DistanceSensorMeasurementModel(front_sensor) : nullptr;
+            // Get sensor configurations (with geometry but no hardware wired yet)
+            auto sensor_configs = robot_config::get_distance_sensor_configs();
+
+            // Wire hardware sensors into configs
+            if (sensor_configs.size() > 0 && front_sensor)
+            {
+                sensor_configs[0].sensor = new DistanceSensorMeasurementModel(front_sensor);
+            }
+            if (sensor_configs.size() > 1 && back_sensor)
+            {
+                sensor_configs[1].sensor = new DistanceSensorMeasurementModel(back_sensor);
+            }
 
             return std::make_unique<GeometricOdometryEstimator>(
-                vertical_model, horizontal_model, imu_model,
-                config.vertical_offset, config.horizontal_offset,
+                vertical_model, 
+                horizontal_model, 
+                imu_model,
+                config.vertical_offset, 
+                config.horizontal_offset,
                 config.field_config,
-                distance_model);
-        } // ADD THIS BRACE
+                sensor_configs);  // Pass the wired sensor array
+        }
 
         case FilterType::EKF:
-        { // ADD THIS BRACE
-            // Get distance sensors from robot config
+        {
+            // Get hardware sensors
             auto [front_sensor, back_sensor] = robot_config::get_distance_sensors();
 
-            // Create distance sensor measurement model
-            auto front_distance_model = new DistanceSensorMeasurementModel(front_sensor);
+            // Create front distance sensor measurement model (EKF currently uses only front)
+            auto front_distance_model = front_sensor ? new DistanceSensorMeasurementModel(front_sensor) : nullptr;
 
             auto ekf = std::make_unique<EKFOdometryEstimator>(
-                vertical_model, horizontal_model, imu_model,
-                front_distance_model, // ADD THIS
-                config.vertical_offset, config.horizontal_offset,
+                vertical_model, 
+                horizontal_model, 
+                imu_model,
+                front_distance_model,
+                config.vertical_offset, 
+                config.horizontal_offset,
                 config.field_config,
                 config.mode);
 
@@ -59,17 +76,20 @@ namespace abclib::estimation
 
             ekf->set_process_noise(process_noise);
             return ekf;
-        } // ADD THIS BRACE
+        }
 
         default:
-        { // ADD THIS BRACE
+        {
+            // Default fallback: geometric with no sensors
             return std::make_unique<GeometricOdometryEstimator>(
-                vertical_model, horizontal_model, imu_model,
-                config.vertical_offset, config.horizontal_offset,
+                vertical_model, 
+                horizontal_model, 
+                imu_model,
+                config.vertical_offset, 
+                config.horizontal_offset,
                 config.field_config,
-                nullptr); // No distance sensor for default
-        } // ADD THIS BRACE
+                std::vector<DistanceSensorConfig>());  // Empty sensor array
+        }
         }
     }
-
 }

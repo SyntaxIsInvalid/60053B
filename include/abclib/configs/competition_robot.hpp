@@ -1,41 +1,42 @@
+// test_robot.hpp
 #pragma once
 #include "abclib/hardware/motor_group.hpp"
-#include "abclib/hardware/tracking_wheel.hpp"
+#include "abclib/hardware/motor_tracking_wheel.hpp"
 #include "abclib/units/units.hpp"
 #include "api.h"
 #include "abclib/control/ramsete.hpp"
 #include "abclib/estimation/estimator_config.hpp"
+#include "abclib/hardware/chassis.hpp"
+
 namespace abclib::robot_config
 {
-
     // Motor ports
     inline const std::vector<int8_t> LEFT_MOTOR_PORTS = {-11, -13, 12};
     inline const std::vector<int8_t> RIGHT_MOTOR_PORTS = {19, 20, -16};
     inline const std::vector<int8_t> TOP_INTAKE_PORTS = {-1};
-    inline const std::vector<int8_t> BOTTOM_INTAKE_PORTS = {10};
-
+    inline const std::vector<int8_t> BOTTOM_INTAKE_PORTS = {-10};
+    constexpr int8_t Y_ROTATION_PORT = -18;
     // Intake voltages - now using units::Voltage
     inline const units::Voltage TOP_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
     inline const units::Voltage TOP_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
     inline const units::Voltage BOTTOM_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
     inline const units::Voltage BOTTOM_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
 
+    // Pneumatic ports
+    constexpr char MATCH_LOAD_RAMP_PORT = 'G';
+    constexpr char HOOD_PORT = 'H';
+    constexpr char WING_PORT = 'F';
+
     // Sensor ports
     constexpr int8_t IMU_PORT = 17;
-    constexpr int8_t Y_ROTATION_PORT = -18;
-    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 15;
-    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 14;
+    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 3;
+    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 2;
 
-    // Pneumatic ports
-    constexpr char MATCH_LOAD_RAMP_PORT = 'A';
-    constexpr char HOOD_PORT = 'F';
-    constexpr char WING_PORT = 'E';
-
-    // Physical dimensions - now using units::Length
-    inline const units::Length WHEEL_DIAMETER = units::Length::from_inches(3.25);
-    inline const units::Length TRACK_WIDTH = units::Length::from_inches(14.0);
-    inline const units::Length Y_TRACKER_WHEEL_DIAMETER = units::Length::from_inches(2.0);
-    inline const units::Length Y_TRACKER_OFFSET = units::Length::from_inches(0.0);
+    // Physical dimensions (using typed units)
+    inline constexpr units::Length WHEEL_DIAMETER = units::Length::from_inches(3.25);
+    inline constexpr units::Length TRACK_WIDTH = units::Length::from_inches(27.0);
+        inline const units::Length Y_TRACKER_WHEEL_DIAMETER = units::Length::from_inches(2.0);
+    inline constexpr units::Length Y_TRACKER_OFFSET = units::Length::from_inches(7.5);
 
     inline std::pair<pros::Distance *, pros::Distance *> get_distance_sensors()
     {
@@ -45,78 +46,94 @@ namespace abclib::robot_config
         return {&front_sensor, &back_sensor};
     }
 
-    // Motor configurations (untuned)
+    // NEW: Distance sensor configurations with mounting geometry
+    inline std::vector<estimation::DistanceSensorConfig> get_distance_sensor_configs()
+    {
+        return {
+            // Front sensor - 3.35" ahead of tracking center, facing forward
+            {
+                .sensor = nullptr, // Will be filled by factory
+                .offset_x = units::Length::from_inches(3.35),
+                .offset_y = units::Length::from_inches(0.0),
+                .bearing = units::Angle::from_degrees(0), // Forward
+                .blend_factor = 0.2,
+                .enabled = true},
+            // Back sensor - 5" behind tracking center, facing backward
+            {
+                .sensor = nullptr,                            // Will be filled by factory
+                .offset_x = units::Length::from_inches(-5.0), // Negative = behind
+                .offset_y = units::Length::from_inches(0.0),
+                .bearing = units::Angle::from_degrees(180), // Backward
+                .blend_factor = 0.15,
+                .enabled = true}
+            // Add more sensors here as you add hardware...
+        };
+    }
+
+    // Motor configurations
     inline hardware::motor_group_config get_left_motor_config()
     {
         return hardware::motor_group_config{
-            .kS = 1.148090,
-            .kV = 0.165643,
-            .kA = 0,
-            .kPv = 0,
-            .kIv = 0,
-            .kDv = 0,
-            .enable_voltage_compensation = true};
+            .kS = 0.535278,
+            .kV = 0.158462,
+            .kA = 0.012848,
+            .kPv = 0.0,
+            .kIv = 0.25,
+            .kDv = 0.00,
+            .enable_voltage_compensation = true,
+            .compensation_nominal = units::Voltage::from_volts(12.0),
+            .compensation_min_battery = units::Voltage::from_volts(11.5)};
     }
 
     inline hardware::motor_group_config get_right_motor_config()
     {
         return hardware::motor_group_config{
-            .kS = 1.148090,
-            .kV = 0.165643,
-            .kA = 0,
-            .kPv = 0,
-            .kIv = 0,
-            .kDv = 0,
-            .enable_voltage_compensation = true};
+            .kS = 0.535278,
+            .kV = 0.158462,
+            .kA = 0.012848,
+            .kPv = 0.0,
+            .kIv = 0.0,
+            .kDv = 0.00,
+            .enable_voltage_compensation = true,
+            .compensation_nominal = units::Voltage::from_volts(12.0),
+            .compensation_min_battery = units::Voltage::from_volts(11.5)};
     }
 
-    // PID constants
-    inline control::PIDConstants get_lateral_pid()
+    inline hardware::SettlementConfig get_settlement_config()
     {
-        return control::PIDConstants(0.22, 0, 0);
+        return hardware::SettlementConfig{
+            .angular_threshold = units::Angle::from_degrees(1),
+            .position_threshold = units::Length::from_inches(0.6),
+            .angular_velocity_threshold = units::AngularVelocity::from_rad_per_sec(0.1),
+            .linear_velocity_threshold = units::Velocity::from_ips(0.15),
+            .settle_count_required = 3};
     }
 
-    inline control::PIDConstants get_angular_pid()
+    inline hardware::ControllerConfig get_controller_config()
     {
-        // return control::PIDConstants(4.7, 0, 0);
-        return control::PIDConstants(4.7, 0, 0);
+        return hardware::ControllerConfig{
+            .lateral_pid = {.67, 0, .025},
+            .angular_pid = {30, 0, 2.2},
+            .profiled_turn_pid = {25, 0.0, 0.0},
+            .profiled_lateral_pid = {2.0, 0.0, 0.0},
+            .turn_in_place_kS = 0.0,
+            .turn_in_place_kV = 0.0,
+            .turn_in_place_kA = 0.0,
+            .lateral_kS = 0.0,
+            .lateral_kV = 0.0,
+            .lateral_kA = 0.0,
+            .settlement = get_settlement_config(),
+            .ramsete = {2.0, 0.7}};
     }
-
-    // profiled turn pid constants
-    inline control::PIDConstants get_profiled_turn_pid()
-    {
-        return control::PIDConstants(6.2, 0.0, 0.0); // Tune these values
-    }
-
-    // profiled lateral pid constants
-    inline control::PIDConstants get_profiled_lateral_pid()
-    {
-        return control::PIDConstants(0.0, 0.0, 0.0); // Tune these values
-    }
-
-    inline control::RamseteConstants get_ramsete_config()
-    {
-        return control::RamseteConstants{2.0, 0.7}; // b, zeta
-    }
-
-    // Chassis config values (untuned) - these remain as raw doubles since they're feedforward gains
-    constexpr double TURN_IN_PLACE_KS = 1.227080;
-    constexpr double TURN_IN_PLACE_KV = 0.160866;
-    constexpr double TURN_IN_PLACE_KA = 0;
-
-    constexpr double LATERAL_KS = 0;
-    constexpr double LATERAL_KV = 0;
-    constexpr double LATERAL_KA = 0;
 
     inline estimation::EstimatorConfig get_estimator_config()
     {
         estimation::EstimatorConfig config;
-        config.type = estimation::FilterType::GEOMETRIC; // or GEOMETRIC/EKF
-        config.mode = estimation::FilterMode::FULL;
+        config.type = estimation::FilterType::GEOMETRIC;
+        config.mode = estimation::FilterMode::PREDICTION_ONLY;
         config.field_config = field::FieldConfig::custom(
-            units::Length::from_inches(24), // width
-            units::Length::from_inches(48)  // height
-        );
+            units::Length::from_inches(24),
+            units::Length::from_inches(48));
         return config;
     }
 }

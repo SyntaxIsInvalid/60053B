@@ -201,6 +201,7 @@ void opcontrol()
         {
             top_intake.set_voltage(4_V);
             bottom_intake.set_intake();
+            hood.extend();
         }
         // outake
         else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
@@ -217,7 +218,7 @@ void opcontrol()
         }
         else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
         {
-            hood.extend();
+            hood.retract();
             top_intake.set_intake();
             bottom_intake.set_intake();
         }
@@ -225,16 +226,15 @@ void opcontrol()
         {
             top_intake.set_voltage(3_V);
             bottom_intake.set_idle();
-            hood.retract();
         }
 #endif
 
 #if HAS_PNEUMATICS
-        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y))
+        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT))
         {
             match_load_ramp.toggle();
         }
-        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT))
+        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y))
         {
             wing.toggle();
         }

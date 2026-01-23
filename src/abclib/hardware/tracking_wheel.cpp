@@ -15,8 +15,8 @@ namespace abclib::hardware {
         double centidegrees = rotation_sensor->get_position();
         units::Angle angle = units::Angle::from_degrees(centidegrees / 100.0);
         
-        // arc length = radius * angle (in radians)
-        return radius * angle.to_radians();  // No explicit construction needed!
+
+        return radius * angle.to_radians();
     }
 
     units::Length TrackingWheel::get_offset() {

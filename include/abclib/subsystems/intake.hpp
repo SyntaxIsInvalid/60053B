@@ -52,13 +52,12 @@ namespace abclib::subsystems
         virtual void intake_for_voltage(units::Voltage voltage, units::Time duration);
         virtual void outtake_for_voltage(units::Voltage voltage, units::Time duration);
 
-        // Velocity control with PROS built-in controller
+        // Velocity control with PROS built in controller
         virtual void intake_at_velocity(units::AngularVelocity target_rpm);
         virtual void outtake_at_velocity(units::AngularVelocity target_rpm);
         virtual void intake_at_velocity_for(units::AngularVelocity target_rpm, units::Time duration);
         virtual void outtake_at_velocity_for(units::AngularVelocity target_rpm, units::Time duration);
 
-        // Direct voltage control (advanced)
         virtual void set_voltage(units::Voltage voltage);
 
         // State queries

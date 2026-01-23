@@ -87,8 +87,6 @@ namespace abclib::hardware
         bool use_pros_controller = false;
     };
 
-
-
     class Chassis
     {
     private:
@@ -111,10 +109,10 @@ namespace abclib::hardware
         ChassisConfig config_;
         field::Alliance alliance_;
         double ticks;
-        //std::unique_ptr<trajectory::PathFollower> path_follower_;
+        // std::unique_ptr<trajectory::PathFollower> path_follower_;
 
         SettlementConfig settlement_config_;
-
+        bool has_reached_xy_goal_ = false;
         bool check_angular_settlement(units::Angle error,           // Changed from Radians
                                       units::AngularVelocity omega, // Changed from BodyAngularVelocity
                                       int &settle_count) const;
@@ -148,7 +146,7 @@ namespace abclib::hardware
         estimation::Pose get_pose() const;
         const ChassisConfig &get_config() const { return config_; }
 
-        void drive_straight_relative(units::Length target_distance, // Changed from Distance
+        void drive_straight_relative(units::Length target_distance,
                                      units::Time timeout = units::Time::from_seconds(5),
                                      units::Voltage lateral_min = units::Voltage::from_volts(0),
                                      units::Voltage lateral_max = units::Voltage::from_volts(12),
@@ -156,12 +154,12 @@ namespace abclib::hardware
                                      units::Voltage angular_max = units::Voltage::from_volts(0),
                                      bool reset_position = false);
 
-        void turn_to_heading(units::Angle target_heading, // Changed from Degrees
+        void turn_to_heading(units::Angle target_heading,
                              units::Time timeout = units::Time::from_seconds(3),
                              units::Voltage angular_max = units::Voltage::from_volts(6),
                              bool reset_position = false);
 
-        void turn_relative(units::Angle angle_delta, // Changed from Degrees
+        void turn_relative(units::Angle angle_delta,
                            units::Time timeout = units::Time::from_seconds(3),
                            units::Voltage angular_max = units::Voltage::from_volts(6));
 
@@ -216,19 +214,10 @@ namespace abclib::hardware
         void move_velocity_pros(units::Velocity left_velocity,   // Changed from WheelLinearVelocity
                                 units::Velocity right_velocity); // Changed from WheelLinearVelocity
 
-        void move_straight_profiled(
-            units::Length distance,
-            units::Velocity max_velocity,
-            units::Acceleration max_acceleration, // Changed from double
-            units::Time timeout = units::Time::from_seconds(5),
-            double heading_tolerance = 0.1 // ~5.7 degrees tolerance for IMU drift
-        );
-
-        void turn_to_heading_profiled(
-            units::Angle target_heading,
-            units::AngularVelocity max_angular_velocity,         // Changed from double
-            units::AngularAcceleration max_angular_acceleration, // Changed from double
-            units::Time timeout = units::Time::from_seconds(3));
+        void reset_pure_pursuit_state()
+        {
+            has_reached_xy_goal_ = false;
+        }
 
         void set_settlement_config(const SettlementConfig &config)
         {
@@ -347,10 +336,18 @@ namespace abclib::hardware
         void set_pose_alliance_corner(units::Length x, units::Length y, units::Angle heading);
         void set_pose_standard(units::Length x, units::Length y, units::Angle heading);
         void enable_distance_correction(bool enable);
-        void configure_distance_correction(
-            units::Length sensor_offset_forward,
-            units::Length sensor_offset_lateral,
+
+        // NEW: Multi-sensor control methods
+        void enable_sensor(size_t index, bool enable);
+        void set_sensor_blend_factor(size_t index, double factor);
+        void configure_sensor(
+            size_t index,
+            units::Length offset_x,
+            units::Length offset_y,
+            units::Angle bearing,
             double blend_factor);
+        size_t get_sensor_count() const;
+
         bool is_distance_correction_enabled() const;
     };
 }

@@ -263,18 +263,6 @@ namespace abclib::hardware
         update_motor_velocity_telemetry();
     }
 
-    void Chassis::enable_distance_correction(bool enable)
-    {
-        if (estimator_)
-        {
-            auto *geo_estimator = dynamic_cast<estimation::GeometricOdometryEstimator *>(estimator_.get());
-            if (geo_estimator)
-            {
-                geo_estimator->enable_distance_correction(enable);
-            }
-        }
-    }
-
     void Chassis::set_pose(units::Length x, units::Length y, units::Angle heading)
     {
         // Default behavior: alliance corner frame (most common use case)
@@ -337,9 +325,48 @@ namespace abclib::hardware
         return estimator_->get_pose();
     }
 
-    void Chassis::configure_distance_correction(
-        units::Length sensor_offset_forward,
-        units::Length sensor_offset_lateral,
+    void Chassis::enable_distance_correction(bool enable)
+    {
+        if (estimator_)
+        {
+            auto *geo_estimator = dynamic_cast<estimation::GeometricOdometryEstimator *>(estimator_.get());
+            if (geo_estimator)
+            {
+                geo_estimator->enable_distance_correction(enable);
+            }
+        }
+    }
+
+    // ADD these NEW methods:
+    void Chassis::enable_sensor(size_t index, bool enable)
+    {
+        if (estimator_)
+        {
+            auto *geo_estimator = dynamic_cast<estimation::GeometricOdometryEstimator *>(estimator_.get());
+            if (geo_estimator)
+            {
+                geo_estimator->enable_sensor(index, enable);
+            }
+        }
+    }
+
+    void Chassis::set_sensor_blend_factor(size_t index, double factor)
+    {
+        if (estimator_)
+        {
+            auto *geo_estimator = dynamic_cast<estimation::GeometricOdometryEstimator *>(estimator_.get());
+            if (geo_estimator)
+            {
+                geo_estimator->set_sensor_blend_factor(index, factor);
+            }
+        }
+    }
+
+    void Chassis::configure_sensor(
+        size_t index,
+        units::Length offset_x,
+        units::Length offset_y,
+        units::Angle bearing,
         double blend_factor)
     {
         if (estimator_)
@@ -347,12 +374,25 @@ namespace abclib::hardware
             auto *geo_estimator = dynamic_cast<estimation::GeometricOdometryEstimator *>(estimator_.get());
             if (geo_estimator)
             {
-                geo_estimator->set_distance_sensor_offset(sensor_offset_forward, sensor_offset_lateral);
-                geo_estimator->set_distance_blend_factor(blend_factor);
+                geo_estimator->set_sensor_config(index, offset_x, offset_y, bearing, blend_factor);
             }
         }
     }
 
+    size_t Chassis::get_sensor_count() const
+    {
+        if (estimator_)
+        {
+            auto *geo_estimator = dynamic_cast<estimation::GeometricOdometryEstimator *>(estimator_.get());
+            if (geo_estimator)
+            {
+                return geo_estimator->get_sensor_count();
+            }
+        }
+        return 0;
+    }
+
+    // UPDATE is_distance_correction_enabled (should already be correct):
     bool Chassis::is_distance_correction_enabled() const
     {
         if (estimator_)
@@ -365,5 +405,4 @@ namespace abclib::hardware
         }
         return false;
     }
-
 }
