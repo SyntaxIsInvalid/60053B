@@ -39,7 +39,7 @@ namespace abclib::hardware
           angular_pid(chassis_config.controllers.angular_pid),
           ticks(chassis_config.left->get_ticks()),
           config_(chassis_config),
-          alliance_(field::Alliance::BLUE)
+          alliance_(field::Alliance::RED)
     {
         settlement_config_ = chassis_config.controllers.settlement;
         // Create measurement models

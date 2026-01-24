@@ -27,6 +27,7 @@ namespace abclib::telemetry  // Changed from just 'abclib'
         bool timing = true;              // loop timing metrics
         bool battery = true;             // battery monitoring
         bool ekf = false;
+        bool ramsete = false;
     };
 
     /**

@@ -207,6 +207,16 @@ namespace abclib::telemetry
             fprintf(file_, ",front_innovation_inches,back_innovation_inches");
         }
 
+        if (fields_.ramsete)
+        {
+            fprintf(file_, ",x_ref_in,y_ref_in,theta_ref_deg");
+            fprintf(file_, ",v_ref_ips,omega_ref_rps,curvature");
+            fprintf(file_, ",e_x_in,e_y_in,e_theta_deg"); // Body frame errors!
+            fprintf(file_, ",v_cmd_ips,omega_cmd_rps");
+            fprintf(file_, ",x_err_global_in,y_err_global_in"); // For plotting
+            fprintf(file_, ",k_gain,b_param,zeta_param");
+        }
+
         fprintf(file_, "\n");
         fflush(file_); // Ensure header is written immediately
     }
@@ -385,6 +395,32 @@ namespace abclib::telemetry
             fprintf(file_, ",%.3f,%.3f",
                     data.front_innovation.to_inches(),
                     data.back_innovation.to_inches());
+        }
+
+        if (fields_.ramsete)
+        {
+            fprintf(file_, ",%.3f,%.3f,%.3f",
+                    data.ramsete.x_ref.to_inches(),
+                    data.ramsete.y_ref.to_inches(),
+                    data.ramsete.theta_ref.to_degrees());
+            fprintf(file_, ",%.3f,%.3f,%.6f",
+                    data.ramsete.v_ref.to_ips(),
+                    data.ramsete.omega_ref.to_rad_per_sec(),
+                    data.ramsete.curvature);
+            fprintf(file_, ",%.3f,%.3f,%.3f",
+                    data.ramsete.e_x.to_inches(),
+                    data.ramsete.e_y.to_inches(),
+                    data.ramsete.e_theta.to_degrees());
+            fprintf(file_, ",%.3f,%.3f",
+                    data.ramsete.v_cmd.to_ips(),
+                    data.ramsete.omega_cmd.to_rad_per_sec());
+            fprintf(file_, ",%.3f,%.3f",
+                    data.ramsete.x_error.to_inches(),
+                    data.ramsete.y_error.to_inches());
+            fprintf(file_, ",%.3f,%.3f,%.3f",
+                    data.ramsete.k_gain,
+                    data.ramsete.b_param,
+                    data.ramsete.zeta_param);
         }
 
         fprintf(file_, "\n");

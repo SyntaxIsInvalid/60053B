@@ -23,39 +23,33 @@ namespace abclib::control
     {
         RamseteOutput output;
 
-        // Compute pose error in global frame (working in inches/radians)
-        const double e_x_global = reference_state.x - current_pose.x_inches();
-        const double e_y_global = reference_state.y - current_pose.y_inches();
-        const double e_theta = math::normalize_angle(reference_state.theta - current_pose.theta_rad());
+        // Create reference pose from trajectory state
+        math::SE2 ref_se2(reference_state.x, reference_state.y, reference_state.theta);
 
-        // Transform position error to robot's current body frame
-        // This represents the error as seen from the robot's current perspective
-        const double cos_theta = std::cos(current_pose.theta_rad());
-        const double sin_theta = std::sin(current_pose.theta_rad());
+        // Compute error in body frame using SE2 (like WPILib's relativeTo)
+        math::SE2 pose_error = current_pose.se2.inverse() * ref_se2;
 
-        const double e_x_body = cos_theta * e_x_global + sin_theta * e_y_global;
-        const double e_y_body = -sin_theta * e_x_global + cos_theta * e_y_global;
+        // Extract errors (already in body frame!)
+        const double e_x_body = pose_error.x();
+        const double e_y_body = pose_error.y();
+        const double e_theta = pose_error.theta();
 
-        // Get reference velocities (convert to inches/sec and rad/sec)
+        // Get reference velocities
         const double v_ref = reference_state.arc_velocity.to_ips();
         const double omega_ref = reference_state.omega;
 
         // Compute time-varying gain k
-        // k = 2 * zeta * sqrt(omega_ref^2 + b * v_ref^2)
         const double k = 2.0 * constants_.zeta *
                          std::sqrt(omega_ref * omega_ref +
                                    constants_.b * v_ref * v_ref);
 
         // RAMSETE control law
-        // v = v_ref * cos(e_theta) + k * e_x
         const double v_command = v_ref * std::cos(e_theta) + k * e_x_body;
-
-        // omega = omega_ref + k * e_theta + b * v_ref * sinc(e_theta) * e_y
         const double sinc_e_theta = math::sinc(e_theta);
         const double omega_command = omega_ref + k * e_theta +
                                      constants_.b * v_ref * sinc_e_theta * e_y_body;
 
-        // Wrap results in typed units
+        // Wrap results
         output.v = units::Velocity::from_ips(v_command);
         output.omega = units::AngularVelocity::from_rad_per_sec(omega_command);
         output.e_x = units::Length::from_inches(e_x_body);

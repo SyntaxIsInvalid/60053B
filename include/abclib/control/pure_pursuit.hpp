@@ -8,7 +8,6 @@ namespace abclib::control
 {
     struct PurePursuitConfig
     {
-        units::Length lookahead_distance = units::Length::from_inches(15.0);
         units::Velocity target_velocity = units::Velocity::from_ips(24.0);
 
         bool use_motion_profile = false;

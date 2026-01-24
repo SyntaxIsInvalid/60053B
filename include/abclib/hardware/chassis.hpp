@@ -196,8 +196,14 @@ namespace abclib::hardware
             bool reset_position = false);
 
         units::Length get_track_width() const { return track_width; } // Changed return type
-
         void stop_motors();
+        void update_ramsete_telemetry(
+            const trajectory::TrajectoryState &ref_state,
+            const control::RamseteOutput &output,
+            const estimation::Pose &current_pose,
+            double curvature,
+            double k_gain);
+
         /*
         void follow_segment(const path::IPathSegment *segment,
                             const trajectory::FollowerConfig &config)
@@ -301,6 +307,18 @@ namespace abclib::hardware
             right_motors->set_config(right_config);
         }
 
+        void follow_path_ramsete(
+            const path::Path &path,
+            units::Time timeout = units::Time::from_seconds(15));
+
+        void quintic_ramsete(
+            units::Length target_x,
+            units::Length target_y,
+            units::Angle target_heading,
+            units::Velocity max_velocity,
+            units::Acceleration max_acceleration,
+            units::Time timeout = units::Time::from_seconds(5));
+
         void follow_path_pure_pursuit(
             const path::Path &path,
             const control::PurePursuitConfig &config,
@@ -320,18 +338,6 @@ namespace abclib::hardware
             units::Velocity max_velocity,
             units::Acceleration max_acceleration,
             units::Time timeout);
-
-        void follow_path_ramsete(
-            const path::Path &path,
-            units::Time timeout = units::Time::from_seconds(15));
-
-        void quintic_ramsete(
-            units::Length target_x,
-            units::Length target_y,
-            units::Angle target_heading,
-            units::Velocity max_velocity,
-            units::Acceleration max_acceleration,
-            units::Time timeout = units::Time::from_seconds(5));
 
         void set_pose_alliance_corner(units::Length x, units::Length y, units::Angle heading);
         void set_pose_standard(units::Length x, units::Length y, units::Angle heading);

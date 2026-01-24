@@ -169,4 +169,44 @@ namespace abclib::hardware
             data.time_to_settle = units::Time::from_milliseconds(pros::millis() - start_time);
         }
     }
+
+    void Chassis::update_ramsete_telemetry(
+        const trajectory::TrajectoryState &ref_state,
+        const control::RamseteOutput &output,
+        const estimation::Pose &current_pose,
+        double curvature,
+        double k_gain)
+    {
+        auto &data = telemetry::g_telemetry.get_write_buffer();
+
+        // Reference state (what the trajectory wants)
+        data.ramsete.x_ref = units::Length::from_inches(ref_state.x);
+        data.ramsete.y_ref = units::Length::from_inches(ref_state.y);
+        data.ramsete.theta_ref = units::Angle::from_radians(ref_state.theta);
+        data.ramsete.v_ref = ref_state.arc_velocity;
+        data.ramsete.omega_ref = units::AngularVelocity::from_rad_per_sec(ref_state.omega);
+        data.ramsete.curvature = curvature;
+
+        // Ramsete errors (body frame - these are what Ramsete uses internally)
+        data.ramsete.e_x = output.e_x;
+        data.ramsete.e_y = output.e_y;
+        data.ramsete.e_theta = output.e_theta;
+
+        // Ramsete command outputs
+        data.ramsete.v_cmd = output.v;
+        data.ramsete.omega_cmd = output.omega;
+
+        // Global frame tracking errors (for visualization/plotting)
+        data.ramsete.x_error = units::Length::from_inches(
+            ref_state.x - current_pose.x_inches());
+        data.ramsete.y_error = units::Length::from_inches(
+            ref_state.y - current_pose.y_inches());
+
+        // Controller gain (varies with velocity and curvature)
+        data.ramsete.k_gain = k_gain;
+
+        // Store constants (these are fixed for the trajectory)
+        data.ramsete.b_param = config_.controllers.ramsete.b;
+        data.ramsete.zeta_param = config_.controllers.ramsete.zeta;
+    }
 }

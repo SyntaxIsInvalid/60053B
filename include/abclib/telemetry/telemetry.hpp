@@ -53,7 +53,7 @@ namespace abclib::telemetry
         units::Angle cumulative_angular_error = units::Angle::from_radians(0);
 
         // Pose (from odometry)
-        estimation::Pose pose_corner; // Alliance corner frame (public API)
+        estimation::Pose pose_corner;   // Alliance corner frame (public API)
         estimation::Pose pose_standard; // Field center frame (internal)
 
         // Raw velocities (before filtering)
@@ -174,6 +174,34 @@ namespace abclib::telemetry
 
         units::Length field_width = units::Length::from_inches(0);
         units::Length field_height = units::Length::from_inches(0);
+        struct RamseteData
+        {
+            // Reference state (what trajectory wants)
+            units::Length x_ref = units::Length::from_inches(0);
+            units::Length y_ref = units::Length::from_inches(0);
+            units::Angle theta_ref = units::Angle::from_radians(0);
+            units::Velocity v_ref = units::Velocity::from_ips(0);
+            units::AngularVelocity omega_ref = units::AngularVelocity::from_rad_per_sec(0);
+            double curvature = 0.0; // rad/inch
+
+            // Ramsete errors (in body frame - these are the critical ones!)
+            units::Length e_x = units::Length::from_inches(0); // longitudinal
+            units::Length e_y = units::Length::from_inches(0); // lateral
+            units::Angle e_theta = units::Angle::from_radians(0);
+
+            // Ramsete outputs
+            units::Velocity v_cmd = units::Velocity::from_ips(0);
+            units::AngularVelocity omega_cmd = units::AngularVelocity::from_rad_per_sec(0);
+
+            // Tracking errors (global frame for visualization)
+            units::Length x_error = units::Length::from_inches(0);
+            units::Length y_error = units::Length::from_inches(0);
+
+            // Gain values (for debugging adaptive gains)
+            double k_gain = 0.0; // time-varying gain
+            double b_param = 0.0;
+            double zeta_param = 0.0;
+        } ramsete;
     };
 
     // Double-buffered telemetry system

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include "abclib/path/quintic_hermite_segment.hpp"
+#include "abclib/telemetry/path_logger.hpp"
 
 namespace abclib::hardware
 {
@@ -22,7 +23,7 @@ namespace abclib::hardware
 
         while ((pros::millis() - start_time) < timeout.to_milliseconds())
         {
-            estimation::Pose robot_pose = get_pose();
+            estimation::Pose robot_pose = get_pose_standard();
             const auto &group = path.get_profile_groups()[0];
 
             // Find closest point on path
@@ -96,6 +97,20 @@ namespace abclib::hardware
                 continue; // Skip normal pure pursuit this iteration
             }
 
+            if (!config.use_final_turn && distance_to_end < 1)
+            {
+                path::Pose end_pose = group.get_end_pose();
+                double dx = end_pose(0) - robot_pose.x().to_inches();
+                double dy = end_pose(1) - robot_pose.y().to_inches();
+                double distance_to_goal = std::sqrt(dx * dx + dy * dy);
+
+                if (distance_to_goal < settlement_config_.position_threshold.to_inches())
+                {
+                    stop_motors();
+                    break; // Exit - reached goal!
+                }
+            }
+
             // ========================================
             // NORMAL PURE PURSUIT TRACKING
             // ========================================
@@ -124,7 +139,7 @@ namespace abclib::hardware
             }
             else
             {
-                current_lookahead = config.lookahead_distance;
+                current_lookahead = config.max_lookahead;
             }
 
             // Calculate lookahead point
@@ -243,20 +258,32 @@ namespace abclib::hardware
         units::Time timeout)
     {
         // Reset state before starting new path
-        reset_pure_pursuit_state(); // NEW
+        reset_pure_pursuit_state();
 
-        estimation::Pose current = get_pose();
+        // Get current pose in STANDARD frame (CHANGED)
+        estimation::Pose current_standard = get_pose_standard();
 
+        // Convert target from CORNER → STANDARD (NEW)
+        estimation::Pose target_corner(
+            target_x, target_y, target_heading,
+            units::Velocity::from_ips(0),
+            units::AngularVelocity::from_rad_per_sec(0));
+
+        estimation::Pose target_standard = field::alliance_corner_to_standard(
+            target_corner, alliance_, config_.field_config);
+
+        // Create path poses in STANDARD frame (CHANGED)
         path::Pose start(
-            current.x().to_inches(),
-            current.y().to_inches(),
-            current.theta().to_radians());
+            current_standard.x().to_inches(),
+            current_standard.y().to_inches(),
+            current_standard.theta().to_radians());
 
         path::Pose end(
-            target_x.to_inches(),
-            target_y.to_inches(),
-            target_heading.to_radians());
+            target_standard.x().to_inches(),
+            target_standard.y().to_inches(),
+            target_standard.theta().to_radians());
 
+        // Rest remains the same
         path::Path quintic_path;
         path::ProfileGroup group(
             "pure_pursuit_quintic",

@@ -1,86 +1,87 @@
-#if 0
 #include "abclib/hardware/chassis.hpp"
 #include "abclib/control/ramsete.hpp"
+#include "abclib/path/path_segment_interface.hpp"
 #include "abclib/path/quintic_hermite_segment.hpp"
-#include "abclib/trajectory/trajectory.hpp"
 #include <algorithm>
+#include <cmath>
 
 namespace abclib::hardware
 {
     void Chassis::follow_path_ramsete(
-        const path::Path& path,
+        const path::Path &path,
         units::Time timeout)
     {
-        if (path.empty()) {
-            return;
-        }
-
-        // Create RAMSETE controller with your tuned constants
-        control::Ramsete ramsete(config_.controllers.ramsete);
-
-        // Get the profile group and create trajectory
-        const auto& group = path.get_profile_groups()[0];
-        trajectory::Trajectory traj(&group);
-
         uint32_t start_time = pros::millis();
-        units::Time total_time = traj.get_total_time();
+        const auto &group = path.get_profile_groups()[0];
+        units::Time total_time = group.get_total_time();
+
+        control::Ramsete controller(config_.controllers.ramsete);
 
         while ((pros::millis() - start_time) < timeout.to_milliseconds())
         {
-            // Calculate elapsed time
-            units::Time elapsed = units::Time::from_milliseconds(pros::millis() - start_time);
+            double elapsed_seconds = (pros::millis() - start_time) / 1000.0;
+            units::Time current_time = units::Time::from_seconds(elapsed_seconds);
 
-            // Check if trajectory is complete
-            if (traj.is_complete(elapsed))
+            if (current_time >= total_time)
             {
                 stop_motors();
                 break;
             }
 
-            // Get current robot state
-            estimation::Pose robot_pose = get_pose();
+            // Get current pose in STANDARD frame
+            estimation::Pose robot_pose = get_pose_standard();
 
-            // Get reference state from trajectory
-            trajectory::TrajectoryState ref = traj.get_state(elapsed);
+            // Query trajectory state at current time
+            path::Pose target_pose = group.query_at_time(current_time);
+            units::Velocity v_ref = group.get_velocity_at_time(current_time);
 
-            // Compute RAMSETE control law
-            control::RamseteOutput output = ramsete.compute(robot_pose, ref);
+            // Compute reference angular velocity: ω = v·κ
+            double s = group.profile->get_position(current_time).to_inches();
+            double kappa = group.query_curvature(s);
+            double omega_ref = v_ref.to_ips() * kappa;
 
-            // Convert body velocities (v, omega) to wheel velocities
-            // For differential drive: v_left = v - omega * track_width / 2
-            //                        v_right = v + omega * track_width / 2
-            double v_command = output.v.to_ips();
-            double omega_command = output.omega.to_rad_per_sec();
-            double half_track = track_width.to_inches() / 2.0;
+            // Build trajectory state for Ramsete
+            trajectory::TrajectoryState ref_state;
+            ref_state.x = target_pose(0);
+            ref_state.y = target_pose(1);
+            ref_state.theta = target_pose(2);
+            ref_state.arc_velocity = v_ref;
+            ref_state.omega = omega_ref;
 
-            units::Velocity left_vel = units::Velocity::from_ips(
-                v_command - omega_command * half_track);
-            units::Velocity right_vel = units::Velocity::from_ips(
-                v_command + omega_command * half_track);
+            // Compute Ramsete control output
+            control::RamseteOutput output = controller.compute(robot_pose, ref_state);
 
-            // Command motors
-            move_velocity(left_vel, right_vel, 0, 0);
+            // Compute time-varying gain for telemetry
+            double omega_ref_sq = omega_ref * omega_ref;
+            double v_ref_sq = v_ref.to_ips() * v_ref.to_ips();
+            double k_gain = 2.0 * config_.controllers.ramsete.zeta *
+                            std::sqrt(omega_ref_sq + config_.controllers.ramsete.b * v_ref_sq);
 
-            // Update telemetry with tracking errors
-            update_lateral_telemetry(
-                output.e_x,
-                v_command,  // Use forward velocity as "output"
-                units::Length::from_inches(ref.x),
-                robot_pose.x,
-                0.01
-            );
-
-            update_angular_telemetry(
-                output.e_theta.to_radians(),
-                omega_command,
-                ref.theta,
-                robot_pose.theta_rad(),
-                0.01
-            );
-
+            // === UPDATE TELEMETRY ===
+            update_ramsete_telemetry(ref_state, output, robot_pose, kappa, k_gain);
             update_pose_telemetry(robot_pose);
 
-            pros::delay(10);  // 100Hz control loop
+            // Convert body velocities to wheel velocities
+            double half_track = track_width.to_inches() / 2.0;
+            units::Velocity left_vel = units::Velocity::from_ips(
+                output.v.to_ips() - output.omega.to_rad_per_sec() * half_track);
+            units::Velocity right_vel = units::Velocity::from_ips(
+                output.v.to_ips() + output.omega.to_rad_per_sec() * half_track);
+
+            // Store wheel commands in telemetry
+            {
+                auto &telem = telemetry::g_telemetry.get_write_buffer();
+                telem.left_wheel_cmd = left_vel;
+                telem.right_wheel_cmd = right_vel;
+            }
+
+            // Command motors
+            move_velocity(left_vel, right_vel);
+
+            // === CRITICAL: SWAP BUFFERS ===
+            telemetry::g_telemetry.swap();
+
+            pros::delay(10);
         }
 
         stop_motors();
@@ -94,39 +95,44 @@ namespace abclib::hardware
         units::Acceleration max_acceleration,
         units::Time timeout)
     {
-        // Get current pose
-        estimation::Pose current = get_pose();
-        
-        // Create start and end poses
+        // Get current pose in STANDARD frame
+        estimation::Pose current_standard = get_pose_standard();
+
+        // Convert target from CORNER -> STANDARD
+        estimation::Pose target_corner(
+            target_x, target_y, target_heading,
+            units::Velocity::from_ips(0),
+            units::AngularVelocity::from_rad_per_sec(0));
+
+        estimation::Pose target_standard = field::alliance_corner_to_standard(
+            target_corner, alliance_, config_.field_config);
+
+        // Create path poses in STANDARD frame
         path::Pose start(
-            current.x.to_inches(),
-            current.y.to_inches(),
-            current.theta.to_radians()
-        );
-        
+            current_standard.x().to_inches(),
+            current_standard.y().to_inches(),
+            current_standard.theta().to_radians());
+
         path::Pose end(
-            target_x.to_inches(),
-            target_y.to_inches(),
-            target_heading.to_radians()
-        );
-        
-        // Build quintic path with motion profile
-        path::Path quintic_path;
+            target_standard.x().to_inches(),
+            target_standard.y().to_inches(),
+            target_standard.theta().to_radians());
+
+        // Build path with motion profile
+        path::Path ramsete_path;
         path::ProfileGroup group(
-            "quintic_ramsete", 
+            "ramsete_quintic",
             max_velocity,
-            max_acceleration
-        );
-        
+            max_acceleration);
+
         auto segment = std::make_unique<path::QuinticHermiteSegment>(start, end);
         group.add_segment(std::move(segment));
-        group.compute_arc_length();  // Builds the trapezoidal velocity profile
-        
-        quintic_path.add_profile_group(std::move(group));
-        
-        // Follow with RAMSETE
-        follow_path_ramsete(quintic_path, timeout);
+        group.compute_arc_length();
+
+        ramsete_path.add_profile_group(std::move(group));
+
+        // Execute with Ramsete controller
+        follow_path_ramsete(ramsete_path, timeout);
     }
 
 } // namespace abclib::hardware
-#endif
