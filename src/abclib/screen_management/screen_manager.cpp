@@ -610,8 +610,8 @@ namespace abclib::ui
         if (overview_labels.size() >= 4)
         {
             char buf0[128];
-            char buf1[320]; // Increased size for both poses
-            char buf2[64];
+            char buf1[320];
+            char buf2[128]; // Increased for uncertainty display
             char buf3[64];
 
             // Label 0: Alliance and Wall info
@@ -635,10 +635,22 @@ namespace abclib::ui
                      data.pose_standard.theta_deg());
             lv_label_set_text(overview_labels[1], buf1);
 
-            // Label 2: Velocity
-            snprintf(buf2, sizeof(buf2), "V:%.2f W:%.2f",
-                     data.pose_v_raw.to_ips(),
-                     data.pose_omega_raw.to_rad_per_sec());
+            // Label 2: Velocity and Uncertainty
+            if (data.has_covariance)
+            {
+                snprintf(buf2, sizeof(buf2),
+                         "V:%.2f W:%.2f | Unc: Pos:%.2f\" Theta:%.1f",
+                         data.pose_v_raw.to_ips(),
+                         data.pose_omega_raw.to_rad_per_sec(),
+                         data.position_uncertainty.to_inches(),
+                         data.heading_uncertainty.to_degrees());
+            }
+            else
+            {
+                snprintf(buf2, sizeof(buf2), "V:%.2f W:%.2f | Unc: N/A",
+                         data.pose_v_raw.to_ips(),
+                         data.pose_omega_raw.to_rad_per_sec());
+            }
             lv_label_set_text(overview_labels[2], buf2);
 
             // Label 3: Battery

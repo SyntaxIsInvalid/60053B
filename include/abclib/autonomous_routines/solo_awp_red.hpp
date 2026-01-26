@@ -5,6 +5,7 @@ namespace abclib::auton
 {
     inline void solo_awp_red(RobotSubsystems &robot)
     {
+        robot.chassis.set_pose(0_in, 5_in, 0_deg);
         /*
         // Set starting position (alliance corner frame)
         robot.chassis.set_pose(0_in, 0_in, 90_deg);
@@ -46,31 +47,5 @@ namespace abclib::auton
             robot.chassis.get_alliance(),
             robot.chassis.get_config().field_config);
         */
-        telemetry::LogFields fields;
-        fields.pose = true;
-        fields.velocity = true;
-        fields.ramsete = true;
-        fields.motors = true;
-        fields.wheels = true;
-        fields.timing = true;
-        telemetry::Logger logger("straight_24in", false, fields);
-
-        // Create background logging task
-        pros::Task logging_task([&logger]()
-                                {
-        while (true) {
-            logger.log();
-            pros::delay(10);  // Log at 100Hz (same as control loop)
-        } });
-
-        robot.chassis.set_pose(0_in, 0_in, 0_deg);
-        robot.chassis.quintic_ramsete(
-            units::Length::from_inches(0),
-            units::Length::from_inches(24),
-            units::Angle::from_degrees(0),
-            units::Velocity::from_ips(6),
-            units::Acceleration::from_ips2(12),
-            units::Time::from_seconds(10));
-        logging_task.remove();
     }
 }

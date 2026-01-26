@@ -8,7 +8,7 @@ namespace abclib::field
         const estimation::Pose& robot_pose,
         units::Length sensor_offset_forward,
         units::Length sensor_offset_lateral,
-        units::Angle sensor_bearing)
+        units::Angle sensor_bearing) const
     {
         // Compute sensor's global pose using SE2 composition
         math::SE2 sensor_pose = compute_sensor_global_pose(
@@ -28,7 +28,7 @@ namespace abclib::field
         const estimation::Pose& robot_pose,
         units::Length sensor_offset_forward,
         units::Length sensor_offset_lateral,
-        units::Angle sensor_bearing)
+        units::Angle sensor_bearing) const
     {
         // Create SE2 transformation from robot to sensor
         // Sensor is offset by (forward, lateral) in robot's local frame
@@ -45,7 +45,7 @@ namespace abclib::field
 
     FieldMap::Wall FieldMap::get_nearest_wall(
         const estimation::Pose& robot_pose,
-        units::Angle sensor_bearing)
+        units::Angle sensor_bearing) const
     {
         // Sensor's global heading = robot heading + sensor bearing
         double sensor_heading = robot_pose.theta_rad() + sensor_bearing.to_radians();
@@ -77,7 +77,7 @@ namespace abclib::field
 
     units::Length FieldMap::compute_distance_to_wall(
         const math::SE2& sensor_pose,
-        Wall wall)
+        Wall wall) const
     {
         double x = sensor_pose.x();
         double y = sensor_pose.y();
@@ -133,7 +133,7 @@ namespace abclib::field
         return units::Length::from_inches(dist_inches);
     }
 
-    units::Length FieldMap::get_wall_position(Wall wall)
+    units::Length FieldMap::get_wall_position(Wall wall) const
     {
         double pos_inches;
         switch (wall)
@@ -158,7 +158,7 @@ namespace abclib::field
         return units::Length::from_inches(pos_inches);
     }
 
-    bool FieldMap::is_inside_field(const math::SE2& pose, units::Length margin)
+    bool FieldMap::is_inside_field(const math::SE2& pose, units::Length margin) const
     {
         double x = pose.x();
         double y = pose.y();

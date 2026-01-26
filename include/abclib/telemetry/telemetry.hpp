@@ -147,6 +147,15 @@ namespace abclib::telemetry
         double ekf_y_std;
         double ekf_theta_std;
 
+        // NEW: Covariance availability and combined uncertainty metrics
+        bool has_covariance = false;
+        units::Length position_uncertainty = units::Length::from_meters(-1.0);
+        units::Angle heading_uncertainty = units::Angle::from_radians(-1.0);
+
+        // NEW: Individual position uncertainties
+        units::Length x_uncertainty = units::Length::from_meters(-1.0);
+        units::Length y_uncertainty = units::Length::from_meters(-1.0);
+
         // Distance sensor measurements
         units::Length front_distance_measured;
         units::Length front_distance_expected;

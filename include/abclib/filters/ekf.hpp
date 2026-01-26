@@ -7,20 +7,23 @@ namespace abclib::filters
 {
     /**
      * @brief General-purpose Extended Kalman Filter implementation
-     * @tparam StateDim Dimension of the state vector
-     * @tparam MeasurementDim Dimension of the measurement vector
+     * @tparam StateDim Dimension of the state vector (compile-time fixed)
+     * 
+     * Measurements are runtime-variable to support dynamic sensor configurations.
      */
-    template <int StateDim, int MeasurementDim>
+    template <int StateDim>
     class ExtendedKalmanFilter
     {
     public:
         // Type aliases for cleaner code
         using StateVector = Eigen::Matrix<double, StateDim, 1>;
         using StateMatrix = Eigen::Matrix<double, StateDim, StateDim>;
-        using MeasurementVector = Eigen::Matrix<double, MeasurementDim, 1>;
-        using MeasurementMatrix = Eigen::Matrix<double, MeasurementDim, MeasurementDim>;
-        using KalmanGain = Eigen::Matrix<double, StateDim, MeasurementDim>;
-        using MeasurementJacobian = Eigen::Matrix<double, MeasurementDim, StateDim>;
+        
+        // Dynamic measurement types (runtime-variable size)
+        using MeasurementVector = Eigen::VectorXd;
+        using MeasurementMatrix = Eigen::MatrixXd;
+        using KalmanGain = Eigen::MatrixXd;  // StateDim × MeasurementDim (runtime)
+        using MeasurementJacobian = Eigen::MatrixXd;  // MeasurementDim × StateDim (runtime)
         
         // Function types for models
         using PredictionFunction = std::function<StateVector(const StateVector&, double dt)>;
@@ -32,7 +35,6 @@ namespace abclib::filters
         StateVector state_;              // Current state estimate (x)
         StateMatrix covariance_;         // State covariance (P)
         StateMatrix process_noise_;      // Process noise covariance (Q)
-        MeasurementMatrix measurement_noise_;  // Measurement noise covariance (R)
 
     public:
         /**
@@ -41,8 +43,7 @@ namespace abclib::filters
         ExtendedKalmanFilter()
             : state_(StateVector::Zero()),
               covariance_(StateMatrix::Identity()),
-              process_noise_(StateMatrix::Identity() * 0.01),
-              measurement_noise_(MeasurementMatrix::Identity() * 0.1)
+              process_noise_(StateMatrix::Identity() * 0.01)
         {
         }
 
@@ -52,12 +53,10 @@ namespace abclib::filters
         ExtendedKalmanFilter(
             const StateVector& initial_state,
             const StateMatrix& initial_covariance,
-            const StateMatrix& process_noise,
-            const MeasurementMatrix& measurement_noise)
+            const StateMatrix& process_noise)
             : state_(initial_state),
               covariance_(initial_covariance),
-              process_noise_(process_noise),
-              measurement_noise_(measurement_noise)
+              process_noise_(process_noise)
         {
         }
 
@@ -71,9 +70,6 @@ namespace abclib::filters
         
         void set_process_noise(const StateMatrix& Q) { process_noise_ = Q; }
         StateMatrix get_process_noise() const { return process_noise_; }
-        
-        void set_measurement_noise(const MeasurementMatrix& R) { measurement_noise_ = R; }
-        MeasurementMatrix get_measurement_noise() const { return measurement_noise_; }
 
         /**
          * @brief Prediction step of the EKF
@@ -98,23 +94,39 @@ namespace abclib::filters
 
         /**
          * @brief Update/Correction step of the EKF
-         * @param measurement Actual measurement z_k
+         * @param measurement Actual measurement z_k (runtime-sized)
          * @param h Measurement function: z = h(x)
-         * @param H Jacobian of h: ∂h/∂x
+         * @param H Jacobian of h: ∂h/∂x (MeasurementDim × StateDim, runtime-sized)
+         * @param R Measurement noise covariance (MeasurementDim × MeasurementDim)
          */
         void update(
             const MeasurementVector& measurement,
             MeasurementFunction h,
-            MeasurementJacobianFunction H)
+            MeasurementJacobianFunction H,
+            const MeasurementMatrix& R)
         {
+            // Get measurement dimension from actual measurement
+            int measurement_dim = measurement.size();
+            
             // Compute measurement Jacobian at current state
             MeasurementJacobian H_jacobian = H(state_);
+            
+            // Validate dimensions
+            if (H_jacobian.rows() != measurement_dim || H_jacobian.cols() != StateDim) {
+                // Dimension mismatch - skip update
+                return;
+            }
+            
+            if (R.rows() != measurement_dim || R.cols() != measurement_dim) {
+                // R dimension mismatch - skip update
+                return;
+            }
             
             // Innovation (measurement residual): y = z - h(x_k|k-1)
             MeasurementVector innovation = measurement - h(state_);
             
             // Innovation covariance: S = H*P_k|k-1*H^T + R
-            MeasurementMatrix S = H_jacobian * covariance_ * H_jacobian.transpose() + measurement_noise_;
+            MeasurementMatrix S = H_jacobian * covariance_ * H_jacobian.transpose() + R;
             
             // Kalman gain: K = P_k|k-1*H^T*S^-1
             KalmanGain K = covariance_ * H_jacobian.transpose() * S.inverse();
@@ -126,7 +138,8 @@ namespace abclib::filters
             // Using Joseph form for numerical stability
             StateMatrix I = StateMatrix::Identity();
             StateMatrix temp = I - K * H_jacobian;
-            covariance_ = temp * covariance_ * temp.transpose() + K * measurement_noise_ * K.transpose();
+            covariance_ = temp * covariance_ * temp.transpose() + 
+                         K * R * K.transpose();
         }
 
         /**
@@ -139,21 +152,6 @@ namespace abclib::filters
             double dt)
         {
             predict(f, F, dt);
-        }
-
-        /**
-         * @brief Combined predict and update in one step
-         */
-        void step(
-            PredictionFunction f,
-            PredictionJacobianFunction F,
-            double dt,
-            const MeasurementVector& measurement,
-            MeasurementFunction h,
-            MeasurementJacobianFunction H)
-        {
-            predict(f, F, dt);
-            update(measurement, h, H);
         }
 
         /**

@@ -48,31 +48,31 @@ namespace abclib::field
             const estimation::Pose& robot_pose,
             units::Length sensor_offset_forward,
             units::Length sensor_offset_lateral,
-            units::Angle sensor_bearing);
+            units::Angle sensor_bearing) const;
 
         /**
          * Determine which wall a sensor is facing
          */
         Wall get_nearest_wall(
             const estimation::Pose& robot_pose,
-            units::Angle sensor_bearing);
+            units::Angle sensor_bearing) const;
 
         /**
          * Compute distance from sensor pose to a specific wall
          */
         units::Length compute_distance_to_wall(
             const math::SE2& sensor_pose,
-            Wall wall);
+            Wall wall) const;
 
         /**
          * Get the position of a wall (returns coordinate value)
          */
-        units::Length get_wall_position(Wall wall);
+        units::Length get_wall_position(Wall wall) const;
 
         /**
          * Check if a pose is inside the field with optional margin
          */
-        bool is_inside_field(const math::SE2& pose, units::Length margin = units::Length::from_inches(0));
+        bool is_inside_field(const math::SE2& pose, units::Length margin = units::Length::from_inches(0)) const;
 
         /**
          * Convert wall enum to string
@@ -86,6 +86,6 @@ namespace abclib::field
             const estimation::Pose& robot_pose,
             units::Length sensor_offset_forward,
             units::Length sensor_offset_lateral,
-            units::Angle sensor_bearing);
+            units::Angle sensor_bearing) const;
     };
 }

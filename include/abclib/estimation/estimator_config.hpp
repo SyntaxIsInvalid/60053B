@@ -3,8 +3,8 @@
 
 #include "abclib/units/units.hpp"
 #include "abclib/field/field_config.hpp"
-#include "abclib/measurement/measurement_model.hpp"  // ADD THIS
-#include <vector>  // ADD THIS
+#include "abclib/measurement/measurement_model.hpp"
+#include <vector>
 
 namespace abclib::estimation
 {
@@ -20,7 +20,6 @@ namespace abclib::estimation
         PREDICTION_ONLY // Predict only, no corrections
     };
 
-    // ADD THIS STRUCT
     struct DistanceSensorConfig
     {
         IMeasurementModel<units::Length>* sensor = nullptr;
@@ -45,10 +44,16 @@ namespace abclib::estimation
         // EKF-specific parameters (only used when type == EKF)
         struct EKFParams
         {
-            // Process noise
-            double process_noise_x = 0.01;
-            double process_noise_y = 0.01;
-            double process_noise_theta = 0.01;
+            // Process noise (standard deviation in SI units)
+            // Represents uncertainty in odometry prediction per update cycle
+            double process_noise_x = 0.01;      // meters (10mm)
+            double process_noise_y = 0.01;      // meters (10mm)
+            double process_noise_theta = 0.01;  // radians (~0.57 degrees)
+
+            // Measurement noise (standard deviation in SI units)
+            // Represents distance sensor accuracy
+            // Default: 0.05m = 50mm (conservative mid-range estimate)
+            double measurement_noise = 0.05;    // meters (50mm)
 
         } ekf;
     };
