@@ -15,27 +15,28 @@ namespace abclib::robot_config
     inline const std::vector<int8_t> RIGHT_MOTOR_PORTS = {19, 20, -16};
     inline const std::vector<int8_t> TOP_INTAKE_PORTS = {-1};
     inline const std::vector<int8_t> BOTTOM_INTAKE_PORTS = {-10};
+
+    // Sensor ports
+    constexpr int8_t IMU_PORT = 17;
     constexpr int8_t Y_ROTATION_PORT = -18;
-    // Intake voltages - now using units::Voltage
-    inline const units::Voltage TOP_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
-    inline const units::Voltage TOP_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
-    inline const units::Voltage BOTTOM_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
-    inline const units::Voltage BOTTOM_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
+    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 3;
+    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 2;
 
     // Pneumatic ports
     constexpr char MATCH_LOAD_RAMP_PORT = 'G';
     constexpr char HOOD_PORT = 'H';
     constexpr char WING_PORT = 'F';
 
-    // Sensor ports
-    constexpr int8_t IMU_PORT = 17;
-    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 3;
-    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 2;
+    // Intake voltages
+    inline constexpr units::Voltage TOP_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
+    inline constexpr units::Voltage TOP_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
+    inline constexpr units::Voltage BOTTOM_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
+    inline constexpr units::Voltage BOTTOM_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
 
-    // Physical dimensions (using typed units)
+    // Physical dimensions
     inline constexpr units::Length WHEEL_DIAMETER = units::Length::from_inches(3.25);
     inline constexpr units::Length TRACK_WIDTH = units::Length::from_inches(27.0);
-        inline const units::Length Y_TRACKER_WHEEL_DIAMETER = units::Length::from_inches(2.0);
+    inline constexpr units::Length Y_TRACKER_WHEEL_DIAMETER = units::Length::from_inches(2.0);
     inline constexpr units::Length Y_TRACKER_OFFSET = units::Length::from_inches(7.5);
 
     inline std::pair<pros::Distance *, pros::Distance *> get_distance_sensors()
@@ -46,7 +47,7 @@ namespace abclib::robot_config
         return {&front_sensor, &back_sensor};
     }
 
-    // NEW: Distance sensor configurations with mounting geometry
+    // Distance sensor configurations with mounting geometry
     inline std::vector<estimation::DistanceSensorConfig> get_distance_sensor_configs()
     {
         return {
@@ -57,7 +58,7 @@ namespace abclib::robot_config
                 .offset_y = units::Length::from_inches(0.0),
                 .bearing = units::Angle::from_degrees(0), // Forward
                 .blend_factor = 0.2,
-                .enabled = true},
+                .enabled = false},
             // Back sensor - 5" behind tracking center, facing backward
             {
                 .sensor = nullptr,                            // Will be filled by factory
@@ -65,7 +66,7 @@ namespace abclib::robot_config
                 .offset_y = units::Length::from_inches(0.0),
                 .bearing = units::Angle::from_degrees(180), // Backward
                 .blend_factor = 0.15,
-                .enabled = true}
+                .enabled = false}
             // Add more sensors here as you add hardware...
         };
     }
@@ -112,7 +113,7 @@ namespace abclib::robot_config
     inline hardware::ControllerConfig get_controller_config()
     {
         return hardware::ControllerConfig{
-            .lateral_pid = {.67, 0, .025},
+            .lateral_pid = {0.67, 0, 0.025},
             .angular_pid = {30, 0, 2.2},
             .profiled_turn_pid = {25, 0.0, 0.0},
             .profiled_lateral_pid = {2.0, 0.0, 0.0},
@@ -132,8 +133,9 @@ namespace abclib::robot_config
         config.type = estimation::FilterType::GEOMETRIC;
         config.mode = estimation::FilterMode::PREDICTION_ONLY;
         config.field_config = field::FieldConfig::custom(
-            units::Length::from_inches(24),
-            units::Length::from_inches(48));
+            units::Length::from_inches(24), // width
+            units::Length::from_inches(48)  // height
+        );
         return config;
     }
 }
