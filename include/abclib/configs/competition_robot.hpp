@@ -39,7 +39,7 @@ namespace abclib::robot_config
     inline constexpr units::Length Y_TRACKER_WHEEL_DIAMETER = units::Length::from_inches(2.0);
     inline constexpr units::Length Y_TRACKER_OFFSET = units::Length::from_inches(7.5);
 
-    inline std::pair<pros::Distance *, pros::Distance *> get_distance_sensors()
+    inline std::vector<pros::Distance *> get_distance_sensors()
     {
         static pros::Distance front_sensor(FRONT_DISTANCE_SENSOR_PORT);
         static pros::Distance back_sensor(BACK_DISTANCE_SENSOR_PORT);
