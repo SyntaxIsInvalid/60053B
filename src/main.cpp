@@ -94,7 +94,7 @@ ui::ScreenManager screen_manager;
 void initialize()
 {
     using namespace abclib::auton;
-
+    using namespace abclib::ui;
     register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red, AutonCategory::RED, field::Alliance::RED);
     register_auton(AutonRoutine::RED_LEFT, red_left, AutonCategory::RED, field::Alliance::RED);
     register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test, AutonCategory::TEST, field::Alliance::RED);
@@ -102,14 +102,14 @@ void initialize()
     register_auton(AutonRoutine::NONE, none, AutonCategory::TEST, field::Alliance::RED);
     lv_init();
     pros::lcd::initialize();
-    screen_manager.initialize();
+    screen_manager.initialize(DefaultScreen::OVERVIEW);
 
     screen_manager.show_calibration_screen();
     chassis.calibrate([](int progress, const char *status)
                       { screen_manager.update_calibration_progress(progress, status); });
     pros::delay(200);
     chassis.set_alliance(field::Alliance::RED);
-    chassis.set_pose(0_in, 0_in, 0_deg);
+    chassis.set_pose(0_in, 5_in, 0_deg);
     screen_manager.hide_calibration_screen();
 #if HAS_PNEUMATICS
     match_load_ramp.retract();
@@ -133,7 +133,8 @@ void initialize()
         
         // Get current alliance
         write_buf.current_alliance = chassis.get_alliance();
-        
+        write_buf.data_valid = true;
+
         abclib::telemetry::g_telemetry.swap();
         
         // Update screen with read buffer

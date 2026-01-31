@@ -5,6 +5,8 @@ namespace abclib::auton
 {
     inline void solo_awp_red(RobotSubsystems &robot)
     {
+        robot.chassis.set_pose(0_in, 5_in, 0_deg);
+        /*
         robot.chassis.set_pose(0_in, 0_in, -90_deg);
         robot.chassis.drive_straight_relative(35_in, 1.5_s);
         robot.wing.extend();
@@ -56,6 +58,7 @@ namespace abclib::auton
                      robot.match_load_ramp.extend();  
                      pros::delay(250);
         robot.chassis.drive_straight_relative(20_in, 5_s);
+        */
         //robot.match_load_ramp.extend();
         //robot.chassis.set_pose(0_in, 5_in, 0_deg);
         /*

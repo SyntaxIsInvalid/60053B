@@ -6,6 +6,16 @@
 
 namespace abclib::ui
 {
+    enum class DefaultScreen
+    {
+        OVERVIEW = 0,
+        PID = 1,
+        TRAJECTORY = 2,
+        PERFORMANCE = 3,
+        EKF = 4,
+        CONFIG = 5
+    };
+
     class ScreenManager
     {
     private:
@@ -25,6 +35,10 @@ namespace abclib::ui
         lv_obj_t *auton_tab_test;
         lv_obj_t *auton_tab_telemetry;
         lv_obj_t *auton_tab_image;
+        lv_obj_t *tab_ekf_debug;                                         // NEW
+        std::vector<lv_obj_t *> ekf_debug_labels;                        // NEW
+        void create_ekf_debug_tab();                                     // NEW
+        void update_ekf_debug_tab(const telemetry::TelemetryData &data); // NEW
 
         // Labels for each tab (created once, updated repeatedly)
         std::vector<lv_obj_t *> overview_labels;
@@ -65,8 +79,8 @@ namespace abclib::ui
         void create_auton_image_tab();
 
         // Auto-population helpers
-        void populate_dropdown(lv_obj_t* dropdown, abclib::auton::AutonCategory category);
-        void setup_dropdown_callback(lv_obj_t* dropdown, abclib::auton::AutonCategory category);
+        void populate_dropdown(lv_obj_t *dropdown, abclib::auton::AutonCategory category);
+        void setup_dropdown_callback(lv_obj_t *dropdown, abclib::auton::AutonCategory category);
 
         // Navigation helpers
         void create_navigation_bar();
@@ -111,17 +125,18 @@ namespace abclib::ui
         abclib::auton::AutonRoutine temp_selection = abclib::auton::AutonRoutine::NONE;
 
         // Confirm button tracking and colors
-        lv_obj_t* currently_highlighted_btn = nullptr;
-        static constexpr uint32_t CONFIRM_COLOR_HIGHLIGHTED = 0x00FF00;  // Bright green
-        static constexpr uint32_t CONFIRM_COLOR_NORMAL = 0x808080;       // Gray
+        lv_obj_t *currently_highlighted_btn = nullptr;
+        static constexpr uint32_t CONFIRM_COLOR_HIGHLIGHTED = 0x00FF00; // Bright green
+        static constexpr uint32_t CONFIRM_COLOR_NORMAL = 0x808080;      // Gray
 
         void confirm_auton_selection();
-        const char* wall_to_string(field::FieldMap::Wall wall);
+        const char *wall_to_string(field::FieldMap::Wall wall);
+
     public:
         ScreenManager() = default;
 
         // Initialize all tabs and UI elements
-        void initialize();
+        void initialize(DefaultScreen default_screen = DefaultScreen::OVERVIEW);
 
         // Update telemetry display (called from loop)
         void update_telemetry(const telemetry::TelemetryData &data);

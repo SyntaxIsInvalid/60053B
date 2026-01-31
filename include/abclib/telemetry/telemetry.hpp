@@ -29,6 +29,7 @@ namespace abclib::telemetry
     {
         // Timestamp
         units::Time timestamp = units::Time::from_seconds(0);
+        bool data_valid = false;
 
         // Lateral control (drive straight)
         units::Length lateral_error = units::Length::from_inches(0);

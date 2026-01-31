@@ -263,32 +263,43 @@ namespace abclib::estimation
             return new_state;
         };
 
-        // Define Jacobian using SE2's Adjoint
         auto prediction_jacobian = [&](const Eigen::Vector3d &state, double dt_unused) -> Eigen::Matrix3d
         {
             (void)dt_unused;
 
-            // The Jacobian for SE2 composition is the Adjoint matrix
-            // Note: Adjoint works in the same units as state, so conversion needed
-            double x_inches = units::Length::from_meters(state(0)).to_inches();
-            double y_inches = units::Length::from_meters(state(1)).to_inches();
-            math::SE2 current_pose(x_inches, y_inches, state(2));
+            double theta = state(2); // Current heading in radians
 
-            // Get Adjoint (works in inches for position components)
-            Eigen::Matrix3d Ad = current_pose.Adjoint();
+            // Get local transform components (in inches from SE2)
+            double dx_local_in = local_transform.x();
+            double dy_local_in = local_transform.y();
 
-            // Convert position rows from inches to meters
-            // Ad has structure:
-            // [R(2x2)  | cross_term(2x1)]
-            // [0(1x2)  | 1             ]
-            // The cross term in row i, col 2 has units of [output_i / radians]
-            // For x: inches/rad -> meters/rad (divide by inches_per_meter)
-            // For y: inches/rad -> meters/rad (divide by inches_per_meter)
-            const double meters_per_inch = 0.0254;
-            Ad(0, 2) *= meters_per_inch; // dx/dθ term
-            Ad(1, 2) *= meters_per_inch; // dy/dθ term
+            // Compute Jacobian of composition: ∂(state ⊕ delta)/∂state
+            // For SE(2) composition: new_pose = current_pose * local_transform
+            //
+            // new_x = x + cos(θ)·Δx - sin(θ)·Δy
+            // new_y = y + sin(θ)·Δx + cos(θ)·Δy
+            // new_θ = θ + Δθ
+            //
+            // Therefore:
+            // ∂new_x/∂θ = -sin(θ)·Δx - cos(θ)·Δy
+            // ∂new_y/∂θ =  cos(θ)·Δx - sin(θ)·Δy
 
-            return Ad;
+            double sin_theta = std::sin(theta);
+            double cos_theta = std::cos(theta);
+
+            double dx_dtheta_in = -sin_theta * dx_local_in - cos_theta * dy_local_in;
+            double dy_dtheta_in = cos_theta * dx_local_in - sin_theta * dy_local_in;
+
+            // Convert inches to meters for EKF state units
+            double dx_dtheta_m = units::Length::from_inches(dx_dtheta_in).to_meters();
+            double dy_dtheta_m = units::Length::from_inches(dy_dtheta_in).to_meters();
+
+            Eigen::Matrix3d F;
+            F << 1.0, 0.0, dx_dtheta_m,
+                0.0, 1.0, dy_dtheta_m,
+                0.0, 0.0, 1.0;
+
+            return F;
         };
         Eigen::Matrix3d Q_continuous = ekf_.get_process_noise();
         Eigen::Matrix3d Q_discrete = Q_continuous * dt;

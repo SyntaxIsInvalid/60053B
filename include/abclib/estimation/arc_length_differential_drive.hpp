@@ -55,7 +55,7 @@ namespace abclib::estimation
                 vertical_offset.to_inches() * dtheta
             );
             
-            return math::SE2(dx_local, dy_local, dtheta);
+            return math::SE2(dx_local, dy_local, dtheta); 
         }
     };
 }
