@@ -26,9 +26,9 @@ namespace abclib::robot_config
     inline std::vector<pros::Distance *> get_distance_sensors()
     {
         static pros::Distance front_sensor(FRONT_DISTANCE_SENSOR_PORT);
-        static pros::Distance back_sensor(BACK_DISTANCE_SENSOR_PORT);
+        // static pros::Distance back_sensor(BACK_DISTANCE_SENSOR_PORT);
 
-        return {&front_sensor, &back_sensor};
+        return {&front_sensor};
     }
 
     // NEW: Distance sensor configurations with mounting geometry
@@ -42,15 +42,7 @@ namespace abclib::robot_config
                 .offset_y = units::Length::from_inches(0.0),
                 .bearing = units::Angle::from_degrees(0), // Forward
                 .blend_factor = 0.2,
-                .enabled = true},
-            // Back sensor - 5" behind tracking center, facing backward
-            {
-                .sensor = nullptr,                            // Will be filled by factory
-                .offset_x = units::Length::from_inches(-5.0), // Negative = behind
-                .offset_y = units::Length::from_inches(0.0),
-                .bearing = units::Angle::from_degrees(180), // Backward
-                .blend_factor = 0.15,
-                .enabled = false}
+                .enabled = true}
             // Add more sensors here as you add hardware...
         };
     }
@@ -114,21 +106,26 @@ namespace abclib::robot_config
     inline estimation::EstimatorConfig get_estimator_config()
     {
         estimation::EstimatorConfig config;
-        config.type = estimation::FilterType::EKF;
-        config.mode = estimation::FilterMode::FULL; // No sensor updates
+        config.type = estimation::FilterType::BLENDED_GEOMETRIC;
+        config.mode = estimation::FilterMode::FULL;
         config.vertical_offset = Y_TRACKER_OFFSET;
         config.horizontal_offset = units::Length::from_inches(0.0);
         config.field_config = field::FieldConfig::custom(
-            units::Length::from_inches(24), // width
-            units::Length::from_inches(48)); // height
+            units::Length::from_inches(24),
+            units::Length::from_inches(48));
 
-        // Process noise
+        // EKF params (unused for blended geometric)
         config.ekf.process_noise_x = 0.01;
         config.ekf.process_noise_y = 0.01;
         config.ekf.process_noise_theta = 0.01;
-
-        // Measurement noise (unused in PREDICTION_ONLY, but set anyway)
         config.ekf.measurement_noise = 0.05;
+
+        // Blending params (used for blended geometric)
+        config.blending.enable_blending = true;
+        config.blending.require_stationary = false;                           // Blend while moving slowly
+        config.blending.max_blend_velocity = units::Velocity::from_ips(8.0);  // Blend if < 8 in/s
+        config.blending.max_expected_error = units::Length::from_inches(3.0); // Reject if >3" off
+        config.blending.max_sensor_reading = units::Length::from_mm(2100.0);  // Valid sensor range
 
         return config;
     }

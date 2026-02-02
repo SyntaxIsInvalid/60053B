@@ -1,4 +1,3 @@
-// estimator_factory.cpp
 #include "abclib/estimation/estimator_factory.hpp"
 #include "abclib/estimation/geometric_odometry_estimator.hpp"
 #include "abclib/estimation/ekf_odometry_estimator.hpp"
@@ -6,6 +5,7 @@
 #include "abclib/configs/robot_selection.hpp"
 #include <algorithm>
 #include <vector>
+#include "abclib/estimation/blended_geometric_estimator.hpp"
 #ifdef ROBOT_TEST_DRIVE
 #include "abclib/configs/test_robot.hpp"
 #elif defined(ROBOT_COMPETITION)
@@ -58,6 +58,25 @@ namespace abclib::estimation
                 config.horizontal_offset,
                 config.field_config,
                 sensor_configs);
+        }
+
+        case FilterType::BLENDED_GEOMETRIC: // NEW CASE
+        {
+            auto sensor_configs = build_sensor_array();
+
+            // Create default blending config
+            BlendingConfig blend_config;
+            // You could add blend params to EstimatorConfig if you want configurability
+
+            return std::make_unique<BlendedGeometricEstimator>(
+                vertical_model,
+                horizontal_model,
+                imu_model,
+                config.vertical_offset,
+                config.horizontal_offset,
+                config.field_config,
+                sensor_configs,
+                blend_config);
         }
 
         case FilterType::EKF:

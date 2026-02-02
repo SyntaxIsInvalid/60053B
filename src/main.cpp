@@ -109,7 +109,7 @@ void initialize()
                       { screen_manager.update_calibration_progress(progress, status); });
     pros::delay(200);
     chassis.set_alliance(field::Alliance::RED);
-    chassis.set_pose(0_in, 5_in, 0_deg);
+    chassis.set_pose(0_in, 0_in, 0_deg);
     screen_manager.hide_calibration_screen();
 #if HAS_PNEUMATICS
     match_load_ramp.retract();

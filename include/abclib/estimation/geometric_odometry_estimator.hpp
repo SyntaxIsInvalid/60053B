@@ -19,14 +19,9 @@ namespace abclib::estimation
         IMeasurementModel<units::Length> *vertical_model_;
         IMeasurementModel<units::Length> *horizontal_model_;
         IMeasurementModel<units::Angle> *imu_model_;
-        
-        // NEW: Multi-sensor support
-        std::vector<DistanceSensorConfig> distance_sensors_;
 
         units::Length vertical_offset_;
         units::Length horizontal_offset_;
-
-        bool distance_correction_enabled_ = false;
 
         Pose current_pose_{};
 
@@ -56,29 +51,7 @@ namespace abclib::estimation
         void set_pose(const Pose &pose) override;
         Pose get_pose() const override;
         void update() override;
-        
-        // Distance correction control
-        void enable_distance_correction(bool enable)
-        {
-            distance_correction_enabled_ = enable;
-        }
-
-        bool is_distance_correction_enabled() const
-        {
-            return distance_correction_enabled_;
-        }
-
-        // NEW multi-sensor methods:
-        void enable_sensor(size_t index, bool enable);
-        void set_sensor_blend_factor(size_t index, double factor);
-        void set_sensor_config(size_t index, 
-                              units::Length offset_x,
-                              units::Length offset_y, 
-                              units::Angle bearing,
-                              double blend_factor);
-        size_t get_sensor_count() const { return distance_sensors_.size(); }
 
     private:
-        void apply_distance_correction();
     };
 }

@@ -11,7 +11,8 @@ namespace abclib::estimation
     enum class FilterType
     {
         GEOMETRIC,
-        EKF
+        EKF,
+        BLENDED_GEOMETRIC  // NEW
     };
 
     enum class FilterMode
@@ -28,6 +29,19 @@ namespace abclib::estimation
         units::Angle bearing = units::Angle::from_degrees(0);          // Direction sensor faces (robot-relative)
         double blend_factor = 0.2;                                     // Weight for this sensor (0.0-1.0)
         bool enabled = true;
+    };
+
+    // NEW: Blending configuration
+    struct BlendingConfig
+    {
+        // Validation thresholds
+        units::Length max_sensor_reading = units::Length::from_mm(2100.0);  // 2000mm + 5%
+        units::Length max_expected_error = units::Length::from_inches(3.0); // Reject if off by >3"
+        units::Velocity max_blend_velocity = units::Velocity::from_ips(10.0); // Only blend when slow
+        
+        // Blending behavior
+        bool enable_blending = true;
+        bool require_stationary = false;  // If true, only blend when v ≈ 0
     };
 
     struct EstimatorConfig
@@ -56,5 +70,8 @@ namespace abclib::estimation
             double measurement_noise = 0.05;    // meters (50mm)
 
         } ekf;
+
+        // Blending-specific parameters (only used when type == BLENDED_GEOMETRIC)
+        BlendingConfig blending;
     };
 }
