@@ -17,7 +17,7 @@ namespace abclib::ui
         tab_pid = lv_tabview_add_tab(tabview, "PID");
         tab_trajectory = lv_tabview_add_tab(tabview, "Trajectory");
         tab_performance = lv_tabview_add_tab(tabview, "Performance");
-        tab_ekf_debug = lv_tabview_add_tab(tabview, "EKF");
+        tab_blended_debug = lv_tabview_add_tab(tabview, "EKF");
         tab_config = lv_tabview_add_tab(tabview, "Config");
 
         // Setup all telemetry tabs
@@ -25,7 +25,7 @@ namespace abclib::ui
         create_pid_tab();
         create_trajectory_tab();
         create_performance_tab();
-        create_ekf_debug_tab();
+        create_blended_debug_tab();
         create_config_tab();
 
         // Create custom navigation bar
@@ -258,85 +258,68 @@ namespace abclib::ui
         ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
         manager->confirm_auton_selection(); }, LV_EVENT_CLICKED, this);
     }
-    void ScreenManager::create_ekf_debug_tab()
+    void ScreenManager::create_blended_debug_tab()
     {
         // Create 5 full-width labels (same as overview style)
         for (int i = 0; i < 5; i++)
         {
-            lv_obj_t *label = lv_label_create(tab_ekf_debug);
+            lv_obj_t *label = lv_label_create(tab_blended_debug);
             lv_label_set_text(label, "Loading...");
             lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 60 + i * 30);
             lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
             lv_obj_set_width(label, 450); // Full width like overview
-            ekf_debug_labels.push_back(label);
+            blended_debug_labels.push_back(label);
         }
     }
 
-    void ScreenManager::update_ekf_debug_tab(const telemetry::TelemetryData &data)
+    void ScreenManager::update_blended_debug_tab(const telemetry::TelemetryData &data)
     {
-        if (ekf_debug_labels.size() >= 5)
+        if (blended_debug_labels.size() >= 5)
         {
             if (!data.data_valid)
             {
-                lv_label_set_text(ekf_debug_labels[0], "Waiting for telemetry...");
-                lv_label_set_text(ekf_debug_labels[1], "");
-                lv_label_set_text(ekf_debug_labels[2], "");
-                lv_label_set_text(ekf_debug_labels[3], "");
-                lv_label_set_text(ekf_debug_labels[4], "");
+                lv_label_set_text(blended_debug_labels[0], "Waiting for telemetry...");
+                lv_label_set_text(blended_debug_labels[1], "");
+                lv_label_set_text(blended_debug_labels[2], "");
+                lv_label_set_text(blended_debug_labels[3], "");
+                lv_label_set_text(blended_debug_labels[4], "");
                 return;
             }
             char buf[256];
 
-            // Label 0: Position and Wall (removed Alliance)
-            snprintf(buf, sizeof(buf), "Pos: X:%.1f\" Y:%.1f\" Th:%.1f deg | Wall: %s",
-                     data.ekf_x.to_inches(),
-                     data.ekf_y.to_inches(),
-                     data.ekf_theta.to_degrees(),
-                     wall_to_string(data.heading_wall));
-            lv_label_set_text(ekf_debug_labels[0], buf);
+            // Label 0: Position and Wall
+            snprintf(buf, sizeof(buf),
+                     "Corner: X:%.1f Y:%.1f Th:%.1f | Center: X:%.1f Y:%.1f Th:%.1f",
+                     data.pose_corner.x_inches(),
+                     data.pose_corner.y_inches(),
+                     data.pose_corner.theta_deg(),
+                     data.pose_standard.x_inches(),
+                     data.pose_standard.y_inches(),
+                     data.pose_standard.theta_deg());
+            lv_label_set_text(blended_debug_labels[0], buf);
 
-            // Label 1: Uncertainty (changed "Uncertainty" to "Unc")
-            if (data.has_covariance)
-            {
-                snprintf(buf, sizeof(buf), "Unc: Pos:%.2f\" Heading:%.1f deg | sX:%.2f\" sY:%.2f\"",
-                         data.position_uncertainty.to_inches(),
-                         data.heading_uncertainty.to_degrees(),
-                         data.x_uncertainty.to_inches(),
-                         data.y_uncertainty.to_inches());
-            }
-            else
-            {
-                snprintf(buf, sizeof(buf), "Unc: N/A");
-            }
-            lv_label_set_text(ekf_debug_labels[1], buf);
+            // Label 1: Velocity & Blending Status
+            snprintf(buf, sizeof(buf), "Vel: %.1f ips | Omega: %.1f rad/s | Blend: %s",
+                     data.pose_corner.v.to_ips(),
+                     data.pose_corner.omega.to_rad_per_sec(),
+                     data.front_distance_valid ? "ACTIVE" : "INACTIVE");
+            lv_label_set_text(blended_debug_labels[1], buf);
 
-            // Label 2: Front Sensor
+            // Label 2: Front Sensor Validation *** MOST IMPORTANT FOR STEP 1 ***
             snprintf(buf, sizeof(buf), "Front[%s]: Meas:%dmm Exp:%dmm Wall:%s Inn:%.0fmm",
                      data.front_distance_valid ? "OK" : "--",
                      (int)data.front_distance_measured.to_mm(),
                      (int)data.front_distance_expected.to_mm(),
                      field::FieldMap::wall_to_string(data.front_wall),
                      data.front_innovation.to_mm());
-            lv_label_set_text(ekf_debug_labels[2], buf);
+            lv_label_set_text(blended_debug_labels[2], buf);
 
-            // Label 3: Back Sensor
-            snprintf(buf, sizeof(buf), "Back[%s]: Meas:%dmm Exp:%dmm Wall:%s Inn:%.0fmm",
-                     data.back_distance_valid ? "OK" : "--",
-                     (int)data.back_distance_measured.to_mm(),
-                     (int)data.back_distance_expected.to_mm(),
-                     field::FieldMap::wall_to_string(data.back_wall),
-                     data.back_innovation.to_mm());
-            lv_label_set_text(ekf_debug_labels[3], buf);
+            // Label 3: Spare (for future correction info in Step 2)
+            snprintf(buf, sizeof(buf), "Correction: TBD");
+            lv_label_set_text(blended_debug_labels[3], buf);
 
-            // Label 4: Raw EKF state (changed "Std" to "SD")
-            snprintf(buf, sizeof(buf), "EKF State: %.3fm, %.3fm, %.3frad | SD: %.3f %.3f %.3f",
-                     data.ekf_x.to_meters(),
-                     data.ekf_y.to_meters(),
-                     data.ekf_theta.to_radians(),
-                     data.ekf_x_std,
-                     data.ekf_y_std,
-                     data.ekf_theta_std);
-            lv_label_set_text(ekf_debug_labels[4], buf);
+            // Label 4: Spare (or remove)
+            lv_label_set_text(blended_debug_labels[4], "");
         }
     }
     void ScreenManager::create_auton_test_tab()
@@ -690,7 +673,7 @@ namespace abclib::ui
     void ScreenManager::update_telemetry(const telemetry::TelemetryData &data)
     {
         update_overview_tab(data);
-        update_ekf_debug_tab(data);
+        update_blended_debug_tab(data);
         // Other tabs will be implemented later
     }
 

@@ -16,7 +16,6 @@ namespace abclib::robot_config
     // Sensor ports
     constexpr int8_t IMU_PORT = 9;
     constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 12;
-    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 1;
 
     // Physical dimensions (using typed units)
     inline constexpr units::Length WHEEL_DIAMETER = units::Length::from_inches(3.25);

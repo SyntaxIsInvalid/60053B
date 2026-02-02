@@ -12,7 +12,7 @@ namespace abclib::ui
         PID = 1,
         TRAJECTORY = 2,
         PERFORMANCE = 3,
-        EKF = 4,
+        BLENDED = 4,
         CONFIG = 5
     };
 
@@ -35,10 +35,10 @@ namespace abclib::ui
         lv_obj_t *auton_tab_test;
         lv_obj_t *auton_tab_telemetry;
         lv_obj_t *auton_tab_image;
-        lv_obj_t *tab_ekf_debug;                                         // NEW
-        std::vector<lv_obj_t *> ekf_debug_labels;                        // NEW
-        void create_ekf_debug_tab();                                     // NEW
-        void update_ekf_debug_tab(const telemetry::TelemetryData &data); // NEW
+        lv_obj_t *tab_blended_debug;                                         // NEW
+        std::vector<lv_obj_t *> blended_debug_labels;                        // NEW
+        void create_blended_debug_tab();                                     // NEW
+        void update_blended_debug_tab(const telemetry::TelemetryData &data); // NEW
 
         // Labels for each tab (created once, updated repeatedly)
         std::vector<lv_obj_t *> overview_labels;

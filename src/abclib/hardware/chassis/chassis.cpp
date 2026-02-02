@@ -16,6 +16,7 @@
 #include "abclib/estimation/ekf_odometry_estimator.hpp"
 #include "abclib/estimation/estimator_factory.hpp"
 #include "abclib/configs/robot_selection.hpp"
+#include "abclib/estimation/blended_geometric_estimator.hpp"
 #ifdef ROBOT_TEST_DRIVE
 #include "abclib/configs/test_robot.hpp"
 #elif defined(ROBOT_COMPETITION)
@@ -324,4 +325,48 @@ namespace abclib::hardware
         // Return directly from estimator (already in standard frame)
         return estimator_->get_pose();
     }
+    bool Chassis::set_sensor_blending_enabled(bool enabled)
+    {
+        // Try to cast to BlendedGeometricEstimator
+        auto *blended_estimator = dynamic_cast<estimation::BlendedGeometricEstimator *>(
+            estimator_.get());
+
+        if (blended_estimator)
+        {
+            blended_estimator->set_blending_enabled(enabled);
+            return true;
+        }
+
+        // Estimator doesn't support blending (e.g., pure geometric or EKF)
+        return false;
+    }
+
+    bool Chassis::is_sensor_blending_enabled() const
+    {
+        auto *blended_estimator = dynamic_cast<estimation::BlendedGeometricEstimator *>(
+            estimator_.get());
+
+        if (blended_estimator)
+        {
+            // You'll need to add a getter to BlendedGeometricEstimator
+            return blended_estimator->is_blending_enabled();
+        }
+
+        return false;
+    }
+
+    bool Chassis::set_blend_config(const estimation::BlendingConfig &config)
+    {
+        auto *blended_estimator = dynamic_cast<estimation::BlendedGeometricEstimator *>(
+            estimator_.get());
+
+        if (blended_estimator)
+        {
+            blended_estimator->set_blend_config(config);
+            return true;
+        }
+
+        return false;
+    }
+
 }

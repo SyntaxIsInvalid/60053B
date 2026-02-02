@@ -102,14 +102,14 @@ void initialize()
     register_auton(AutonRoutine::NONE, none, AutonCategory::TEST, field::Alliance::RED);
     lv_init();
     pros::lcd::initialize();
-    screen_manager.initialize(DefaultScreen::OVERVIEW);
+    screen_manager.initialize(DefaultScreen::BLENDED);
 
     screen_manager.show_calibration_screen();
     chassis.calibrate([](int progress, const char *status)
                       { screen_manager.update_calibration_progress(progress, status); });
     pros::delay(200);
     chassis.set_alliance(field::Alliance::RED);
-    chassis.set_pose(0_in, 0_in, 0_deg);
+    chassis.set_pose(0_in, 1_in, 0_deg);
     screen_manager.hide_calibration_screen();
 #if HAS_PNEUMATICS
     match_load_ramp.retract();

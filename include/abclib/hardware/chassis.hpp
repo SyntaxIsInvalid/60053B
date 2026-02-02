@@ -343,17 +343,8 @@ namespace abclib::hardware
         void set_pose_standard(units::Length x, units::Length y, units::Angle heading);
         void enable_distance_correction(bool enable);
 
-        // NEW: Multi-sensor control methods
-        void enable_sensor(size_t index, bool enable);
-        void set_sensor_blend_factor(size_t index, double factor);
-        void configure_sensor(
-            size_t index,
-            units::Length offset_x,
-            units::Length offset_y,
-            units::Angle bearing,
-            double blend_factor);
-        size_t get_sensor_count() const;
-
-        bool is_distance_correction_enabled() const;
+        bool set_sensor_blending_enabled(bool enabled);
+        bool is_sensor_blending_enabled() const;
+        bool set_blend_config(const estimation::BlendingConfig& config);
     };
 }
