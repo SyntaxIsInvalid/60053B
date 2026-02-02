@@ -6,7 +6,7 @@
 #include "abclib/control/ramsete.hpp"
 #include "abclib/estimation/estimator_config.hpp"
 #include "abclib/hardware/chassis.hpp"
-
+#include "abclib/control/pid/pid.hpp"
 namespace abclib::robot_config
 {
     // Motor ports
@@ -88,8 +88,15 @@ namespace abclib::robot_config
     inline hardware::ControllerConfig get_controller_config()
     {
         return hardware::ControllerConfig{
-            .lateral_pid = {0.6, 5, 0},
-            .angular_pid = {5, 50, 0},
+            .lateral_pid = {
+                .kP = 0.6,
+                .kI = 5,
+                .kD = 0,
+                .integral = {
+                    .max = control::calculate_max_integral_for_voltage(
+                        units::Voltage::from_volts(12.0),
+                        5)}},
+            .angular_pid = {.kP = 5, .kI = 50, .kD = 0, .integral = {.max = control::calculate_max_integral_for_voltage(units::Voltage::from_volts(12.0), 50)}},
             .profiled_turn_pid = {25, 0.0, 0.0},
             .profiled_lateral_pid = {2.0, 0.0, 0.0},
             .turn_in_place_kS = 1.278592,

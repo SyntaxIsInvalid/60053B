@@ -1,5 +1,5 @@
 // profiled_pid.cpp
-#include "abclib/control/profiled_pid.hpp"
+#include "abclib/control/pid/profiled_pid.hpp"
 #include <algorithm>
 #include <cmath>
 

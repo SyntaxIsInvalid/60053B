@@ -2,7 +2,7 @@
 
 #include <vector>
 #include "advanced_motor.hpp"
-#include "abclib/control/pid.hpp"
+#include "abclib/control/pid/pid.hpp"
 #include "abclib/units/units.hpp"
 
 namespace abclib::hardware

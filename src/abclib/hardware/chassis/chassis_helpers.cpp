@@ -11,7 +11,7 @@
 #include "abclib/path/straight_segment.hpp"
 #include "abclib/telemetry/logger.hpp"
 #include "abclib/trajectory/trajectory.hpp"
-#include "abclib/control/profiled_pid.hpp"
+#include "abclib/control/pid/profiled_pid.hpp"
 #include "abclib/math/point.hpp"
 
 using namespace abclib;

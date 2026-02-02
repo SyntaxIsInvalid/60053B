@@ -1,4 +1,3 @@
-// test_robot.hpp
 #pragma once
 #include "abclib/hardware/motor_group.hpp"
 #include "abclib/hardware/motor_tracking_wheel.hpp"
@@ -7,6 +6,7 @@
 #include "abclib/control/ramsete.hpp"
 #include "abclib/estimation/estimator_config.hpp"
 #include "abclib/hardware/chassis.hpp"
+#include "abclib/control/pid/pid.hpp"
 
 namespace abclib::robot_config
 {
@@ -59,14 +59,6 @@ namespace abclib::robot_config
                 .bearing = units::Angle::from_degrees(0), // Forward
                 .blend_factor = 0.2,
                 .enabled = false},
-            // Back sensor - 5" behind tracking center, facing backward
-            {
-                .sensor = nullptr,                            // Will be filled by factory
-                .offset_x = units::Length::from_inches(-5.0), // Negative = behind
-                .offset_y = units::Length::from_inches(0.0),
-                .bearing = units::Angle::from_degrees(180), // Backward
-                .blend_factor = 0.15,
-                .enabled = false}
             // Add more sensors here as you add hardware...
         };
     }

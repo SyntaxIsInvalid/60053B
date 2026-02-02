@@ -4,7 +4,7 @@
 #include <cmath>
 #include <memory>
 #include <algorithm>
-#include "abclib/control/pid.hpp"
+#include "abclib/control/pid/pid.hpp"
 #include "abclib/units/units.hpp"
 #include <optional>
 

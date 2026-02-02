@@ -1,7 +1,7 @@
 // profiled_pid.hpp
 #pragma once
 
-#include "abclib/control/pid.hpp"
+#include "abclib/control/pid/pid.hpp"
 #include "abclib/units/units.hpp"
 #include "abclib/profiling/incremental_trapezoidal.hpp"
 #include <memory>

@@ -14,7 +14,7 @@
 #include "abclib/units/units.hpp"
 
 // control 
-#include "abclib/control/pid.hpp"
+#include "abclib/control/pid/pid.hpp"
 
 // hardware abstractions
 #include "abclib/hardware/advanced_motor.hpp"
