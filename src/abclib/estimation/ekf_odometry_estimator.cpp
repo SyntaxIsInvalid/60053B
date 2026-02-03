@@ -129,8 +129,8 @@ namespace abclib::estimation
         // Compute expected distance using field_map
         units::Length expected_distance = field_map_.compute_expected_distance(
             robot_pose,
-            sensor_config.offset_x,
-            sensor_config.offset_y,
+            sensor_config.offset_forward,
+            sensor_config.offset_lateral,
             sensor_config.bearing);
 
         // Return in meters (EKF internal units)
@@ -483,8 +483,8 @@ namespace abclib::estimation
                         // Expected distance based on current EKF state
                         telem.front_distance_expected = field_map_.compute_expected_distance(
                             current_pose_,
-                            distance_sensors_[0].offset_x,
-                            distance_sensors_[0].offset_y,
+                            distance_sensors_[0].offset_forward,
+                            distance_sensors_[0].offset_lateral,
                             distance_sensors_[0].bearing);
 
                         // Innovation (measurement - prediction) - key diagnostic metric!
@@ -535,8 +535,8 @@ namespace abclib::estimation
 
                         telem.back_distance_expected = field_map_.compute_expected_distance(
                             current_pose_,
-                            distance_sensors_[1].offset_x,
-                            distance_sensors_[1].offset_y,
+                            distance_sensors_[1].offset_forward,
+                            distance_sensors_[1].offset_lateral,
                             distance_sensors_[1].bearing);
 
                         if (telem.back_distance_valid)

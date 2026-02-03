@@ -56,8 +56,8 @@ namespace abclib::robot_config
             {
 
                 .sensor = nullptr, // Will be filled by factory
-                .offset_x = units::Length::from_inches(4),
-                .offset_y = units::Length::from_inches(0.0),
+                .offset_forward = units::Length::from_inches(4),
+                .offset_lateral = units::Length::from_inches(0.0),
                 .bearing = units::Angle::from_degrees(180), // Forward
                 .blend_factor = 0.2,
                 .enabled = true},

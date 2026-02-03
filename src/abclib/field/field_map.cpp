@@ -5,7 +5,7 @@
 namespace abclib::field
 {
     units::Length FieldMap::compute_expected_distance(
-        const estimation::Pose& robot_pose,
+        const estimation::Pose &robot_pose,
         units::Length sensor_offset_forward,
         units::Length sensor_offset_lateral,
         units::Angle sensor_bearing) const
@@ -25,26 +25,25 @@ namespace abclib::field
     }
 
     math::SE2 FieldMap::compute_sensor_global_pose(
-        const estimation::Pose& robot_pose,
+        const estimation::Pose &robot_pose,
         units::Length sensor_offset_forward,
         units::Length sensor_offset_lateral,
         units::Angle sensor_bearing) const
     {
-        // Create SE2 transformation from robot to sensor
-        // Sensor is offset by (forward, lateral) in robot's local frame
-        // and rotated by sensor_bearing relative to robot
-        double forward = sensor_offset_forward.to_inches();
-        double lateral = sensor_offset_lateral.to_inches();
-        double bearing = sensor_bearing.to_radians();
-
-        math::SE2 robot_to_sensor(forward, lateral, bearing);
+        // Use SE2::FromBodyFrame to handle the body frame -> SE2 coordinate swap
+        // Body frame: (X, Y) = (lateral, forward)
+        // This factory method maps: (forward, lateral, bearing) -> SE2(x=forward, y=lateral, theta)
+        math::SE2 robot_to_sensor = math::SE2::FromBodyFrame(
+            sensor_offset_forward.to_inches(),
+            sensor_offset_lateral.to_inches(),
+            sensor_bearing.to_radians());
 
         // Compose transformations: world -> robot -> sensor
         return robot_pose.se2 * robot_to_sensor;
     }
 
     FieldMap::Wall FieldMap::get_nearest_wall(
-        const estimation::Pose& robot_pose,
+        const estimation::Pose &robot_pose,
         units::Angle sensor_bearing) const
     {
         // Sensor's global heading = robot heading + sensor bearing
@@ -59,24 +58,24 @@ namespace abclib::field
         // 0° = East, 90° = North, 180° = West, 270° = South
         if (heading_deg >= 315.0 || heading_deg < 45.0)
         {
-            return Wall::EAST;  // 0° faces East
+            return Wall::EAST; // 0° faces East
         }
         else if (heading_deg >= 45.0 && heading_deg < 135.0)
         {
-            return Wall::NORTH;  // 90° faces North
+            return Wall::NORTH; // 90° faces North
         }
         else if (heading_deg >= 135.0 && heading_deg < 225.0)
         {
-            return Wall::WEST;  // 180° faces West
+            return Wall::WEST; // 180° faces West
         }
         else // 225-315
         {
-            return Wall::SOUTH;  // 270° faces South
+            return Wall::SOUTH; // 270° faces South
         }
     }
 
     units::Length FieldMap::compute_distance_to_wall(
-        const math::SE2& sensor_pose,
+        const math::SE2 &sensor_pose,
         Wall wall) const
     {
         double x = sensor_pose.x();
@@ -158,7 +157,7 @@ namespace abclib::field
         return units::Length::from_inches(pos_inches);
     }
 
-    bool FieldMap::is_inside_field(const math::SE2& pose, units::Length margin) const
+    bool FieldMap::is_inside_field(const math::SE2 &pose, units::Length margin) const
     {
         double x = pose.x();
         double y = pose.y();

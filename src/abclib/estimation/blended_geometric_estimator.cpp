@@ -285,8 +285,8 @@ namespace abclib::estimation
         // 2. Compute sensor's global pose
         math::SE2 sensor_pose = field_map_.compute_sensor_global_pose(
             robot_pose,
-            sensor_config.offset_x, // Forward offset
-            sensor_config.offset_y, // Lateral offset
+            sensor_config.offset_forward, // Forward offset
+            sensor_config.offset_lateral, // Lateral offset
             sensor_config.bearing   // Sensor pointing direction
         );
 

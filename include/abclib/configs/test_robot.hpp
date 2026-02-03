@@ -37,8 +37,8 @@ namespace abclib::robot_config
             // Front sensor - 3" ahead of tracking center, facing forward
             {
                 .sensor = nullptr, // Will be filled by factory
-                .offset_x = units::Length::from_inches(3),
-                .offset_y = units::Length::from_inches(0.0),
+                .offset_forward = units::Length::from_inches(3),
+                .offset_lateral = units::Length::from_inches(0.0),
                 .bearing = units::Angle::from_degrees(0), // Forward
                 .blend_factor = 0.2,
                 .enabled = true}

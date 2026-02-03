@@ -132,8 +132,8 @@ namespace abclib::estimation
         {
             if (index < distance_sensors_.size())
             {
-                distance_sensors_[index].offset_x = offset_x;
-                distance_sensors_[index].offset_y = offset_y;
+                distance_sensors_[index].offset_forward = offset_x;
+                distance_sensors_[index].offset_lateral = offset_y;
                 distance_sensors_[index].bearing = bearing;
                 distance_sensors_[index].blend_factor = blend_factor;
             }

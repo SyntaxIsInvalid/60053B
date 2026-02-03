@@ -8,10 +8,10 @@ namespace abclib::math
 {
     /**
      * @brief SE(2) - Special Euclidean Group in 2D
-     * 
+     *
      * Represents rigid transformations (rotation + translation) in the plane.
      * Wraps Eigen::Transform with Lie group operations.
-     * 
+     *
      * Coordinate convention: Standard mathematical frame
      * - X-axis: horizontal (positive = east)
      * - Y-axis: vertical (positive = north)
@@ -24,7 +24,7 @@ namespace abclib::math
 
     public:
         // ============= CONSTRUCTORS =============
-        
+
         /** Default constructor - identity transformation */
         SE2() : T_(Eigen::Transform<double, 2, Eigen::Isometry>::Identity()) {}
 
@@ -33,10 +33,10 @@ namespace abclib::math
             : T_(Eigen::Translation2d(x, y) * Eigen::Rotation2Dd(theta)) {}
 
         /** Construct from Eigen transform (explicit to avoid accidents) */
-        explicit SE2(const Eigen::Transform<double, 2, Eigen::Isometry>& T) : T_(T) {}
+        explicit SE2(const Eigen::Transform<double, 2, Eigen::Isometry> &T) : T_(T) {}
 
         /** Construct from rotation and translation */
-        SE2(const Eigen::Rotation2Dd& rotation, const Eigen::Vector2d& translation)
+        SE2(const Eigen::Rotation2Dd &rotation, const Eigen::Vector2d &translation)
             : T_(Eigen::Translation2d(translation) * rotation) {}
 
         // ============= STATIC FACTORIES =============
@@ -54,6 +54,34 @@ namespace abclib::math
         static SE2 Rotation(double theta)
         {
             return SE2(0.0, 0.0, theta);
+        }
+
+        /**
+         * @brief Construct SE2 from body-frame offsets (VEX/PROS convention)
+         *
+         * Handles the coordinate swap between body frame and SE2 internal representation.
+         *
+         * Body frame convention (VEX/PROS):
+         * - X-axis = LATERAL (right is positive, left is negative)
+         * - Y-axis = FORWARD (front is positive, back is negative)
+         *
+         * SE2 internal convention:
+         * - x-axis = forward-like displacement
+         * - y-axis = lateral-like displacement
+         *
+         * @param forward Offset along body Y-axis (forward/backward)
+         * @param lateral Offset along body X-axis (right/left)
+         * @param theta Rotation angle (radians)
+         * @return SE2 transformation with proper coordinate mapping
+         *
+         * Example: Sensor at body position (X=4, Y=3) facing right
+         *   SE2::FromBodyFrame(3.0, 4.0, M_PI_2)
+         *   forward=3 (body Y), lateral=4 (body X), theta=90°
+         */
+        static SE2 FromBodyFrame(double forward, double lateral, double theta)
+        {
+            // SE2 internal: (x, y) = (forward, lateral)
+            return SE2(forward, lateral, theta);
         }
 
         // ============= ACCESSORS =============
@@ -78,10 +106,10 @@ namespace abclib::math
         Eigen::Matrix2d rotation() const { return T_.linear(); }
 
         /** Get underlying Eigen transform (const) */
-        const Eigen::Transform<double, 2, Eigen::Isometry>& transform() const { return T_; }
+        const Eigen::Transform<double, 2, Eigen::Isometry> &transform() const { return T_; }
 
         /** Get underlying Eigen transform (mutable) */
-        Eigen::Transform<double, 2, Eigen::Isometry>& transform() { return T_; }
+        Eigen::Transform<double, 2, Eigen::Isometry> &transform() { return T_; }
 
         /** Get homogeneous matrix (3x3) */
         Eigen::Matrix3d matrix() const { return T_.matrix(); }
@@ -89,20 +117,20 @@ namespace abclib::math
         // ============= OPERATIONS =============
 
         /** Compose transformations: this * other */
-        SE2 operator*(const SE2& other) const
+        SE2 operator*(const SE2 &other) const
         {
             return SE2(T_ * other.T_);
         }
 
         /** Compound assignment */
-        SE2& operator*=(const SE2& other)
+        SE2 &operator*=(const SE2 &other)
         {
             T_ = T_ * other.T_;
             return *this;
         }
 
         /** Transform a point */
-        Eigen::Vector2d operator*(const Eigen::Vector2d& point) const
+        Eigen::Vector2d operator*(const Eigen::Vector2d &point) const
         {
             return T_ * point;
         }
@@ -117,19 +145,19 @@ namespace abclib::math
 
         /**
          * @brief Exponential map: se(2) → SE(2)
-         * 
+         *
          * Maps a tangent vector (velocity) to the manifold.
-         * 
+         *
          * @param xi Tangent vector [v_x, v_y, omega]^T
          *           - v_x, v_y: linear velocity components
          *           - omega: angular velocity
          * @return SE2 transformation
-         * 
+         *
          * Formula:
          * - If omega ≈ 0: pure translation
          * - Otherwise: rotation with "curved" translation
          */
-        static SE2 exp(const Eigen::Vector3d& xi)
+        static SE2 exp(const Eigen::Vector3d &xi)
         {
             const double v_x = xi(0);
             const double v_y = xi(1);
@@ -151,7 +179,7 @@ namespace abclib::math
             // Left Jacobian of SO(2) - converts body velocity to spatial displacement
             Eigen::Matrix2d V;
             V << sin_omega / omega, -(1.0 - cos_omega) / omega,
-                 (1.0 - cos_omega) / omega, sin_omega / omega;
+                (1.0 - cos_omega) / omega, sin_omega / omega;
 
             // Translation part
             Eigen::Vector2d v(v_x, v_y);
@@ -162,11 +190,11 @@ namespace abclib::math
 
         /**
          * @brief Logarithmic map: SE(2) → se(2)
-         * 
+         *
          * Maps a transformation to its tangent vector.
-         * 
+         *
          * @return Tangent vector [v_x, v_y, omega]^T
-         * 
+         *
          * Inverse of exp(). Useful for:
          * - Computing velocity from pose change
          * - Interpolation
@@ -192,7 +220,7 @@ namespace abclib::math
 
             Eigen::Matrix2d V_inv;
             V_inv << half_theta * sin_theta / (1.0 - cos_theta), half_theta,
-                     -half_theta, half_theta * sin_theta / (1.0 - cos_theta);
+                -half_theta, half_theta * sin_theta / (1.0 - cos_theta);
 
             Eigen::Vector2d v = V_inv * t;
 
@@ -201,36 +229,36 @@ namespace abclib::math
 
         /**
          * @brief Geodesic interpolation between two SE(2) elements
-         * 
+         *
          * @param a Start transformation
          * @param b End transformation
          * @param t Interpolation parameter [0, 1]
          * @return Interpolated transformation
-         * 
+         *
          * Computes: a * exp(t * log(a^{-1} * b))
          * This gives the "shortest path" on the manifold.
          */
-        static SE2 interpolate(const SE2& a, const SE2& b, double t)
+        static SE2 interpolate(const SE2 &a, const SE2 &b, double t)
         {
             // Compute relative transformation
             SE2 delta = a.inverse() * b;
-            
+
             // Get tangent vector
             Eigen::Vector3d xi = delta.log();
-            
+
             // Scale by interpolation parameter
             Eigen::Vector3d xi_scaled = t * xi;
-            
+
             // Map back to manifold and compose with start
             return a * exp(xi_scaled);
         }
 
         /**
          * @brief Adjoint matrix - transforms velocities between frames
-         * 
+         *
          * Given velocity xi_b in frame b, computes velocity xi_a in frame a:
          * xi_a = Ad(T_ab) * xi_b
-         * 
+         *
          * @return 3x3 Adjoint matrix
          */
         Eigen::Matrix3d Adjoint() const
@@ -240,7 +268,7 @@ namespace abclib::math
 
             Eigen::Matrix3d Ad;
             Ad.block<2, 2>(0, 0) = R;
-            Ad.block<2, 1>(0, 2) << -t.y(), t.x();  // [0, -1; 1, 0] * t
+            Ad.block<2, 1>(0, 2) << -t.y(), t.x(); // [0, -1; 1, 0] * t
             Ad.block<1, 2>(2, 0).setZero();
             Ad(2, 2) = 1.0;
 
@@ -250,7 +278,7 @@ namespace abclib::math
         // ============= COMPARISON =============
 
         /** Approximate equality */
-        bool isApprox(const SE2& other, double epsilon = 1e-9) const
+        bool isApprox(const SE2 &other, double epsilon = 1e-9) const
         {
             return T_.isApprox(other.T_, epsilon);
         }

@@ -299,18 +299,19 @@ namespace abclib::ui
             lv_label_set_text(blended_debug_labels[0], buf);
 
             // Label 1: Velocity & Blending Status
-            snprintf(buf, sizeof(buf), "Vel: %.1f ips | Omega: %.1f rad/s | Blend: %s",
+            snprintf(buf, sizeof(buf), "Vel: %.1f in/s | Omega: %.1f rad/s | Blend: %s",
                      data.pose_corner.v.to_ips(),
                      data.pose_corner.omega.to_rad_per_sec(),
                      data.front_distance_valid ? "ACTIVE" : "INACTIVE");
             lv_label_set_text(blended_debug_labels[1], buf);
 
             // Label 2: Front Sensor Validation *** MOST IMPORTANT FOR STEP 1 ***
+            const char *front_wall_str = wall_to_string(data.front_wall);
             snprintf(buf, sizeof(buf), "Front[%s]: Meas:%dmm Exp:%dmm Wall:%s Inn:%.0fmm",
                      data.front_distance_valid ? "OK" : "--",
                      (int)data.front_distance_measured.to_mm(),
                      (int)data.front_distance_expected.to_mm(),
-                     field::FieldMap::wall_to_string(data.front_wall),
+                     front_wall_str,
                      data.front_innovation.to_mm());
             lv_label_set_text(blended_debug_labels[2], buf);
 
