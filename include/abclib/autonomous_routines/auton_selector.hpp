@@ -48,6 +48,7 @@ namespace abclib::auton
         hardware::Pneumatic &match_load_ramp;
         hardware::Pneumatic &hood;
         hardware::Pneumatic &wing;
+        hardware::Pneumatic &mid_goal;
     };
 
     // Function type for auton routines

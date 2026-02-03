@@ -64,10 +64,12 @@ hardware::Chassis chassis(chassis_config, sensors);
 hardware::Pneumatic match_load_ramp(robot_config::MATCH_LOAD_RAMP_PORT);
 hardware::Pneumatic hood(robot_config::HOOD_PORT);
 hardware::Pneumatic wing(robot_config::WING_PORT);
+hardware::Pneumatic mid_goal_retract(robot_config::MID_GOAL_RETRACT_PORT);
 #else
 hardware::DummyPneumatic match_load_ramp;
 hardware::DummyPneumatic hood;
 hardware::DummyPneumatic wing;
+hardware::DummyPneumatic mid_goal_retract;
 #endif
 
 #if HAS_INTAKE
@@ -109,7 +111,7 @@ void initialize()
                       { screen_manager.update_calibration_progress(progress, status); });
     pros::delay(200);
     chassis.set_alliance(field::Alliance::RED);
-    chassis.set_pose(0_in, 1_in, 0_deg);
+    chassis.set_pose(70_in, 23.11_in, -90_deg);
     screen_manager.hide_calibration_screen();
 #if HAS_PNEUMATICS
     match_load_ramp.retract();
@@ -181,7 +183,8 @@ void autonomous()
         bottom_intake,
         match_load_ramp,
         hood,
-        wing};
+        wing,
+        mid_goal_retract};
     run_selected_auton(robot);
     // sysid::measure_ks_kv(leftMotors, rightMotors, true, "ks_kv_comp_forward", 5.5, 0.25, 300);
     // sysid::measure_ks_kv_turn(leftMotors,rightMotors, true, "ks_kv_ccw_comp.csv", 11, 0.25, 500);
@@ -213,6 +216,7 @@ void opcontrol()
         // score mid
         else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
         {
+            mid_goal_retract.extend();
             top_intake.set_outtake();
             bottom_intake.set_intake();
             // score long
@@ -225,6 +229,7 @@ void opcontrol()
         }
         else
         {
+            mid_goal_retract.retract();
             top_intake.set_voltage(3_V);
             bottom_intake.set_idle();
         }

@@ -19,13 +19,14 @@ namespace abclib::robot_config
     // Sensor ports
     constexpr int8_t IMU_PORT = 17;
     constexpr int8_t Y_ROTATION_PORT = -18;
-    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 3;
+    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 14;
     constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 2;
 
     // Pneumatic ports
     constexpr char MATCH_LOAD_RAMP_PORT = 'G';
     constexpr char HOOD_PORT = 'H';
     constexpr char WING_PORT = 'F';
+    constexpr char MID_GOAL_RETRACT_PORT = 'E';
 
     // Intake voltages
     inline constexpr units::Voltage TOP_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
@@ -53,12 +54,13 @@ namespace abclib::robot_config
         return {
             // Front sensor - 3.35" ahead of tracking center, facing forward
             {
+
                 .sensor = nullptr, // Will be filled by factory
-                .offset_x = units::Length::from_inches(3.35),
+                .offset_x = units::Length::from_inches(4),
                 .offset_y = units::Length::from_inches(0.0),
-                .bearing = units::Angle::from_degrees(0), // Forward
+                .bearing = units::Angle::from_degrees(180), // Forward
                 .blend_factor = 0.2,
-                .enabled = false},
+                .enabled = true},
             // Add more sensors here as you add hardware...
         };
     }
@@ -122,11 +124,11 @@ namespace abclib::robot_config
     inline estimation::EstimatorConfig get_estimator_config()
     {
         estimation::EstimatorConfig config;
-        config.type = estimation::FilterType::GEOMETRIC;
+        config.type = estimation::FilterType::BLENDED_GEOMETRIC;
         config.mode = estimation::FilterMode::PREDICTION_ONLY;
         config.field_config = field::FieldConfig::custom(
-            units::Length::from_inches(24), // width
-            units::Length::from_inches(48)  // height
+            units::Length::from_inches(144), // width
+            units::Length::from_inches(144)  // height
         );
         return config;
     }
