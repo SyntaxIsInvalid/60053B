@@ -6,6 +6,7 @@
 #include "abclib/measurement/distance_measurement_model.hpp"
 #include "abclib/field/field_map.hpp"
 #include "abclib/field/coordinate_transform.hpp"
+#include "abclib/math/mahalanobis.hpp"
 
 namespace abclib::estimation
 {
@@ -342,57 +343,70 @@ namespace abclib::estimation
     }
 
     bool BlendedGeometricEstimator::validate_sensor_reading(
-        const DistanceSensorConfig &sensor_config,
-        units::Length reading,
-        const Pose &robot_pose,
-        units::Length &expected_distance,
-        field::FieldMap::Wall &detected_wall) const
+    const DistanceSensorConfig &sensor_config,
+    units::Length reading,
+    const Pose &robot_pose,
+    units::Length &expected_distance,
+    field::FieldMap::Wall &detected_wall) const
+{
+    // TODO add mahalnobis rejection to telemeetry 
+    // 1. Check if sensor is enabled
+    if (!sensor_config.enabled)
+        return false;
+
+    // 2. Compute sensor's global pose
+    math::SE2 sensor_pose = field_map_.compute_sensor_global_pose(
+        robot_pose,
+        sensor_config.offset_forward,
+        sensor_config.offset_lateral,
+        sensor_config.bearing);
+
+    // 3. Find which wall sensor ray intersects
+    detected_wall = field_map_.find_wall_intersection(sensor_pose);
+
+    // 4. Compute expected distance to that wall
+    expected_distance = field_map_.compute_distance_to_wall(sensor_pose, detected_wall);
+
+    // 5. Check if expected distance is valid
+    if (expected_distance.to_inches() < 0.0)
+        return false;
+
+    // 6. Check if sensor reading is in valid range
+    if (reading > blend_config_.max_sensor_reading)
+        return false;
+
+    // 7. Outlier rejection - choose method based on config
+    if (blend_config_.outlier_mode == BlendingConfig::OutlierRejectionMode::MAHALANOBIS)
     {
-        // 1. Check if sensor is enabled
-        if (!sensor_config.enabled)
-        {
-            return false;
-        }
-
-        // 2. Compute sensor's global pose
-        math::SE2 sensor_pose = field_map_.compute_sensor_global_pose(
-            robot_pose,
-            sensor_config.offset_forward,
-            sensor_config.offset_lateral,
-            sensor_config.bearing);
-
-        // 3. Find which wall sensor ray intersects first (handles lateral offset correctly)
-        detected_wall = field_map_.find_wall_intersection(sensor_pose);
-
-        // 4. Compute expected distance to that wall
-        expected_distance = field_map_.compute_distance_to_wall(
-            sensor_pose,
-            detected_wall);
-
-        // 5. Check if expected distance is valid
-        if (expected_distance.to_inches() < 0.0)
-        {
-            return false; // Sensor not facing a wall or intersection failed
-        }
-
-        // 6. Check if sensor reading is in valid range
-        if (reading > blend_config_.max_sensor_reading)
-        {
-            return false; // Out of range
-        }
-
-        // 7. Compute error between measured and expected
-        units::Length error = Qabs(reading - expected_distance);
-
-        // 8. Reject if error is too large (likely pose drift or obstacle)
-        if (error > blend_config_.max_expected_error)
-        {
-            return false;
-        }
-
-        // Reading is valid!
-        return true;
+        // Statistical outlier rejection using Mahalanobis distance
+        auto *distance_model = dynamic_cast<DistanceSensorMeasurementModel *>(
+            sensor_config.sensor);
+        
+        if (!distance_model)
+            return false;  // Can't get uncertainty without sensor model
+        
+        // Get sensor uncertainty (standard deviation in meters)
+        double sigma = distance_model->get_uncertainty();
+        
+        if (sigma <= 0.0)
+            return false;  // Invalid uncertainty
+        
+        // Compute Mahalanobis distance
+        double mahal_dist = math::mahalanobis_distance_scalar(
+            reading.to_meters(),
+            expected_distance.to_meters(),
+            sigma);
+        
+        // Test against threshold (default 3.0 sigma = 99.7% confidence)
+        return math::is_inlier_scalar(mahal_dist, blend_config_.mahalanobis_sigma_threshold);
     }
+    else
+    {
+        // Simple threshold-based rejection (original method)
+        units::Length error = Qabs(reading - expected_distance);
+        return error <= blend_config_.max_expected_error;
+    }
+}
 
     void BlendedGeometricEstimator::apply_sensor_correction(
         const DistanceSensorConfig &sensor_config,

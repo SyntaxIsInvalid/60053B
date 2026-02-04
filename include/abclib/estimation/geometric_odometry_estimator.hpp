@@ -9,7 +9,7 @@
 #include "abclib/units/units.hpp"
 #include "pose.hpp"
 #include "abclib/field/field_map.hpp"
-#include "estimator_config.hpp"  // ADD THIS for DistanceSensorConfig
+#include "estimator_config.hpp"
 
 namespace abclib::estimation
 {

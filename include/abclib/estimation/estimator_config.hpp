@@ -41,17 +41,27 @@ namespace abclib::estimation
     };
 
     // NEW: Blending configuration
-    struct BlendingConfig
-    {
-        // Validation thresholds
-        units::Length max_sensor_reading = units::Length::from_mm(2100.0);    // 2000mm + 5%
-        units::Length max_expected_error = units::Length::from_inches(3.0);   // Reject if off by >3"
-        units::Velocity max_blend_velocity = units::Velocity::from_ips(10.0); // Only blend when slow
+struct BlendingConfig
+{
+    // Validation thresholds
+    units::Length max_sensor_reading = units::Length::from_mm(2100.0);    
+    units::Length max_expected_error = units::Length::from_inches(3.0);   // Simple threshold
+    units::Velocity max_blend_velocity = units::Velocity::from_ips(10.0);
 
-        // Blending behavior
-        bool enable_blending = true;
-        bool require_stationary = false; // If true, only blend when v ≈ 0
+    // NEW: Outlier rejection mode
+    enum class OutlierRejectionMode
+    {
+        SIMPLE_THRESHOLD,  // Use max_expected_error
+        MAHALANOBIS        // Use statistical distance
     };
+    
+    OutlierRejectionMode outlier_mode = OutlierRejectionMode::SIMPLE_THRESHOLD;
+    double mahalanobis_sigma_threshold = 3.0;  // 3-sigma = 99.7% confidence
+
+    // Blending behavior
+    bool enable_blending = true;
+    bool require_stationary = false;
+};
 
     struct EstimatorConfig
     {

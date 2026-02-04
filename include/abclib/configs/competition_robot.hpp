@@ -15,6 +15,10 @@ namespace abclib::robot_config
             double kS, kV, kA;
         } drivetrain;
         
+        struct {
+            double kS, kV, kA;
+        } turn_in_place;
+        
         // Add other subsystems as needed:
         // struct { double kS, kV, kA; } intake;
         // struct { double kS, kV, kA; } lift;
@@ -25,22 +29,43 @@ namespace abclib::robot_config
             .kS = 0.535278,
             .kV = 0.158462,
             .kA = 0.012848
+        },
+        .turn_in_place = {
+            .kS = 0.0,  // TODO: Run turn-in-place sysid
+            .kV = 0.0,
+            .kA = 0.0
         }
     };
     
     // Motor ports
-    inline const std::vector<int8_t> LEFT_MOTOR_PORTS = {-10, 4};
-    inline const std::vector<int8_t> RIGHT_MOTOR_PORTS = {6, -11};
+    inline const std::vector<int8_t> LEFT_MOTOR_PORTS = {-11, -13, 12};
+    inline const std::vector<int8_t> RIGHT_MOTOR_PORTS = {19, 20, -16};
+    inline const std::vector<int8_t> TOP_INTAKE_PORTS = {-1};
+    inline const std::vector<int8_t> BOTTOM_INTAKE_PORTS = {-10};
 
     // Sensor ports
-    constexpr int8_t IMU_PORT = 9;
-    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 12;
-    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 1;
+    constexpr int8_t IMU_PORT = 17;
+    constexpr int8_t Y_ROTATION_PORT = -18;
+    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 14;
+    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 2;
+
+    // Pneumatic ports
+    constexpr char MATCH_LOAD_RAMP_PORT = 'G';
+    constexpr char HOOD_PORT = 'H';
+    constexpr char WING_PORT = 'F';
+    constexpr char MID_GOAL_RETRACT_PORT = 'E';
+
+    // Intake voltages
+    inline constexpr units::Voltage TOP_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
+    inline constexpr units::Voltage TOP_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
+    inline constexpr units::Voltage BOTTOM_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
+    inline constexpr units::Voltage BOTTOM_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
 
     // Physical dimensions
     inline constexpr units::Length WHEEL_DIAMETER = units::Length::from_inches(3.25);
-    inline constexpr units::Length TRACK_WIDTH = units::Length::from_inches(14.0);
-    inline constexpr units::Length Y_TRACKER_OFFSET = units::Length::from_inches(7.0);
+    inline constexpr units::Length TRACK_WIDTH = units::Length::from_inches(27.0);
+    inline constexpr units::Length Y_TRACKER_WHEEL_DIAMETER = units::Length::from_inches(2.0);
+    inline constexpr units::Length Y_TRACKER_OFFSET = units::Length::from_inches(7.5);
 
     inline std::vector<pros::Distance *> get_distance_sensors()
     {
@@ -54,21 +79,22 @@ namespace abclib::robot_config
     {
         return {
             {
-                .sensor = nullptr,
-                .offset_forward = units::Length::from_inches(3),
+                .sensor = nullptr, // Will be filled by factory
+                .offset_forward = units::Length::from_inches(4),
                 .offset_lateral = units::Length::from_inches(0.0),
-                .bearing = units::Angle::from_degrees(0),
+                .bearing = units::Angle::from_degrees(0), // Forward
                 .blend_factor = 0.2,
                 .enabled = true
             },
-            {
-                .sensor = nullptr,
-                .offset_forward = units::Length::from_inches(-5),
-                .offset_lateral = units::Length::from_inches(0.0),
-                .bearing = units::Angle::from_degrees(180),
-                .blend_factor = 0.2,
-                .enabled = true
-            }
+            // Add back sensor config if needed
+            // {
+            //     .sensor = nullptr,
+            //     .offset_forward = units::Length::from_inches(-X),
+            //     .offset_lateral = units::Length::from_inches(0.0),
+            //     .bearing = units::Angle::from_degrees(180), // Backward
+            //     .blend_factor = 0.2,
+            //     .enabled = true
+            // }
         };
     }
     
@@ -79,7 +105,7 @@ namespace abclib::robot_config
             .kV = sysid_data.drivetrain.kV,
             .kA = sysid_data.drivetrain.kA,
             .kPv = 0.0,
-            .kIv = 0.0,
+            .kIv = 0.25,
             .kDv = 0.00,
             .enable_voltage_compensation = true,
             .compensation_nominal = units::Voltage::from_volts(12.0),
@@ -106,7 +132,7 @@ namespace abclib::robot_config
     {
         return hardware::SettlementConfig{
             .angular_threshold = units::Angle::from_degrees(1),
-            .position_threshold = units::Length::from_inches(0.5),
+            .position_threshold = units::Length::from_inches(0.6),
             .angular_velocity_threshold = units::AngularVelocity::from_rad_per_sec(0.1),
             .linear_velocity_threshold = units::Velocity::from_ips(0.15),
             .settle_count_required = 3
@@ -117,30 +143,26 @@ namespace abclib::robot_config
     {
         return hardware::ControllerConfig{
             .lateral_pid = {
-                .kP = 0.6,
-                .kI = 5,
-                .kD = 0,
+                .kP = 0.67,
+                .kI = 0,
+                .kD = 0.025,
                 .integral = {
-                    .max = control::calculate_max_integral_for_voltage(
-                        units::Voltage::from_volts(12.0),
-                        5)
+                    .max = 0.0  // No integral term currently
                 }
             },
             .angular_pid = {
-                .kP = 5,
-                .kI = 50,
-                .kD = 0,
+                .kP = 30,
+                .kI = 0,
+                .kD = 2.2,
                 .integral = {
-                    .max = control::calculate_max_integral_for_voltage(
-                        units::Voltage::from_volts(12.0),
-                        50)
+                    .max = 0.0  // No integral term currently
                 }
             },
             .profiled_turn_pid = {25, 0.0, 0.0},
             .profiled_lateral_pid = {2.0, 0.0, 0.0},
-            .turn_in_place_kS = 1.278592,
-            .turn_in_place_kV = 0.170242,
-            .turn_in_place_kA = 0.012877,
+            .turn_in_place_kS = sysid_data.turn_in_place.kS,
+            .turn_in_place_kV = sysid_data.turn_in_place.kV,
+            .turn_in_place_kA = sysid_data.turn_in_place.kA,
             .lateral_kS = sysid_data.drivetrain.kS,
             .lateral_kV = sysid_data.drivetrain.kV,
             .lateral_kA = sysid_data.drivetrain.kA,
@@ -157,8 +179,9 @@ namespace abclib::robot_config
         config.vertical_offset = Y_TRACKER_OFFSET;
         config.horizontal_offset = units::Length::from_inches(0.0);
         config.field_config = field::FieldConfig::custom(
-            units::Length::from_inches(24),
-            units::Length::from_inches(48));
+            units::Length::from_inches(144), // width
+            units::Length::from_inches(144)  // height
+        );
 
         config.ekf.process_noise_x = 0.01;
         config.ekf.process_noise_y = 0.01;
