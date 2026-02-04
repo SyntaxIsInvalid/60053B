@@ -357,15 +357,12 @@ namespace abclib::estimation
         // 2. Compute sensor's global pose
         math::SE2 sensor_pose = field_map_.compute_sensor_global_pose(
             robot_pose,
-            sensor_config.offset_forward, // Forward offset
-            sensor_config.offset_lateral, // Lateral offset
-            sensor_config.bearing         // Sensor pointing direction
-        );
-
-        // 3. Determine which wall sensor is facing
-        detected_wall = field_map_.get_nearest_wall(
-            robot_pose,
+            sensor_config.offset_forward,
+            sensor_config.offset_lateral,
             sensor_config.bearing);
+
+        // 3. Find which wall sensor ray intersects first (handles lateral offset correctly)
+        detected_wall = field_map_.find_wall_intersection(sensor_pose);
 
         // 4. Compute expected distance to that wall
         expected_distance = field_map_.compute_distance_to_wall(
@@ -375,7 +372,7 @@ namespace abclib::estimation
         // 5. Check if expected distance is valid
         if (expected_distance.to_inches() < 0.0)
         {
-            return false; // Sensor not facing a wall
+            return false; // Sensor not facing a wall or intersection failed
         }
 
         // 6. Check if sensor reading is in valid range

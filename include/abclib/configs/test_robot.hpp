@@ -39,8 +39,7 @@ namespace abclib::robot_config
             {
                 .sensor = nullptr, // Will be filled by factory
                 .offset_forward = units::Length::from_inches(3),
-                // .offset_lateral = units::Length::from_inches(0.0),
-                .offset_lateral = units::Length::from_inches(4.0),
+                .offset_lateral = units::Length::from_inches(0.0),
                 .bearing = units::Angle::from_degrees(0), // Forward
                 .blend_factor = 0.2,
                 .enabled = true},
@@ -50,7 +49,7 @@ namespace abclib::robot_config
                 .offset_lateral = units::Length::from_inches(0.0),
                 .bearing = units::Angle::from_degrees(180), // back
                 .blend_factor = 0.2,
-                .enabled = false}
+                .enabled = true}
             // Add more sensors here as you add hardware...
         };
     }

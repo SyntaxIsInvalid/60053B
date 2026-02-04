@@ -187,4 +187,68 @@ namespace abclib::field
             return "UNKNOWN";
         }
     }
+
+    FieldMap::Wall FieldMap::find_wall_intersection(const math::SE2 &sensor_pose) const
+    {
+        double x = sensor_pose.x();
+        double y = sensor_pose.y();
+        double theta = sensor_pose.theta();
+
+        double dx = std::cos(theta);
+        double dy = std::sin(theta);
+
+        const double epsilon = 1e-9;
+
+        // Calculate distance parameter t to each wall
+        // Ray equation: point = (x, y) + t * (dx, dy)
+        double min_t = std::numeric_limits<double>::infinity();
+        Wall nearest_wall = Wall::NONE;
+
+        // Check EAST wall
+        if (std::abs(dx) > epsilon)
+        {
+            double t = (east_wall() - x) / dx;
+            if (t > epsilon && t < min_t)
+            {
+                min_t = t;
+                nearest_wall = Wall::EAST;
+            }
+        }
+
+        // Check WEST wall
+        if (std::abs(dx) > epsilon)
+        {
+            double t = (west_wall() - x) / dx;
+            if (t > epsilon && t < min_t)
+            {
+                min_t = t;
+                nearest_wall = Wall::WEST;
+            }
+        }
+
+        // Check NORTH wall
+        if (std::abs(dy) > epsilon)
+        {
+            double t = (north_wall() - y) / dy;
+            if (t > epsilon && t < min_t)
+            {
+                min_t = t;
+                nearest_wall = Wall::NORTH;
+            }
+        }
+
+        // Check SOUTH wall
+        if (std::abs(dy) > epsilon)
+        {
+            double t = (south_wall() - y) / dy;
+            if (t > epsilon && t < min_t)
+            {
+                min_t = t;
+                nearest_wall = Wall::SOUTH;
+            }
+        }
+
+        return nearest_wall;
+    }
+
 }

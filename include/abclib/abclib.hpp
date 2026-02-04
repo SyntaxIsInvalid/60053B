@@ -72,6 +72,10 @@
 // screen manager
 #include "abclib/screen_management/screen_manager.hpp"
 
+// field config 
+#include "abclib/field/field_map.hpp"
+#include "abclib/field/field_config.hpp"
+
 // subsystems - real or dummy based on robot config
 #if HAS_INTAKE
     #include "abclib/subsystems/intake.hpp"

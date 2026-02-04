@@ -39,13 +39,13 @@ namespace abclib::field
 
         void set_alliance(Alliance alliance) { alliance_ = alliance; }
         Alliance get_alliance() const { return alliance_; }
-        const FieldConfig& get_field_config() const { return config_; }
+        const FieldConfig &get_field_config() const { return config_; }
         /**
          * Compute expected distance reading from a sensor
          * All inputs in standard math frame
          */
         units::Length compute_expected_distance(
-            const estimation::Pose& robot_pose,
+            const estimation::Pose &robot_pose,
             units::Length sensor_offset_forward,
             units::Length sensor_offset_lateral,
             units::Angle sensor_bearing) const;
@@ -54,14 +54,14 @@ namespace abclib::field
          * Determine which wall a sensor is facing
          */
         Wall get_nearest_wall(
-            const estimation::Pose& robot_pose,
+            const estimation::Pose &robot_pose,
             units::Angle sensor_bearing) const;
 
         /**
          * Compute distance from sensor pose to a specific wall
          */
         units::Length compute_distance_to_wall(
-            const math::SE2& sensor_pose,
+            const math::SE2 &sensor_pose,
             Wall wall) const;
 
         /**
@@ -72,7 +72,7 @@ namespace abclib::field
         /**
          * Check if a pose is inside the field with optional margin
          */
-        bool is_inside_field(const math::SE2& pose, units::Length margin = units::Length::from_inches(0)) const;
+        bool is_inside_field(const math::SE2 &pose, units::Length margin = units::Length::from_inches(0)) const;
 
         /**
          * Convert wall enum to string
@@ -83,9 +83,20 @@ namespace abclib::field
          * Compute sensor's global pose using SE2 transformations
          */
         math::SE2 compute_sensor_global_pose(
-            const estimation::Pose& robot_pose,
+            const estimation::Pose &robot_pose,
             units::Length sensor_offset_forward,
             units::Length sensor_offset_lateral,
             units::Angle sensor_bearing) const;
+
+        /**
+         * @brief Find which field wall a ray intersects first
+         *
+         * Analytically computes intersection with axis-aligned field boundaries.
+         * Does not perform grid-based raycasting or obstacle detection.
+         *
+         * @param sensor_pose Sensor's global position and heading
+         * @return Wall that ray intersects first, or NONE if no valid intersection
+         */
+        Wall find_wall_intersection(const math::SE2 &sensor_pose) const;
     };
 }

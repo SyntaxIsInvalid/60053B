@@ -24,17 +24,14 @@ namespace abclib::estimation
     struct DistanceSensorConfig
     {
         IMeasurementModel<units::Length> *sensor = nullptr;
-        // Sensor position relative to robot's tracking center in BODY FRAME
-        // Body frame convention: X=lateral (right+), Y=forward (front+)
-        // THIS IS ALL TOP DOWN VIEW
         // USAGE EXAMPLES:
         // Right sensor at body position (4, 3):
         //   forward_offset = 3"  (y-coordinate in body frame)
-        //   lateral_offset = 4"  (x-coordinate in body frame, RIGHT is positive)
+        //   lateral_offset = -4" (x-coordinate in body frame, LEFT is positive, RIGHT is negative)
         //
         // Left sensor at body position (-4, 1):
         //   forward_offset = 1"  (y-coordinate in body frame)
-        //   lateral_offset = -4" (x-coordinate in body frame, LEFT is negative)
+        //   lateral_offset = 4"  (x-coordinate in body frame, LEFT is positive)
 
         units::Length offset_forward = units::Length::from_inches(0.0); // Forward offset from tracking center
         units::Length offset_lateral = units::Length::from_inches(0.0); // Lateral offset from tracking center

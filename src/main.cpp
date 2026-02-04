@@ -5,7 +5,6 @@
 #include <mutex>
 #include "liblvgl/lvgl.h"
 #include "abclib/autonomous_routines/autons.hpp"
-
 using namespace abclib;
 
 #ifdef ROBOT_TEST_DRIVE
@@ -190,7 +189,7 @@ void autonomous()
     // sysid::measure_ks_kv(leftMotors, rightMotors, true, "ks_kv_comp_forward", 5.5, 0.25, 300);
     // sysid::measure_ks_kv_turn(leftMotors,rightMotors, true, "ks_kv_ccw_comp.csv", 11, 0.25, 500);
     // sysid::measure_velocity_pid(chassis, true, "/usd/vel_200rpm.csv", 200.0, 4500);
-    controller.print(0, 0, "done");
+    // controller.print(0, 0, "done");
 }
 
 void opcontrol()
@@ -200,6 +199,37 @@ void opcontrol()
         int turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
         int throttle = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         chassis.drive(throttle, turn, 1, .65);
+        /*
+        estimation::Pose robot_pose(0_in, 0_in, 0_deg, 0_ips, 0_rad_per_sec);
+
+        field::FieldMap field_map(robot_config::get_estimator_config().field_config);
+
+        // Test sensor: forward=5, lateral=6 (should be "right" side)
+        math::SE2 sensor_pose = field_map.compute_sensor_global_pose(
+            robot_pose,
+            5_in, // forward
+            6_in, // lateral (supposedly RIGHT+)
+            0_deg // pointing forward
+        );
+
+        // When robot faces EAST:
+        // - 5" forward should give X=5 (east)
+        // - 6" right should give Y=-6 (south) ... OR Y=+6 (north)?
+        controller.print(0, 0, "X:%.1f Y:%.1f",
+                         sensor_pose.x(), sensor_pose.y());
+        pros::delay(3000);
+
+        // Now test facing NORTH (90°)
+        robot_pose.set_theta(90_deg);
+        sensor_pose = field_map.compute_sensor_global_pose(
+            robot_pose, 5_in, 6_in, 0_deg);
+
+        // When robot faces NORTH:
+        // - 5" forward should give Y=5 (north)
+        // - 6" right should give X=6 (east) ... OR X=-6 (west)?
+        controller.print(0, 0, "X:%.1f Y:%.1f",
+                         sensor_pose.x(), sensor_pose.y());
+        */
 #if HAS_INTAKE && HAS_PNEUMATICS
         // intake
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
