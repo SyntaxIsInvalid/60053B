@@ -372,7 +372,7 @@ namespace abclib::telemetry
                     data.voltage_compensation_scale,
                     data.voltage_compensation_active ? 1 : 0);
         }
-
+        /*
         if (fields_.ekf)
         {
             fprintf(file_, ",%.3f,%.3f,%.3f",
@@ -396,7 +396,7 @@ namespace abclib::telemetry
                     data.front_innovation.to_inches(),
                     data.back_innovation.to_inches());
         }
-
+        */
         if (fields_.ramsete)
         {
             fprintf(file_, ",%.3f,%.3f,%.3f",

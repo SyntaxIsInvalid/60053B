@@ -16,6 +16,7 @@ namespace abclib::robot_config
     // Sensor ports
     constexpr int8_t IMU_PORT = 9;
     constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 12;
+    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 1;
 
     // Physical dimensions (using typed units)
     inline constexpr units::Length WHEEL_DIAMETER = units::Length::from_inches(3.25);
@@ -25,9 +26,9 @@ namespace abclib::robot_config
     inline std::vector<pros::Distance *> get_distance_sensors()
     {
         static pros::Distance front_sensor(FRONT_DISTANCE_SENSOR_PORT);
-        // static pros::Distance back_sensor(BACK_DISTANCE_SENSOR_PORT);
+        static pros::Distance back_sensor(BACK_DISTANCE_SENSOR_PORT);
 
-        return {&front_sensor};
+        return {&front_sensor, &back_sensor};
     }
 
     // NEW: Distance sensor configurations with mounting geometry
@@ -38,10 +39,18 @@ namespace abclib::robot_config
             {
                 .sensor = nullptr, // Will be filled by factory
                 .offset_forward = units::Length::from_inches(3),
-                .offset_lateral = units::Length::from_inches(0.0),
+                // .offset_lateral = units::Length::from_inches(0.0),
+                .offset_lateral = units::Length::from_inches(4.0),
                 .bearing = units::Angle::from_degrees(0), // Forward
                 .blend_factor = 0.2,
-                .enabled = true}
+                .enabled = true},
+            {
+                .sensor = nullptr, // Will be filled by factory
+                .offset_forward = units::Length::from_inches(-5),
+                .offset_lateral = units::Length::from_inches(0.0),
+                .bearing = units::Angle::from_degrees(180), // back
+                .blend_factor = 0.2,
+                .enabled = false}
             // Add more sensors here as you add hardware...
         };
     }

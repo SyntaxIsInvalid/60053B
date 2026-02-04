@@ -73,6 +73,12 @@ namespace abclib::estimation
             horizontal_model_->reset();
         if (imu_model_)
             imu_model_->reset();
+
+        // Reset cumulative correction tracking
+        auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
+        telem.correction_x_total = units::Length::from_inches(0);
+        telem.correction_y_total = units::Length::from_inches(0);
+        abclib::telemetry::g_telemetry.swap();
     }
 
     void BlendedGeometricEstimator::calibrate()
@@ -86,6 +92,12 @@ namespace abclib::estimation
 
         std::lock_guard<pros::Mutex> lock(pose_mutex_);
         current_pose_ = Pose();
+
+        // Reset cumulative correction tracking
+        auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
+        telem.correction_x_total = units::Length::from_inches(0);
+        telem.correction_y_total = units::Length::from_inches(0);
+        abclib::telemetry::g_telemetry.swap();
     }
 
     Pose BlendedGeometricEstimator::get_pose() const
@@ -107,6 +119,9 @@ namespace abclib::estimation
     {
         update_odometry();
         update_sensor_corrections();
+
+        // Swap telemetry once after both updates complete
+        abclib::telemetry::g_telemetry.swap();
     }
 
     void BlendedGeometricEstimator::update_odometry()
@@ -178,8 +193,6 @@ namespace abclib::estimation
 
             telem.pose_v_raw = units::Velocity::from_ips(v_raw);
             telem.pose_omega_raw = units::AngularVelocity::from_rad_per_sec(omega_raw);
-
-            abclib::telemetry::g_telemetry.swap();
         }
     }
 
@@ -192,33 +205,61 @@ namespace abclib::estimation
             robot_pose = current_pose_;
         }
 
-        // Check if safe to apply corrections (but still read sensors!)
+        // Check if safe to apply corrections
         bool can_apply_corrections = is_safe_to_blend();
 
-        // Iterate through all sensors
-        for (auto &sensor_config : distance_sensors_)
+        // Initialize telemetry vectors (only resize if needed - preserves values)
+        auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
+        size_t num_sensors = distance_sensors_.size();
+
+        if (telem.distance_measured.size() != num_sensors)
         {
+            telem.distance_measured.resize(num_sensors);
+            telem.distance_expected.resize(num_sensors);
+            telem.distance_innovation.resize(num_sensors);
+            telem.distance_walls.resize(num_sensors);
+            telem.distance_valid.resize(num_sensors);
+            telem.distance_blend_factors.resize(num_sensors);
+        }
+
+        telem.num_total_sensors = num_sensors;
+        telem.blending_enabled = blend_config_.enable_blending;
+        telem.blending_safe = can_apply_corrections;
+
+        // Reset per-frame correction tracking
+        units::Length total_dx = units::Length::from_inches(0);
+        units::Length total_dy = units::Length::from_inches(0);
+
+        // Iterate through all sensors
+        for (size_t i = 0; i < distance_sensors_.size(); i++)
+        {
+            auto &sensor_config = distance_sensors_[i];
+
+            // Store blend factor (always available from config)
+            telem.distance_blend_factors[i] = sensor_config.blend_factor;
+
             // Cast to DistanceSensorMeasurementModel to access has_new_reading()
             auto *distance_model = dynamic_cast<DistanceSensorMeasurementModel *>(
                 sensor_config.sensor);
 
             if (!distance_model || !distance_model->has_new_reading())
             {
-                continue; // No new data
+                // No new data - keep previous telemetry values
+                continue;
             }
 
             // Get measurement
             units::Length measured = distance_model->get_measurement();
-
-            // Always update telemetry (even if invalid or not applying corrections)
-            auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
-            telem.front_distance_measured = measured;
+            telem.distance_measured[i] = measured;
 
             if (!distance_model->is_valid())
             {
-                telem.front_distance_valid = false;
-                abclib::telemetry::g_telemetry.swap();
-                continue; // Invalid reading
+                // Invalid reading
+                telem.distance_valid[i] = false;
+                telem.distance_expected[i] = units::Length::from_mm(0);
+                telem.distance_innovation[i] = units::Length::from_mm(0);
+                telem.distance_walls[i] = field::FieldMap::Wall::NONE;
+                continue;
             }
 
             // Validate against expected distance
@@ -228,30 +269,61 @@ namespace abclib::estimation
             if (validate_sensor_reading(sensor_config, measured, robot_pose,
                                         expected, wall))
             {
-                // Update telemetry with validation results
-                telem.front_distance_expected = expected;
-                telem.front_innovation = measured - expected;
-                telem.front_wall = wall;
-                telem.front_distance_valid = true;
+                // Valid reading
+                telem.distance_expected[i] = expected;
+                telem.distance_innovation[i] = measured - expected;
+                telem.distance_walls[i] = wall;
+                telem.distance_valid[i] = true;
 
                 // Only apply correction if safe to blend
                 if (can_apply_corrections)
                 {
-                    apply_sensor_correction(sensor_config, measured, expected, wall);
-                    // TODO: apply_sensor_correction() (Step 2)
-                }
+                    // Track correction before applying
+                    units::Length dx_before, dy_before;
+                    {
+                        std::lock_guard<pros::Mutex> lock(pose_mutex_);
+                        dx_before = current_pose_.x();
+                        dy_before = current_pose_.y();
+                    }
 
-                abclib::telemetry::g_telemetry.swap();
+                    apply_sensor_correction(sensor_config, measured, expected, wall);
+
+                    // Track correction after applying
+                    {
+                        std::lock_guard<pros::Mutex> lock(pose_mutex_);
+                        units::Length dx_after = current_pose_.x();
+                        units::Length dy_after = current_pose_.y();
+
+                        total_dx = total_dx + (dx_after - dx_before);
+                        total_dy = total_dy + (dy_after - dy_before);
+                    }
+                }
             }
             else
             {
                 // Validation failed
-                telem.front_distance_expected = expected; // Still show what we expected
-                telem.front_wall = wall;
-                telem.front_distance_valid = false;
-                abclib::telemetry::g_telemetry.swap();
+                telem.distance_expected[i] = expected; // Still show what we expected
+                telem.distance_walls[i] = wall;
+                telem.distance_valid[i] = false;
+                telem.distance_innovation[i] = units::Length::from_mm(0);
             }
         }
+
+        // Update summary stats
+        telem.num_active_sensors = 0;
+        for (size_t i = 0; i < telem.distance_valid.size(); i++)
+        {
+            if (telem.distance_valid[i])
+            {
+                telem.num_active_sensors++;
+            }
+        }
+
+        // Update correction tracking
+        telem.correction_x_frame = total_dx;
+        telem.correction_y_frame = total_dy;
+        telem.correction_x_total = telem.correction_x_total + total_dx;
+        telem.correction_y_total = telem.correction_y_total + total_dy;
     }
 
     bool BlendedGeometricEstimator::is_safe_to_blend() const
@@ -287,7 +359,7 @@ namespace abclib::estimation
             robot_pose,
             sensor_config.offset_forward, // Forward offset
             sensor_config.offset_lateral, // Lateral offset
-            sensor_config.bearing   // Sensor pointing direction
+            sensor_config.bearing         // Sensor pointing direction
         );
 
         // 3. Determine which wall sensor is facing

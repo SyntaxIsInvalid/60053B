@@ -158,19 +158,28 @@ namespace abclib::telemetry
         units::Length y_uncertainty = units::Length::from_meters(-1.0);
 
         // Distance sensor measurements
-        units::Length front_distance_measured;
-        units::Length front_distance_expected;
-        bool front_distance_valid;
-        field::FieldMap::Wall front_wall;
+        std::vector<units::Length> distance_measured;
+        std::vector<units::Length> distance_expected;
+        std::vector<units::Length> distance_innovation;
+        std::vector<field::FieldMap::Wall> distance_walls;
+        std::vector<bool> distance_valid;
+        std::vector<double> distance_blend_factors;
 
-        units::Length back_distance_measured;
-        units::Length back_distance_expected;
-        bool back_distance_valid;
-        field::FieldMap::Wall back_wall;
+        // Sensor summary
+        int num_active_sensors = 0;
+        int num_total_sensors = 0;
 
-        // EKF innovation (measurement - prediction)
-        units::Length front_innovation;
-        units::Length back_innovation;
+        // Per-frame correction (what we applied THIS update)
+        units::Length correction_x_frame = units::Length::from_inches(0);
+        units::Length correction_y_frame = units::Length::from_inches(0);
+
+        // Cumulative correction (total since reset)
+        units::Length correction_x_total = units::Length::from_inches(0);
+        units::Length correction_y_total = units::Length::from_inches(0);
+
+        // Blending status
+        bool blending_safe = false;
+        bool blending_enabled = false;
 
         // Kalman gain (how much we trust measurements)
         double kalman_gain_x_front;

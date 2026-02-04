@@ -1,4 +1,5 @@
 #include "screen_manager.hpp"
+#include "telemetry_formatting.hpp"
 #include <cstdio>
 
 namespace abclib::ui
@@ -285,42 +286,93 @@ namespace abclib::ui
                 lv_label_set_text(blended_debug_labels[4], "");
                 return;
             }
+
             char buf[256];
 
-            // Label 0: Position and Wall
-            snprintf(buf, sizeof(buf),
-                     "Corner: X:%.1f Y:%.1f Th:%.1f | Center: X:%.1f Y:%.1f Th:%.1f",
-                     data.pose_corner.x_inches(),
-                     data.pose_corner.y_inches(),
-                     data.pose_corner.theta_deg(),
-                     data.pose_standard.x_inches(),
-                     data.pose_standard.y_inches(),
-                     data.pose_standard.theta_deg());
+            // Sensor labels (adjust based on your actual config)
+            // TODO: Make this configurable or derive from sensor bearing angles
+            const char *sensor_labels = "[F,L,B,R]";
+
+            // Label 0: Sensor array + both poses + velocity
+            std::string pose_c = format_pose_tuple(
+                data.pose_corner.x_inches(),
+                data.pose_corner.y_inches(),
+                data.pose_corner.theta_deg());
+            std::string pose_s = format_pose_tuple(
+                data.pose_standard.x_inches(),
+                data.pose_standard.y_inches(),
+                data.pose_standard.theta_deg());
+
+            snprintf(buf, sizeof(buf), "%s C:%s S:%s V:%.1fips",
+                     sensor_labels,
+                     pose_c.c_str(),
+                     pose_s.c_str(),
+                     data.pose_corner.v.to_ips());
             lv_label_set_text(blended_debug_labels[0], buf);
 
-            // Label 1: Velocity & Blending Status
-            snprintf(buf, sizeof(buf), "Vel: %.1f in/s | Omega: %.1f rad/s | Blend: %s",
-                     data.pose_corner.v.to_ips(),
-                     data.pose_corner.omega.to_rad_per_sec(),
-                     data.front_distance_valid ? "ACTIVE" : "INACTIVE");
+            // Label 1: Measured and Expected distances
+            std::vector<double> meas_mm, exp_mm;
+            for (const auto &m : data.distance_measured)
+            {
+                meas_mm.push_back(m.to_mm());
+            }
+            for (const auto &e : data.distance_expected)
+            {
+                exp_mm.push_back(e.to_mm());
+            }
+
+            std::string meas_str = format_value_vector(meas_mm, data.distance_valid, "%.0f");
+            std::string exp_str = format_value_vector(exp_mm, data.distance_valid, "%.0f");
+
+            snprintf(buf, sizeof(buf), "Meas:%smm  Exp:%smm",
+                     meas_str.c_str(),
+                     exp_str.c_str());
             lv_label_set_text(blended_debug_labels[1], buf);
 
-            // Label 2: Front Sensor Validation *** MOST IMPORTANT FOR STEP 1 ***
-            const char *front_wall_str = wall_to_string(data.front_wall);
-            snprintf(buf, sizeof(buf), "Front[%s]: Meas:%dmm Exp:%dmm Wall:%s Inn:%.0fmm",
-                     data.front_distance_valid ? "OK" : "--",
-                     (int)data.front_distance_measured.to_mm(),
-                     (int)data.front_distance_expected.to_mm(),
-                     front_wall_str,
-                     data.front_innovation.to_mm());
+            // Label 2: Innovation + Wall + Valid
+            std::vector<double> inn_mm;
+            for (const auto &i : data.distance_innovation)
+            {
+                inn_mm.push_back(i.to_mm());
+            }
+
+            std::string inn_str = format_value_vector(inn_mm, data.distance_valid, "%.0f");
+            std::string wall_str = format_wall_vector(data.distance_walls, data.distance_valid);
+            std::string valid_str = format_valid_vector(data.distance_valid);
+
+            snprintf(buf, sizeof(buf), "Inn:%smm  Wall:%s  Valid:%s",
+                     inn_str.c_str(),
+                     wall_str.c_str(),
+                     valid_str.c_str());
             lv_label_set_text(blended_debug_labels[2], buf);
 
-            // Label 3: Spare (for future correction info in Step 2)
-            snprintf(buf, sizeof(buf), "Correction: TBD");
+            // Label 3: Blend factors + Frame correction + Active count
+            std::string alpha_str = format_blend_vector(data.distance_blend_factors);
+            std::string corr_str = format_correction(
+                data.correction_x_frame.to_inches(),
+                data.correction_y_frame.to_inches());
+
+            snprintf(buf, sizeof(buf), "alpha:%s  Corr:%s  Active:%d/%d",
+                     alpha_str.c_str(),
+                     corr_str.c_str(),
+                     data.num_active_sensors,
+                     data.num_total_sensors);
             lv_label_set_text(blended_debug_labels[3], buf);
 
-            // Label 4: Spare (or remove)
-            lv_label_set_text(blended_debug_labels[4], "");
+            // Label 4: Blend status + Safe + Frame + Total corrections
+            std::string frame_corr = format_correction(
+                data.correction_x_frame.to_inches(),
+                data.correction_y_frame.to_inches());
+            std::string total_corr = format_correction(
+                data.correction_x_total.to_inches(),
+                data.correction_y_total.to_inches());
+
+            snprintf(buf, sizeof(buf), "Blend:%s  Safe:%s  Frame:%s  Total:%s",
+                     data.blending_enabled ? "ON" : "OFF",
+                     data.blending_safe ? "YES" : "NO",
+                     frame_corr.c_str(),
+                     total_corr.c_str());
+            lv_label_set_text(blended_debug_labels[4], buf);
         }
     }
     void ScreenManager::create_auton_test_tab()

@@ -414,7 +414,7 @@ namespace abclib::estimation
                 alpha * v_raw + (1.0 - alpha) * current_pose_.v.to_ips());
             current_pose_.omega = units::AngularVelocity::from_rad_per_sec(
                 alpha * omega_raw + (1.0 - alpha) * current_pose_.omega.to_rad_per_sec());
-
+            /*
             // Telemetry
             {
                 auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
@@ -466,6 +466,7 @@ namespace abclib::estimation
                 }
 
                 // NEW: Distance sensor diagnostics (front sensor)
+                
                 if (!distance_sensors_.empty() && distance_sensors_[0].enabled && distance_sensors_[0].sensor)
                 {
                     auto *front_sensor = dynamic_cast<DistanceSensorMeasurementModel *>(
@@ -570,6 +571,7 @@ namespace abclib::estimation
 
                 abclib::telemetry::g_telemetry.swap();
             }
+            */
         }
         else
         {
