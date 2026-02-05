@@ -101,7 +101,8 @@ void initialize()
     register_auton(AutonRoutine::PATH_BUILDER_TEST, path_builder_test, AutonCategory::TEST, field::Alliance::RED);
     register_auton(AutonRoutine::TEST_BOT_AUTON, test_bot_auton, AutonCategory::TEST, field::Alliance::RED);
     register_auton(AutonRoutine::NONE, none, AutonCategory::TEST, field::Alliance::RED);
-    selected_auton = AutonRoutine::TEST_BOT_AUTON;
+    register_auton(AutonRoutine::RED_RIGHT, red_right, AutonCategory::RED, field::Alliance::RED);
+    selected_auton = AutonRoutine::RED_LEFT;
     lv_init();
     pros::lcd::initialize();
     screen_manager.initialize(DefaultScreen::BLENDED);
@@ -111,7 +112,7 @@ void initialize()
                       { screen_manager.update_calibration_progress(progress, status); });
     pros::delay(200);
     chassis.set_alliance(field::Alliance::RED);
-    chassis.set_pose(0_in, 5_in, 0_deg);
+    chassis.set_pose(0_in, 13_in, 0_deg);
     screen_manager.hide_calibration_screen();
 #if HAS_PNEUMATICS
     match_load_ramp.retract();
@@ -186,10 +187,13 @@ void autonomous()
         wing,
         mid_goal_retract};
     run_selected_auton(robot);
+    //chassis.drive_straight_relative(24_in, 5_s);
+    
+    //chassis.turn_to_heading(180_deg, 5_s);
+    controller.print(0, 0, "done");
     // sysid::measure_ks_kv(leftMotors, rightMotors, true, "ks_kv_comp_forward", 5.5, 0.25, 300);
     // sysid::measure_ks_kv_turn(leftMotors,rightMotors, true, "ks_kv_ccw_comp.csv", 11, 0.25, 500);
     // sysid::measure_velocity_pid(chassis, true, "/usd/vel_200rpm.csv", 200.0, 4500);
-    // controller.print(0, 0, "done");
 }
 
 void opcontrol()

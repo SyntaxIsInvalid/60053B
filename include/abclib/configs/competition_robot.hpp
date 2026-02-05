@@ -143,11 +143,11 @@ namespace abclib::robot_config
     {
         return hardware::ControllerConfig{
             .lateral_pid = {
-                .kP = 0.67,
-                .kI = 0,
-                .kD = 0.025,
+                .kP = 0.7,
+                .kI = 0.0,
+                .kD = 0.04,
                 .integral = {
-                    .max = 0.0  // No integral term currently
+                    .max = 1e20  // No integral term currently
                 }
             },
             .angular_pid = {

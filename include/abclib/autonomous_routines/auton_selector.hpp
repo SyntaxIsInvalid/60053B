@@ -28,7 +28,7 @@ namespace abclib::auton
         SKILLS,
         NONE,
         TEST_BOT_AUTON,
-        PATH_BUILDER_TEST
+        PATH_BUILDER_TEST,
     };
 
     enum class AutonCategory
@@ -100,7 +100,8 @@ namespace abclib::auton
             {AutonRoutine::SKILLS, "SKILLS"},
             {AutonRoutine::NONE, "NONE"},
             {AutonRoutine::TEST_BOT_AUTON, "TEST_BOT_AUTON"},
-            {AutonRoutine::PATH_BUILDER_TEST, "PATH_BUILDER_TEST"}};
+            {AutonRoutine::PATH_BUILDER_TEST, "PATH_BUILDER_TEST"},
+            {AutonRoutine::RED_RIGHT, "RED_RIGHT"}};
 
         auto it = enum_names.find(routine);
         if (it == enum_names.end())

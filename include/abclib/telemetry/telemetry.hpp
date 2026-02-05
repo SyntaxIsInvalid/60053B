@@ -164,6 +164,7 @@ namespace abclib::telemetry
         std::vector<field::FieldMap::Wall> distance_walls;
         std::vector<bool> distance_valid;
         std::vector<double> distance_blend_factors;
+        std::vector<double> distance_mahalanobis;
 
         // Sensor summary
         int num_active_sensors = 0;

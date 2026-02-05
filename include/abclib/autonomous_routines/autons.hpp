@@ -7,3 +7,4 @@
 #include "path_builder_test.hpp"
 #include "test_bot_auton.hpp"
 #include "none.hpp"
+#include "red_right.hpp"
