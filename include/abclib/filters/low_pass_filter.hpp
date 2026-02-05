@@ -8,22 +8,22 @@ namespace abclib::filters
     struct FilterConfig
     {
         double time_constant = 0.015; // Time constant in seconds (tau) - controls smoothing aggressiveness
-        bool enabled = true;           // Enable/disable filtering
+        bool enabled = true;          // Enable/disable filtering
     };
 
     /**
      * @brief Exponential moving average low-pass filter
-     * 
+     *
      * Uses a first-order low-pass filter to smooth noisy signals:
      * filtered += alpha * (new_value - filtered)
      * where alpha = dt / (tau + dt)
-     * 
+     *
      * The time constant (tau) controls how aggressively the filter smooths:
      * - Smaller tau (e.g., 0.005s): Fast response, less smoothing, more noise
      * - Larger tau (e.g., 0.050s): Slow response, more smoothing, cleaner signal
-     * 
+     *
      * Rule of thumb: tau ≈ 1-3× your loop period for good balance
-     * 
+     *
      * Commonly used for filtering derivative terms in PID controllers,
      * but can be used for any noisy signal.
      */
@@ -41,7 +41,7 @@ namespace abclib::filters
          * @brief Construct from config
          * @param config Filter configuration
          */
-        explicit LowPassFilter(const FilterConfig& config);
+        explicit LowPassFilter(const FilterConfig &config);
 
         /**
          * @brief Update filter with new value
@@ -55,7 +55,9 @@ namespace abclib::filters
          * @brief Reset filter state
          */
         void reset();
-
+        void reset(double initial_value); // Overload for non-zero initialization
+        void set_alpha(double alpha);
+        double get_alpha() const;
         /**
          * @brief Get current filtered value
          * @return Current filtered value (same units as input)
@@ -74,8 +76,17 @@ namespace abclib::filters
          */
         double get_time_constant() const;
 
+        void set_enabled(bool enabled);
+        bool is_enabled() const;
+
+        static LowPassFilter from_alpha(double alpha);
+        static LowPassFilter from_alpha(double alpha, const FilterConfig &config);
+
     private:
-        double time_constant_;     // Filter time constant (tau) in seconds
-        double filtered_value_;    // Current filtered value (unitless - inherits units from input)
+        double time_constant_;  // Filter time constant (tau) in seconds
+        double filtered_value_; // Current filtered value (unitless - inherits units from input)
+        bool enabled_;
+        double alpha_;
+        bool use_fixed_alpha_;
     };
 }

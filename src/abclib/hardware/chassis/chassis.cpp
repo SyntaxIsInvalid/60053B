@@ -36,11 +36,20 @@ namespace abclib::hardware
           track_width(chassis_config.track_width),
           wheel_diameter(chassis_config.diameter),
           imu(sensors.imu),
-          lateral_pid(chassis_config.controllers.lateral_pid),
-          angular_pid(chassis_config.controllers.angular_pid),
+
+          // Remove the underscores! Match the header file names
+          lateral_pid(robot_config::make_pid(
+              chassis_config.controllers.lateral_pid,
+              chassis_config.controllers.lateral_filter)),
+
+          angular_pid(robot_config::make_pid(
+              chassis_config.controllers.angular_pid,
+              chassis_config.controllers.angular_filter)),
+
           ticks(chassis_config.left->get_ticks()),
           config_(chassis_config),
           alliance_(field::Alliance::RED)
+
     {
         settlement_config_ = chassis_config.controllers.settlement;
         // Create measurement models

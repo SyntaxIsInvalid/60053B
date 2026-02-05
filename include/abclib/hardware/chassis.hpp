@@ -55,6 +55,10 @@ namespace abclib::hardware
     {
         control::PIDConstants lateral_pid;
         control::PIDConstants angular_pid;
+
+        std::optional<filters::FilterConfig> lateral_filter;
+        std::optional<filters::FilterConfig> angular_filter;
+
         control::PIDConstants profiled_turn_pid;
         control::PIDConstants profiled_lateral_pid;
 
@@ -345,6 +349,6 @@ namespace abclib::hardware
 
         bool set_sensor_blending_enabled(bool enabled);
         bool is_sensor_blending_enabled() const;
-        bool set_blend_config(const estimation::BlendingConfig& config);
+        bool set_blend_config(const estimation::BlendingConfig &config);
     };
 }

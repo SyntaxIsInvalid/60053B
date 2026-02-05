@@ -10,11 +10,25 @@
 
 namespace abclib::robot_config
 {
-    struct CalibrationData {
-        struct {
+
+    inline control::PID make_pid(
+        const control::PIDConstants &constants,
+        const std::optional<filters::FilterConfig> &filter_config = std::nullopt)
+    {
+        if (filter_config.has_value())
+        {
+            return control::PID(constants, *filter_config);
+        }
+        return control::PID(constants);
+    }
+
+    struct CalibrationData
+    {
+        struct
+        {
             double kS, kV, kA;
         } drivetrain;
-        
+
         // Add other subsystems as needed:
         // struct { double kS, kV, kA; } intake;
         // struct { double kS, kV, kA; } lift;
@@ -24,10 +38,8 @@ namespace abclib::robot_config
         .drivetrain = {
             .kS = 0.535278,
             .kV = 0.158462,
-            .kA = 0.012848
-        }
-    };
-    
+            .kA = 0.012848}};
+
     // Motor ports
     inline const std::vector<int8_t> LEFT_MOTOR_PORTS = {-10, 4};
     inline const std::vector<int8_t> RIGHT_MOTOR_PORTS = {6, -11};
@@ -53,38 +65,32 @@ namespace abclib::robot_config
     inline std::vector<estimation::DistanceSensorConfig> get_distance_sensor_configs()
     {
         return {
-            {
-                .sensor = nullptr,
-                .offset_forward = units::Length::from_inches(3),
-                .offset_lateral = units::Length::from_inches(0.0),
-                .bearing = units::Angle::from_degrees(0),
-                .blend_factor = 0.2,
-                .enabled = true
-            },
-            {
-                .sensor = nullptr,
-                .offset_forward = units::Length::from_inches(-5),
-                .offset_lateral = units::Length::from_inches(0.0),
-                .bearing = units::Angle::from_degrees(180),
-                .blend_factor = 0.2,
-                .enabled = false
-            }
-        };
+            {.sensor = nullptr,
+             .offset_forward = units::Length::from_inches(3),
+             .offset_lateral = units::Length::from_inches(0.0),
+             .bearing = units::Angle::from_degrees(0),
+             .blend_factor = 0.2,
+             .enabled = true},
+            {.sensor = nullptr,
+             .offset_forward = units::Length::from_inches(-5),
+             .offset_lateral = units::Length::from_inches(0.0),
+             .bearing = units::Angle::from_degrees(180),
+             .blend_factor = 0.2,
+             .enabled = false}};
     }
-    
+
     inline hardware::motor_group_config get_left_motor_config()
     {
         return hardware::motor_group_config{
             .kS = sysid_data.drivetrain.kS,
             .kV = sysid_data.drivetrain.kV,
             .kA = sysid_data.drivetrain.kA,
-            .kPv = 0.0,
+            .kPv = 0.2,
             .kIv = 0.0,
             .kDv = 0.00,
             .enable_voltage_compensation = true,
             .compensation_nominal = units::Voltage::from_volts(12.0),
-            .compensation_min_battery = units::Voltage::from_volts(11.5)
-        };
+            .compensation_min_battery = units::Voltage::from_volts(11.5)};
     }
 
     inline hardware::motor_group_config get_right_motor_config()
@@ -93,60 +99,61 @@ namespace abclib::robot_config
             .kS = sysid_data.drivetrain.kS,
             .kV = sysid_data.drivetrain.kV,
             .kA = sysid_data.drivetrain.kA,
-            .kPv = 0.0,
+            .kPv = 0.2,
             .kIv = 0.0,
             .kDv = 0.00,
             .enable_voltage_compensation = true,
             .compensation_nominal = units::Voltage::from_volts(12.0),
-            .compensation_min_battery = units::Voltage::from_volts(11.5)
-        };
+            .compensation_min_battery = units::Voltage::from_volts(11.5)};
     }
 
     inline hardware::SettlementConfig get_settlement_config()
     {
         return hardware::SettlementConfig{
-            .angular_threshold = units::Angle::from_degrees(1),
+            .angular_threshold = units::Angle::from_degrees(0.7),
             .position_threshold = units::Length::from_inches(0.5),
             .angular_velocity_threshold = units::AngularVelocity::from_rad_per_sec(0.1),
             .linear_velocity_threshold = units::Velocity::from_ips(0.15),
-            .settle_count_required = 3
-        };
+            .settle_count_required = 3};
     }
 
     inline hardware::ControllerConfig get_controller_config()
     {
         return hardware::ControllerConfig{
+            // Lateral PID - no derivative, no filtering needed
             .lateral_pid = {
                 .kP = 0.6,
-                .kI = 5,
-                .kD = 0,
+                .kI = 0,
+                .kD = 0, // ← No derivative term
                 .integral = {
                     .max = control::calculate_max_integral_for_voltage(
                         units::Voltage::from_volts(12.0),
-                        5)
-                }
-            },
-            .angular_pid = {
-                .kP = 5,
-                .kI = 50,
-                .kD = 0,
-                .integral = {
-                    .max = control::calculate_max_integral_for_voltage(
-                        units::Voltage::from_volts(12.0),
-                        50)
-                }
-            },
+                        5)}},
+
+            // Angular PID - has derivative, enable filtering
+            .angular_pid = {.kP = 23, .kI = 0,
+                            .kD = 2, // ← Has derivative, IMU is noisy
+                            .integral = {.max = control::calculate_max_integral_for_voltage(units::Voltage::from_volts(12.0), 50)}},
+
+            // Filter configurations
+            .lateral_filter = filters::FilterConfig{.time_constant = 0.015, // 15ms - smooth IMU derivative noise
+                                                    .enabled = true},
+
+            .angular_filter = filters::FilterConfig{.time_constant = 0.015, // 15ms - smooth IMU derivative noise
+                                                    .enabled = true},
+
             .profiled_turn_pid = {25, 0.0, 0.0},
             .profiled_lateral_pid = {2.0, 0.0, 0.0},
+
             .turn_in_place_kS = 1.278592,
             .turn_in_place_kV = 0.170242,
             .turn_in_place_kA = 0.012877,
             .lateral_kS = sysid_data.drivetrain.kS,
             .lateral_kV = sysid_data.drivetrain.kV,
             .lateral_kA = sysid_data.drivetrain.kA,
+
             .settlement = get_settlement_config(),
-            .ramsete = {2.0, 0.7}
-        };
+            .ramsete = {2.0, 0.7}};
     }
 
     inline estimation::EstimatorConfig get_estimator_config()
@@ -172,8 +179,7 @@ namespace abclib::robot_config
         config.blending.max_sensor_reading = units::Length::from_mm(2100.0);
 
         config.blending.outlier_mode = estimation::BlendingConfig::OutlierRejectionMode::SIMPLE_THRESHOLD;
-        config.blending.mahalanobis_sigma_threshold = 3.0;  // 99.7% confidence
-
+        config.blending.mahalanobis_sigma_threshold = 3.0; // 99.7% confidence
 
         return config;
     }
