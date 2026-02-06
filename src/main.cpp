@@ -102,7 +102,8 @@ void initialize()
     register_auton(AutonRoutine::TEST_BOT_AUTON, test_bot_auton, AutonCategory::TEST, field::Alliance::RED);
     register_auton(AutonRoutine::NONE, none, AutonCategory::TEST, field::Alliance::RED);
     register_auton(AutonRoutine::RED_RIGHT, red_right, AutonCategory::RED, field::Alliance::RED);
-    selected_auton = AutonRoutine::TEST_BOT_AUTON;
+        register_auton(AutonRoutine::SKILLS, skills, AutonCategory::SKILLS, field::Alliance::RED);
+    selected_auton = AutonRoutine::SKILLS;
     lv_init();
     pros::lcd::initialize();
     screen_manager.initialize(DefaultScreen::BLENDED);
@@ -112,7 +113,8 @@ void initialize()
                       { screen_manager.update_calibration_progress(progress, status); });
     pros::delay(200);
     chassis.set_alliance(field::Alliance::RED);
-    chassis.set_pose(0_in, 13_in, 0_deg);
+    //chassis.set_pose(70.6_in, 23.11_in, -90_deg);
+    //chassis.set_pose(53_in, 137.75_in, 90_deg);
     screen_manager.hide_calibration_screen();
 #if HAS_PNEUMATICS
     match_load_ramp.retract();

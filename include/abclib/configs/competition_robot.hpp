@@ -10,6 +10,17 @@
 
 namespace abclib::robot_config
 {
+
+        inline control::PID make_pid(
+        const control::PIDConstants &constants,
+        const std::optional<filters::FilterConfig> &filter_config = std::nullopt)
+    {
+        if (filter_config.has_value())
+        {
+            return control::PID(constants, *filter_config);
+        }
+        return control::PID(constants);
+    }
     struct CalibrationData {
         struct {
             double kS, kV, kA;
@@ -46,8 +57,8 @@ namespace abclib::robot_config
     // Sensor ports
     constexpr int8_t IMU_PORT = 17;
     constexpr int8_t Y_ROTATION_PORT = -18;
-    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 14;
-    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 2;
+    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 2;
+    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 14;
 
     // Pneumatic ports
     constexpr char MATCH_LOAD_RAMP_PORT = 'G';
@@ -72,7 +83,7 @@ namespace abclib::robot_config
         static pros::Distance front_sensor(FRONT_DISTANCE_SENSOR_PORT);
         static pros::Distance back_sensor(BACK_DISTANCE_SENSOR_PORT);
 
-        return {&front_sensor, &back_sensor};
+        return {&back_sensor, &front_sensor};
     }
 
     inline std::vector<estimation::DistanceSensorConfig> get_distance_sensor_configs()
@@ -80,12 +91,20 @@ namespace abclib::robot_config
         return {
             {
                 .sensor = nullptr, // Will be filled by factory
-                .offset_forward = units::Length::from_inches(4),
-                .offset_lateral = units::Length::from_inches(0.0),
-                .bearing = units::Angle::from_degrees(0), // Forward
-                .blend_factor = 0.2,
+                .offset_forward = units::Length::from_inches(-4),
+                .offset_lateral = units::Length::from_inches(0),
+                .bearing = units::Angle::from_degrees(180), // Forward
+                .blend_factor = 0.3,
                 .enabled = true
             },
+           {
+                .sensor = nullptr, // Will be filled by factory
+                .offset_forward = units::Length::from_inches(4.5),
+                .offset_lateral = units::Length::from_inches(-4.8),
+                .bearing = units::Angle::from_degrees(0), // Forward
+                .blend_factor = 0.3,
+                .enabled = true
+            }
             // Add back sensor config if needed
             // {
             //     .sensor = nullptr,
@@ -158,6 +177,11 @@ namespace abclib::robot_config
                     .max = 0.0  // No integral term currently
                 }
             },
+                        .lateral_filter = filters::FilterConfig{.time_constant = 0.015, // 15ms - smooth IMU derivative noise
+                                                    .enabled = true},
+
+            .angular_filter = filters::FilterConfig{.time_constant = 0.015, // 15ms - smooth IMU derivative noise
+                                                    .enabled = true},
             .profiled_turn_pid = {25, 0.0, 0.0},
             .profiled_lateral_pid = {2.0, 0.0, 0.0},
             .turn_in_place_kS = sysid_data.turn_in_place.kS,
