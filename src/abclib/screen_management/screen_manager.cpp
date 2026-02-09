@@ -321,27 +321,29 @@ namespace abclib::ui
                 exp_mm.push_back(e.to_mm());
             }
 
-            std::string meas_str = format_value_vector(meas_mm, data.distance_valid, "%.0f");
-            std::string exp_str = format_value_vector(exp_mm, data.distance_valid, "%.0f");
+            std::string meas_str = format_value_vector_always(meas_mm, "%.0f");
+            std::string exp_str = format_value_vector_always(exp_mm, "%.0f");
 
             snprintf(buf, sizeof(buf), "Meas:%smm  Exp:%smm",
                      meas_str.c_str(),
                      exp_str.c_str());
             lv_label_set_text(blended_debug_labels[1], buf);
 
-            // Label 2: Innovation + Wall + Valid
+            // Label 2: Innovation + Mahalanobis + Wall + Valid
             std::vector<double> inn_mm;
             for (const auto &i : data.distance_innovation)
             {
                 inn_mm.push_back(i.to_mm());
             }
 
-            std::string inn_str = format_value_vector(inn_mm, data.distance_valid, "%.0f");
-            std::string wall_str = format_wall_vector(data.distance_walls, data.distance_valid);
+            std::string inn_str = format_value_vector_always(inn_mm, "%.0f");
+            std::string dm_str = format_value_vector_always(data.distance_mahalanobis, "%.1f");
+            std::string wall_str = format_wall_vector_always(data.distance_walls);
             std::string valid_str = format_valid_vector(data.distance_valid);
 
-            snprintf(buf, sizeof(buf), "Inn:%smm  Wall:%s  Valid:%s",
+            snprintf(buf, sizeof(buf), "Inn:%smm d_M:%s Wall:%s Valid:%s",
                      inn_str.c_str(),
+                     dm_str.c_str(),
                      wall_str.c_str(),
                      valid_str.c_str());
             lv_label_set_text(blended_debug_labels[2], buf);

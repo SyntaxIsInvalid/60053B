@@ -32,7 +32,7 @@ namespace abclib::math
 
     inline double sinc(double x)
     {
-        if (std::abs(x) < 1e-9)
+        if (std::abs(x) < 1e-7)
         {
             return 1.0 - (x * x) / 6.0;
         }

@@ -10,7 +10,7 @@ namespace abclib::estimation
         
         virtual T get_measurement() = 0;
         
-        virtual double get_uncertainty() { return 0.0; }
+        virtual double get_uncertainty() const { return 0.0; }
         
         virtual void reset() = 0;
     };

@@ -116,6 +116,38 @@ namespace abclib::estimation
         current_pose_.omega = units::AngularVelocity::from_rad_per_sec(0.0);
     }
 
+    double BlendedGeometricEstimator::get_sensor_uncertainty(
+        const DistanceSensorMeasurementModel *sensor) const
+    {
+        if (!sensor)
+        {
+            return 1.0; // 1 meter default for invalid sensor
+        }
+
+        return sensor->get_uncertainty();
+    }
+
+    double BlendedGeometricEstimator::get_pose_uncertainty(
+        const Pose &robot_pose,
+        field::FieldMap::Wall wall) const
+    {
+        // Phase 1: No pose uncertainty tracking yet
+        return 0.0;
+
+        // Phase 2: TODO - Options for future implementation:
+        //
+        // Option A: Time-based heuristic
+        //   double time_since_correction = ...;
+        //   return k_drift * time_since_correction;
+        //
+        // Option B: Covariance-based (if robot_pose.has_uncertainty())
+        //   Project covariance to measurement direction based on wall:
+        //   if (wall == Wall::NORTH || wall == Wall::SOUTH)
+        //       return robot_pose.y_uncertainty_meters();
+        //   else
+        //       return robot_pose.x_uncertainty_meters();
+    }
+
     void BlendedGeometricEstimator::update()
     {
         update_odometry();
@@ -221,6 +253,7 @@ namespace abclib::estimation
             telem.distance_walls.resize(num_sensors);
             telem.distance_valid.resize(num_sensors);
             telem.distance_blend_factors.resize(num_sensors);
+            telem.distance_mahalanobis.resize(num_sensors); // NEW
         }
 
         telem.num_total_sensors = num_sensors;
@@ -245,7 +278,7 @@ namespace abclib::estimation
 
             if (!distance_model || !distance_model->has_new_reading())
             {
-                // No new data - keep previous telemetry values
+                // No new data - keep previous telemetry values (prevents flicker)
                 continue;
             }
 
@@ -260,21 +293,24 @@ namespace abclib::estimation
                 telem.distance_expected[i] = units::Length::from_mm(0);
                 telem.distance_innovation[i] = units::Length::from_mm(0);
                 telem.distance_walls[i] = field::FieldMap::Wall::NONE;
+                telem.distance_mahalanobis[i] = -1.0; // NEW: sentinel for invalid
                 continue;
             }
 
             // Validate against expected distance
             units::Length expected;
             field::FieldMap::Wall wall;
+            double mahal_dist; // NEW: out-param
 
             if (validate_sensor_reading(sensor_config, measured, robot_pose,
-                                        expected, wall))
+                                        expected, wall, mahal_dist)) // NEW: added mahal_dist
             {
                 // Valid reading
                 telem.distance_expected[i] = expected;
                 telem.distance_innovation[i] = measured - expected;
                 telem.distance_walls[i] = wall;
                 telem.distance_valid[i] = true;
+                telem.distance_mahalanobis[i] = mahal_dist; // NEW
 
                 // Only apply correction if safe to blend
                 if (can_apply_corrections)
@@ -302,11 +338,12 @@ namespace abclib::estimation
             }
             else
             {
-                // Validation failed
-                telem.distance_expected[i] = expected; // Still show what we expected
+                // Validation failed - still show innovation for debugging
+                telem.distance_expected[i] = expected;
+                telem.distance_innovation[i] = measured - expected; // CHANGED: show actual innovation
                 telem.distance_walls[i] = wall;
                 telem.distance_valid[i] = false;
-                telem.distance_innovation[i] = units::Length::from_mm(0);
+                telem.distance_mahalanobis[i] = mahal_dist;
             }
         }
 
@@ -343,70 +380,106 @@ namespace abclib::estimation
     }
 
     bool BlendedGeometricEstimator::validate_sensor_reading(
-    const DistanceSensorConfig &sensor_config,
-    units::Length reading,
-    const Pose &robot_pose,
-    units::Length &expected_distance,
-    field::FieldMap::Wall &detected_wall) const
-{
-    // TODO add mahalnobis rejection to telemeetry 
-    // 1. Check if sensor is enabled
-    if (!sensor_config.enabled)
-        return false;
-
-    // 2. Compute sensor's global pose
-    math::SE2 sensor_pose = field_map_.compute_sensor_global_pose(
-        robot_pose,
-        sensor_config.offset_forward,
-        sensor_config.offset_lateral,
-        sensor_config.bearing);
-
-    // 3. Find which wall sensor ray intersects
-    detected_wall = field_map_.find_wall_intersection(sensor_pose);
-
-    // 4. Compute expected distance to that wall
-    expected_distance = field_map_.compute_distance_to_wall(sensor_pose, detected_wall);
-
-    // 5. Check if expected distance is valid
-    if (expected_distance.to_inches() < 0.0)
-        return false;
-
-    // 6. Check if sensor reading is in valid range
-    if (reading > blend_config_.max_sensor_reading)
-        return false;
-
-    // 7. Outlier rejection - choose method based on config
-    if (blend_config_.outlier_mode == BlendingConfig::OutlierRejectionMode::MAHALANOBIS)
+        const DistanceSensorConfig &sensor_config,
+        units::Length reading,
+        const Pose &robot_pose,
+        units::Length &expected_distance,
+        field::FieldMap::Wall &detected_wall,
+        double &mahalanobis_distance) const
     {
-        // Statistical outlier rejection using Mahalanobis distance
-        auto *distance_model = dynamic_cast<DistanceSensorMeasurementModel *>(
-            sensor_config.sensor);
-        
-        if (!distance_model)
-            return false;  // Can't get uncertainty without sensor model
-        
-        // Get sensor uncertainty (standard deviation in meters)
-        double sigma = distance_model->get_uncertainty();
-        
-        if (sigma <= 0.0)
-            return false;  // Invalid uncertainty
-        
-        // Compute Mahalanobis distance
-        double mahal_dist = math::mahalanobis_distance_scalar(
-            reading.to_meters(),
-            expected_distance.to_meters(),
-            sigma);
-        
-        // Test against threshold (default 3.0 sigma = 99.7% confidence)
-        return math::is_inlier_scalar(mahal_dist, blend_config_.mahalanobis_sigma_threshold);
+        // Initialize out-param
+        mahalanobis_distance = -1.0;
+
+        // 1. Check if sensor is enabled
+        if (!sensor_config.enabled)
+        {
+            return false;
+        }
+
+        // 2. Compute sensor's global pose
+        math::SE2 sensor_pose = field_map_.compute_sensor_global_pose(
+            robot_pose,
+            sensor_config.offset_forward,
+            sensor_config.offset_lateral,
+            sensor_config.bearing);
+
+        // 3. Find which wall sensor ray intersects
+        detected_wall = field_map_.find_wall_intersection(sensor_pose);
+
+        // 4. Compute expected distance to that wall
+        expected_distance = field_map_.compute_distance_to_wall(sensor_pose, detected_wall);
+
+        // 5. Check if expected distance is valid
+        if (expected_distance.to_inches() < 0.0)
+        {
+            return false;
+        }
+
+        // 6. Check if sensor reading is in valid range
+        if (reading > blend_config_.max_sensor_reading)
+        {
+            return false;
+        }
+
+        // 7. Outlier rejection - choose method based on config
+        if (blend_config_.outlier_mode == BlendingConfig::OutlierRejectionMode::MAHALANOBIS)
+        {
+            // Statistical outlier rejection using Mahalanobis distance
+            auto *distance_model = dynamic_cast<DistanceSensorMeasurementModel *>(
+                sensor_config.sensor);
+
+            if (!distance_model)
+            {
+                return false; // Can't get uncertainty without sensor model
+            }
+
+            // Get sensor uncertainty (standard deviation in meters)
+            double sigma_sensor = get_sensor_uncertainty(distance_model);
+
+            // Get pose uncertainty (Phase 1: returns 0.0)
+            double sigma_pose = get_pose_uncertainty(robot_pose, detected_wall);
+
+            // Combine uncertainties (independent error sources)
+            double sigma_total = std::sqrt(
+                sigma_sensor * sigma_sensor +
+                sigma_pose * sigma_pose);
+
+            if (sigma_total <= 0.0)
+            {
+                return false; // Invalid uncertainty
+            }
+
+            // Compute Mahalanobis distance
+            mahalanobis_distance = math::mahalanobis_distance_scalar(
+                reading.to_meters(),
+                expected_distance.to_meters(),
+                sigma_total);
+
+            // Test against threshold (default 3.0 sigma = 99.7% confidence)
+            return math::is_inlier_scalar(
+                mahalanobis_distance,
+                blend_config_.mahalanobis_sigma_threshold);
+        }
+        else
+        {
+            // Simple threshold-based rejection (original method)
+            units::Length error = Qabs(reading - expected_distance);
+
+            // Still compute Mahalanobis for telemetry if possible
+            auto *distance_model = dynamic_cast<DistanceSensorMeasurementModel *>(
+                sensor_config.sensor);
+            if (distance_model)
+            {
+                double sigma = get_sensor_uncertainty(distance_model);
+                if (sigma > 0.0)
+                {
+                    mahalanobis_distance = std::abs(error.to_meters()) / sigma;
+                }
+            }
+
+            return error <= blend_config_.max_expected_error;
+        }
     }
-    else
-    {
-        // Simple threshold-based rejection (original method)
-        units::Length error = Qabs(reading - expected_distance);
-        return error <= blend_config_.max_expected_error;
-    }
-}
 
     void BlendedGeometricEstimator::apply_sensor_correction(
         const DistanceSensorConfig &sensor_config,

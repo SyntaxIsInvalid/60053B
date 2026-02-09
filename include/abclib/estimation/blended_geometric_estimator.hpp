@@ -10,7 +10,7 @@
 #include "pose.hpp"
 #include "abclib/field/field_map.hpp"
 #include "estimator_config.hpp"
-
+#include "abclib/measurement/distance_measurement_model.hpp"
 namespace abclib::estimation
 {
     /**
@@ -50,6 +50,29 @@ namespace abclib::estimation
         std::optional<pros::Task> tracking_task_;
         mutable pros::Mutex task_mutex_;
         mutable pros::Mutex pose_mutex_;
+
+        /**
+         * @brief Get sensor measurement uncertainty (standard deviation)
+         *
+         * @param sensor Distance sensor model
+         * @return Measurement uncertainty in meters
+         */
+        double get_sensor_uncertainty(
+            const DistanceSensorMeasurementModel *sensor) const;
+
+        /**
+         * @brief Get pose uncertainty projected to measurement direction
+         *
+         * Phase 1: Returns 0.0 (pose assumed perfect)
+         * Phase 2: TODO - compute from odometry drift model or covariance
+         *
+         * @param robot_pose Current robot pose estimate
+         * @param wall Which wall the measurement corresponds to
+         * @return Pose uncertainty in meters
+         */
+        double get_pose_uncertainty(
+            const Pose &robot_pose,
+            field::FieldMap::Wall wall) const;
 
     public:
         /**
@@ -129,6 +152,7 @@ namespace abclib::estimation
          * @param robot_pose Current robot pose estimate
          * @param[out] expected_distance Computed expected distance to wall
          * @param[out] detected_wall Which wall sensor is facing
+         * @param[out] mahalanobis_distance Computed Mahalanobis distance (sigma units)
          * @return true if reading is valid and should be used
          */
         bool validate_sensor_reading(
@@ -136,7 +160,8 @@ namespace abclib::estimation
             units::Length reading,
             const Pose &robot_pose,
             units::Length &expected_distance,
-            field::FieldMap::Wall &detected_wall) const;
+            field::FieldMap::Wall &detected_wall,
+            double &mahalanobis_distance) const;
 
         /**
          * @brief Apply blended correction from distance sensor

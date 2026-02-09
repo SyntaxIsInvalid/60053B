@@ -17,8 +17,8 @@ namespace abclib::field
             sensor_offset_lateral,
             sensor_bearing);
 
-        // Determine which wall the sensor is facing
-        Wall wall = get_nearest_wall(robot_pose, sensor_bearing);
+        // Find which wall the ray actually intersects
+        Wall wall = find_wall_intersection(sensor_pose);
 
         // Compute distance to that wall
         return compute_distance_to_wall(sensor_pose, wall);

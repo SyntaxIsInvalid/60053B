@@ -45,14 +45,16 @@ namespace abclib::robot_config
     inline const std::vector<int8_t> RIGHT_MOTOR_PORTS = {6, -11};
 
     // Sensor ports
-    constexpr int8_t IMU_PORT = 9;
+    constexpr int8_t IMU_PORT = 8;
+    constexpr int8_t Y_ROTATION_PORT = -13;
     constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 12;
     constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 1;
 
     // Physical dimensions
     inline constexpr units::Length WHEEL_DIAMETER = units::Length::from_inches(3.25);
     inline constexpr units::Length TRACK_WIDTH = units::Length::from_inches(14.0);
-    inline constexpr units::Length Y_TRACKER_OFFSET = units::Length::from_inches(7.0);
+    inline constexpr units::Length Y_TRACKER_WHEEL_DIAMETER = units::Length::from_inches(2.0);
+    inline constexpr units::Length Y_TRACKER_OFFSET = units::Length::from_inches(0);
 
     inline std::vector<pros::Distance *> get_distance_sensors()
     {
@@ -76,7 +78,8 @@ namespace abclib::robot_config
              .offset_lateral = units::Length::from_inches(0.0),
              .bearing = units::Angle::from_degrees(180),
              .blend_factor = 0.2,
-             .enabled = false}};
+             .enabled = false}
+            };
     }
 
     inline hardware::motor_group_config get_left_motor_config()
@@ -178,7 +181,7 @@ namespace abclib::robot_config
         config.blending.max_expected_error = units::Length::from_inches(3.0);
         config.blending.max_sensor_reading = units::Length::from_mm(2100.0);
 
-        config.blending.outlier_mode = estimation::BlendingConfig::OutlierRejectionMode::SIMPLE_THRESHOLD;
+        config.blending.outlier_mode = estimation::BlendingConfig::OutlierRejectionMode::MAHALANOBIS;
         config.blending.mahalanobis_sigma_threshold = 3.0; // 99.7% confidence
 
         return config;
