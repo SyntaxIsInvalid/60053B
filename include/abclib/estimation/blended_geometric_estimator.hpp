@@ -42,8 +42,13 @@ namespace abclib::estimation
 
         // Blending configuration
         BlendingConfig blend_config_;
-        ProcessNoiseConfig process_noise_config_;
-        Eigen::Matrix3d process_noise_;
+
+        /**
+         * @brief Compute process noise matrix for current velocity
+         * @param current_velocity Robot's current forward velocity
+         * @return 3x3 process noise covariance matrix
+         */
+        Eigen::Matrix3d compute_process_noise(units::Velocity current_velocity) const;
 
         // Current state
         Pose current_pose_{};

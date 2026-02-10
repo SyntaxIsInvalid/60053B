@@ -23,17 +23,8 @@ namespace abclib::estimation
           horizontal_offset_(config.horizontal_offset),
           distance_sensors_(distance_sensors),
           field_map_(config.field_config),
-          blend_config_(config.blending),
-          process_noise_config_(config.process_noise)
+          blend_config_(config.blending)
     {
-        // Initialize process noise from config
-        process_noise_ = Eigen::Matrix3d::Zero();
-        double pos_var = process_noise_config_.position_variance_m2();
-        double heading_var = process_noise_config_.heading_variance_rad2();
-
-        process_noise_(0, 0) = pos_var;
-        process_noise_(1, 1) = pos_var;
-        process_noise_(2, 2) = heading_var;
     }
 
     BlendedGeometricEstimator::~BlendedGeometricEstimator()
@@ -54,7 +45,11 @@ namespace abclib::estimation
             std::lock_guard<pros::Mutex> lock_pose(pose_mutex_);
             if (!current_pose_.has_uncertainty())
             {
-                Eigen::Matrix3d P0 = Eigen::Matrix3d::Identity() * 0.02 * 0.02;
+                // Use initial uncertainty from config
+                Eigen::Matrix3d P0 = Eigen::Matrix3d::Zero();
+                P0(0, 0) = blend_config_.process_noise.initial_position_variance_m2();
+                P0(1, 1) = blend_config_.process_noise.initial_position_variance_m2();
+                P0(2, 2) = blend_config_.process_noise.initial_heading_variance_rad2();
                 current_pose_.set_covariance(P0);
             }
         }
@@ -86,10 +81,10 @@ namespace abclib::estimation
         current_pose_ = Pose();
 
         // Initialize with configured initial uncertainty
-        Eigen::Matrix3d P0 = Eigen::Matrix3d::Identity();
-        P0(0, 0) = process_noise_config_.initial_position_variance_m2();
-        P0(1, 1) = process_noise_config_.initial_position_variance_m2();
-        P0(2, 2) = process_noise_config_.initial_heading_variance_rad2();
+        Eigen::Matrix3d P0 = Eigen::Matrix3d::Zero();
+        P0(0, 0) = blend_config_.process_noise.initial_position_variance_m2();
+        P0(1, 1) = blend_config_.process_noise.initial_position_variance_m2();
+        P0(2, 2) = blend_config_.process_noise.initial_heading_variance_rad2();
 
         current_pose_.set_covariance(P0);
 
@@ -120,10 +115,10 @@ namespace abclib::estimation
         current_pose_ = Pose();
 
         // Initialize with configured initial uncertainty
-        Eigen::Matrix3d P0 = Eigen::Matrix3d::Identity();
-        P0(0, 0) = process_noise_config_.initial_position_variance_m2();
-        P0(1, 1) = process_noise_config_.initial_position_variance_m2();
-        P0(2, 2) = process_noise_config_.initial_heading_variance_rad2();
+        Eigen::Matrix3d P0 = Eigen::Matrix3d::Zero();
+        P0(0, 0) = blend_config_.process_noise.initial_position_variance_m2();
+        P0(1, 1) = blend_config_.process_noise.initial_position_variance_m2();
+        P0(2, 2) = blend_config_.process_noise.initial_heading_variance_rad2();
 
         current_pose_.set_covariance(P0);
 
@@ -221,17 +216,27 @@ namespace abclib::estimation
             vertical_offset_,
             horizontal_offset_);
 
+        // Compute instantaneous velocity from this motion (BEFORE locking mutex)
+        const double dt = 0.01;                     // 10ms update rate
+        Eigen::Vector3d xi = local_transform.log(); // [v_x, v_y, omega]^T
+        double v_instantaneous = xi(1) / dt;        // Forward velocity (body frame)
+        double omega_instantaneous = xi(2) / dt;    // Angular velocity
+
         std::lock_guard<pros::Mutex> lock(pose_mutex_);
+
         // Update pose: new_pose = old_pose * local_transform
         // NOTE: operator* already propagates covariance via Jacobian!
         current_pose_.se2 = current_pose_.se2 * local_transform;
 
-        // NEW: Add process noise to model odometry drift
-        // Add process noise to model odometry drift
+        // Add process noise based on instantaneous velocity (the speed we JUST moved at)
         if (current_pose_.has_uncertainty())
         {
             Eigen::Matrix3d P = current_pose_.get_covariance();
-            P += process_noise_;
+
+            // Use instantaneous velocity for process noise
+            units::Velocity vel_for_noise = units::Velocity::from_ips(v_instantaneous);
+            Eigen::Matrix3d Q = compute_process_noise(vel_for_noise);
+            P += Q;
 
             // Clamp covariance to prevent unbounded growth or over-confidence
             constexpr double min_pos_var = 0.005 * 0.005;            // 5mm std dev (very confident)
@@ -246,25 +251,12 @@ namespace abclib::estimation
             current_pose_.set_covariance(P);
         }
 
-        // Compute velocities using the logarithm map
-        const double dt = 0.01; // 10ms update rate
-
-        // Get the tangent vector (body-frame velocity integrated over dt)
-        Eigen::Vector3d xi = local_transform.log(); // [v_x, v_y, omega]^T
-
-        // Extract velocity components
-        double v_y_body = xi(1) / dt;  // Forward velocity (body frame)
-        double omega_raw = xi(2) / dt; // Angular velocity
-
-        // For non-holonomic robot, use forward velocity only
-        double v_raw = v_y_body;
-
-        // Exponential moving average filter
+        // Update filtered velocities (for control/telemetry - smoothed values)
         const double alpha = 0.3;
         current_pose_.v = units::Velocity::from_ips(
-            alpha * v_raw + (1.0 - alpha) * current_pose_.v.to_ips());
+            alpha * v_instantaneous + (1.0 - alpha) * current_pose_.v.to_ips());
         current_pose_.omega = units::AngularVelocity::from_rad_per_sec(
-            alpha * omega_raw + (1.0 - alpha) * current_pose_.omega.to_rad_per_sec());
+            alpha * omega_instantaneous + (1.0 - alpha) * current_pose_.omega.to_rad_per_sec());
 
         // Telemetry (same as GeometricOdometryEstimator)
         {
@@ -293,8 +285,8 @@ namespace abclib::estimation
             telem.heading_wall_valid = (distance.to_inches() >= 0.0);
             telem.heading_distance_to_wall = telem.heading_wall_valid ? distance : units::Length::from_inches(-1.0);
 
-            telem.pose_v_raw = units::Velocity::from_ips(v_raw);
-            telem.pose_omega_raw = units::AngularVelocity::from_rad_per_sec(omega_raw);
+            telem.pose_v_raw = units::Velocity::from_ips(v_instantaneous);
+            telem.pose_omega_raw = units::AngularVelocity::from_rad_per_sec(omega_instantaneous);
             telem.has_covariance = current_pose_.has_uncertainty();
             if (telem.has_covariance)
             {
@@ -345,6 +337,7 @@ namespace abclib::estimation
         telem.num_total_sensors = num_sensors;
         telem.blending_enabled = blend_config_.enable_blending;
         telem.blending_safe = can_apply_corrections;
+        telem.kalman_blending_active = (blend_config_.blend_mode == BlendingConfig::BlendMode::KALMAN);
 
         // Reset per-frame correction tracking
         units::Length total_dx = units::Length::from_inches(0);
@@ -419,6 +412,38 @@ namespace abclib::estimation
 
                         total_dx = total_dx + (dx_after - dx_before);
                         total_dy = total_dy + (dy_after - dy_before);
+                    }
+
+                    // Track Kalman gain for telemetry (NEW)
+                    if (telem.distance_kalman_gains.size() != num_sensors)
+                    {
+                        telem.distance_kalman_gains.resize(num_sensors);
+                    }
+
+                    // Compute K that was used (or will be used)
+                    if (blend_config_.blend_mode == BlendingConfig::BlendMode::KALMAN &&
+                        robot_pose.has_uncertainty())
+                    {
+                        double sigma_pose = get_pose_uncertainty(robot_pose, wall);
+                        auto *dm = dynamic_cast<DistanceSensorMeasurementModel *>(sensor_config.sensor);
+                        double sigma_sensor = get_sensor_uncertainty(dm);
+
+                        if (sigma_pose > 0.0 && sigma_sensor > 0.0)
+                        {
+                            double var_pose = sigma_pose * sigma_pose;
+                            double var_sensor = sigma_sensor * sigma_sensor;
+                            double K = var_pose / (var_pose + var_sensor);
+                            telem.distance_kalman_gains[i] = std::clamp(K, 0.05, 0.95);
+                        }
+                        else
+                        {
+                            telem.distance_kalman_gains[i] = sensor_config.blend_factor;
+                        }
+                    }
+                    else
+                    {
+                        // Fixed blend mode
+                        telem.distance_kalman_gains[i] = sensor_config.blend_factor;
                     }
                 }
             }
@@ -567,88 +592,121 @@ namespace abclib::estimation
         }
     }
 
+    Eigen::Matrix3d BlendedGeometricEstimator::compute_process_noise(
+        units::Velocity current_velocity) const
+    {
+        Eigen::Matrix3d Q = Eigen::Matrix3d::Zero();
+
+        // Get velocity-scaled variances from config
+        double pos_var = blend_config_.process_noise.compute_position_variance_m2(current_velocity);
+        double heading_var = blend_config_.process_noise.compute_heading_variance_rad2(current_velocity);
+
+        Q(0, 0) = pos_var;     // σ_x²
+        Q(1, 1) = pos_var;     // σ_y²
+        Q(2, 2) = heading_var; // σ_θ²
+
+        return Q;
+    }
+
     void BlendedGeometricEstimator::apply_sensor_correction(
         const DistanceSensorConfig &sensor_config,
         units::Length measured_distance,
         units::Length expected_distance,
         field::FieldMap::Wall wall)
     {
-        // Compute error (innovation)
-        // If positive: robot is farther from wall than estimated
-        // If negative: robot is closer to wall than estimated
+        // Compute innovation (how much sensor disagrees with prediction)
         units::Length innovation = measured_distance - expected_distance;
 
-        // Apply blend factor for complementary filtering
-        // blend_factor = 0.2 means: trust sensor 20%, trust odometry 80%
-        units::Length correction_magnitude = innovation * sensor_config.blend_factor;
+        // Compute Kalman gain (or use fixed blend factor)
+        double K;
+
+        if (blend_config_.blend_mode == BlendingConfig::BlendMode::KALMAN &&
+            current_pose_.has_uncertainty())
+        {
+            // Get uncertainties (standard deviations in meters)
+            double sigma_pose = get_pose_uncertainty(current_pose_, wall);
+
+            auto *distance_model = dynamic_cast<DistanceSensorMeasurementModel *>(
+                sensor_config.sensor);
+            double sigma_sensor = get_sensor_uncertainty(distance_model);
+
+            // Compute Kalman gain: K = σ_pose² / (σ_pose² + σ_sensor²)
+            if (sigma_pose > 0.0 && sigma_sensor > 0.0)
+            {
+                double var_pose = sigma_pose * sigma_pose;
+                double var_sensor = sigma_sensor * sigma_sensor;
+                K = var_pose / (var_pose + var_sensor);
+
+                // Clamp for safety during initial deployment
+                K = std::clamp(K, 0.05, 0.95);
+            }
+            else
+            {
+                // Fallback if uncertainties unavailable
+                K = sensor_config.blend_factor;
+            }
+        }
+        else
+        {
+            // Fixed blend factor mode (original behavior)
+            K = sensor_config.blend_factor;
+        }
+
+        // Apply correction using Kalman gain
+        units::Length correction_magnitude = innovation * K;
 
         // Determine correction direction based on wall
-        // Correction is perpendicular to the wall
         double dx_inches = 0.0;
         double dy_inches = 0.0;
 
         switch (wall)
         {
         case field::FieldMap::Wall::NORTH:
-            // North wall: if measured > expected, robot is farther south
-            // Need to move pose south (decrease Y)
             dy_inches = -correction_magnitude.to_inches();
             break;
-
         case field::FieldMap::Wall::SOUTH:
-            // South wall: if measured > expected, robot is farther north
-            // Need to move pose north (increase Y)
             dy_inches = correction_magnitude.to_inches();
             break;
-
         case field::FieldMap::Wall::EAST:
-            // East wall: if measured > expected, robot is farther west
-            // Need to move pose west (decrease X)
             dx_inches = -correction_magnitude.to_inches();
             break;
-
         case field::FieldMap::Wall::WEST:
-            // West wall: if measured > expected, robot is farther east
-            // Need to move pose east (increase X)
             dx_inches = correction_magnitude.to_inches();
             break;
-
         case field::FieldMap::Wall::NONE:
         default:
-            return; // No valid wall, skip correction
+            return;
         }
 
-        // Apply correction to current pose (thread-safe)
+        // Apply correction to pose (thread-safe)
         {
             std::lock_guard<pros::Mutex> lock(pose_mutex_);
 
             double new_x = current_pose_.x_inches() + dx_inches;
             double new_y = current_pose_.y_inches() + dy_inches;
-            double theta = current_pose_.theta_rad(); // Heading unchanged
+            double theta = current_pose_.theta_rad();
 
             current_pose_.se2 = math::SE2(new_x, new_y, theta);
-            current_pose_.se2 = math::SE2(new_x, new_y, theta);
 
-            // NEW: Reduce uncertainty after successful correction
-            if (current_pose_.has_uncertainty())
+            // Update covariance using Kalman filter variance update
+            if (current_pose_.has_uncertainty() &&
+                blend_config_.blend_mode == BlendingConfig::BlendMode::KALMAN)
             {
                 Eigen::Matrix3d P = current_pose_.get_covariance();
 
-                // Scale uncertainty in measurement direction
-                // blend_factor = 0.2 → reduce by 20%, keep 80%
-                double reduction_factor = 1.0 - sensor_config.blend_factor;
-
+                // Kalman variance update: σ²_new = (1 - K) × σ²_old
+                // This is the information gain from the measurement!
                 if (wall == field::FieldMap::Wall::NORTH ||
                     wall == field::FieldMap::Wall::SOUTH)
                 {
-                    // Corrected Y position
-                    P(1, 1) *= reduction_factor;
+                    // Measurement informed Y position
+                    P(1, 1) *= (1.0 - K);
                 }
                 else if (wall == field::FieldMap::Wall::EAST ||
                          wall == field::FieldMap::Wall::WEST)
                 {
-                    // Corrected X position
-                    P(0, 0) *= reduction_factor;
+                    // Measurement informed X position
+                    P(0, 0) *= (1.0 - K);
                 }
 
                 current_pose_.set_covariance(P);

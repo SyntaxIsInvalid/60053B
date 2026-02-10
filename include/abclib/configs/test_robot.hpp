@@ -48,7 +48,7 @@ namespace abclib::robot_config
     constexpr int8_t IMU_PORT = 8;
     constexpr int8_t Y_ROTATION_PORT = -13;
     constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 16;
-    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 1;
+    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 14;
 
     // Physical dimensions
     inline constexpr units::Length WHEEL_DIAMETER = units::Length::from_inches(3.25);
@@ -71,14 +71,14 @@ namespace abclib::robot_config
              .offset_forward = units::Length::from_inches(3),
              .offset_lateral = units::Length::from_inches(0.0),
              .bearing = units::Angle::from_degrees(0),
-             .blend_factor = 0.2,
+             .blend_factor = 0.2,  // Fallback if Kalman disabled
              .enabled = true},
             {.sensor = nullptr,
              .offset_forward = units::Length::from_inches(-5),
              .offset_lateral = units::Length::from_inches(0.0),
              .bearing = units::Angle::from_degrees(180),
-             .blend_factor = 0.2,
-             .enabled = false}};
+             .blend_factor = 0.2,  // Fallback if Kalman disabled
+             .enabled = true}};
     }
 
     inline hardware::motor_group_config get_left_motor_config()
@@ -171,13 +171,15 @@ namespace abclib::robot_config
             units::Length::from_inches(48));
 
         // Process noise configuration
-        config.process_noise.position_noise = units::Length::from_mm(20.0);
-        config.process_noise.heading_noise = units::Angle::from_degrees(0.57);
-        config.process_noise.initial_position_uncertainty = units::Length::from_mm(10.0);
-        config.process_noise.initial_heading_uncertainty = units::Angle::from_degrees(1.0);
+        config.blending.process_noise.position_noise = units::Length::from_mm(20.0);         // Base drift: 10mm per update (100Hz)
+        config.blending.process_noise.heading_noise = units::Angle::from_degrees(0.57);      // ~0.01 rad per update
+        config.blending.process_noise.velocity_noise_scale_factor = 0.5;                     // +50% noise per m/s of speed
+        config.blending.process_noise.initial_position_uncertainty = units::Length::from_mm(20.0);  // 20mm startup uncertainty
+        config.blending.process_noise.initial_heading_uncertainty = units::Angle::from_degrees(2.0); // 2° startup uncertainty
 
         // Blending configuration
         config.blending.enable_blending = true;
+        config.blending.blend_mode = estimation::BlendingConfig::BlendMode::KALMAN;  // Enable 1D Kalman gain
         config.blending.require_stationary = false;
         config.blending.max_blend_velocity = units::Velocity::from_ips(8.0);
         config.blending.max_expected_error = units::Length::from_inches(3.0);

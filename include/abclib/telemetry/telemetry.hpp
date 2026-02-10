@@ -139,14 +139,7 @@ namespace abclib::telemetry
         double right_motor_velocity_d_term = 0;
         units::Voltage right_motor_velocity_output = units::Voltage::from_volts(0);
 
-        units::Length ekf_x;
-        units::Length ekf_y;
-        units::Angle ekf_theta;
-
-        // EKF uncertainty (standard deviations)
-        double ekf_x_std;
-        double ekf_y_std;
-        double ekf_theta_std;
+        bool kalman_blending_active = false;
 
         // NEW: Covariance availability and combined uncertainty metrics
         bool has_covariance = false;
@@ -183,9 +176,7 @@ namespace abclib::telemetry
         bool blending_enabled = false;
 
         // Kalman gain (how much we trust measurements)
-        double kalman_gain_x_front;
-        double kalman_gain_y_front;
-        double kalman_gain_theta_front;
+        std::vector<double> distance_kalman_gains;
 
         field::Alliance current_alliance = field::Alliance::BLUE;
         field::FieldMap::Wall heading_wall = field::FieldMap::Wall::NONE;

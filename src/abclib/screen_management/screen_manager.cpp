@@ -293,7 +293,7 @@ namespace abclib::ui
             // TODO: Make this configurable or derive from sensor bearing angles
             const char *sensor_labels = "[F,L,B,R]";
 
-            // Label 0: Sensor array + both poses + velocity
+            // Label 0: Sensor array + both poses + velocity + omega
             std::string pose_c = format_pose_tuple(
                 data.pose_corner.x_inches(),
                 data.pose_corner.y_inches(),
@@ -303,11 +303,12 @@ namespace abclib::ui
                 data.pose_standard.y_inches(),
                 data.pose_standard.theta_deg());
 
-            snprintf(buf, sizeof(buf), "%s C:%s S:%s V:%.1fips",
+            snprintf(buf, sizeof(buf), "%s C:%s S:%s V:%.1fips W:%.2f°/s",
                      sensor_labels,
                      pose_c.c_str(),
                      pose_s.c_str(),
-                     data.pose_corner.v.to_ips());
+                     data.pose_corner.v.to_ips(),
+                     data.pose_corner.omega.to_deg_per_sec());
             lv_label_set_text(blended_debug_labels[0], buf);
 
             // Label 1: Measured and Expected distances
@@ -348,17 +349,31 @@ namespace abclib::ui
                      valid_str.c_str());
             lv_label_set_text(blended_debug_labels[2], buf);
 
-            // Label 3: Blend factors + Frame correction + Active count
-            std::string alpha_str = format_blend_vector(data.distance_blend_factors);
-            std::string corr_str = format_correction(
-                data.correction_x_frame.to_inches(),
-                data.correction_y_frame.to_inches());
-
-            snprintf(buf, sizeof(buf), "alpha:%s  Corr:%s  Active:%d/%d",
-                     alpha_str.c_str(),
-                     corr_str.c_str(),
-                     data.num_active_sensors,
-                     data.num_total_sensors);
+            // Label 3: show only the active blend mode
+            if (data.kalman_blending_active)
+            {
+                std::string kalman_str = format_blend_vector(data.distance_kalman_gains);
+                snprintf(buf, sizeof(buf), "K:%s Corr:%s Act:%d/%d",
+                         kalman_str.c_str(),
+                         format_correction(
+                             data.correction_x_frame.to_inches(),
+                             data.correction_y_frame.to_inches())
+                             .c_str(),
+                         data.num_active_sensors,
+                         data.num_total_sensors);
+            }
+            else
+            {
+                std::string alpha_str = format_blend_vector(data.distance_blend_factors);
+                snprintf(buf, sizeof(buf), "a:%s Corr:%s Act:%d/%d",
+                         alpha_str.c_str(),
+                         format_correction(
+                             data.correction_x_frame.to_inches(),
+                             data.correction_y_frame.to_inches())
+                             .c_str(),
+                         data.num_active_sensors,
+                         data.num_total_sensors);
+            }
             lv_label_set_text(blended_debug_labels[3], buf);
 
             // Label 4: Blend status + Safe + X/Y uncertainty + Total corrections
@@ -372,7 +387,7 @@ namespace abclib::ui
                 snprintf(unc_buf, sizeof(unc_buf), "X:%.2f Y:%.2f Th:%.1f°",
                          data.x_uncertainty.to_inches(),
                          data.y_uncertainty.to_inches(),
-                        data.heading_uncertainty.to_degrees());
+                         data.heading_uncertainty.to_degrees());
             }
             else
             {
