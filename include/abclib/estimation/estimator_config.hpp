@@ -11,84 +11,105 @@ namespace abclib::estimation
     enum class FilterType
     {
         GEOMETRIC,
-        EKF,
-        BLENDED_GEOMETRIC // NEW
-    };
-
-    enum class FilterMode
-    {
-        FULL,           // Predict + Update with measurements
-        PREDICTION_ONLY // Predict only, no corrections
+        BLENDED_GEOMETRIC
     };
 
     struct DistanceSensorConfig
     {
         IMeasurementModel<units::Length> *sensor = nullptr;
-        // USAGE EXAMPLES:
-        // Right sensor at body position (4, 3):
-        //   forward_offset = 3"  (y-coordinate in body frame)
-        //   lateral_offset = -4" (x-coordinate in body frame, LEFT is positive, RIGHT is negative)
+        
+        // Sensor mounting position in BODY FRAME:
+        // - forward_offset: Y-coordinate (forward/back)
+        // - lateral_offset: X-coordinate (LEFT is positive, RIGHT is negative)
         //
-        // Left sensor at body position (-4, 1):
-        //   forward_offset = 1"  (y-coordinate in body frame)
-        //   lateral_offset = 4"  (x-coordinate in body frame, LEFT is positive)
-
-        units::Length offset_forward = units::Length::from_inches(0.0); // Forward offset from tracking center
-        units::Length offset_lateral = units::Length::from_inches(0.0); // Lateral offset from tracking center
-        units::Angle bearing = units::Angle::from_degrees(0);           // Direction sensor faces (robot-relative)
-        double blend_factor = 0.2;                                      // Weight for this sensor (0.0-1.0)
+        // USAGE EXAMPLES:
+        // Right sensor at body (X=4, Y=3):
+        //   forward_offset = 3"  (Y in body frame)
+        //   lateral_offset = -4" (X in body frame, right is negative)
+        //
+        // Left sensor at body (X=-4, Y=1):
+        //   forward_offset = 1"  (Y in body frame)
+        //   lateral_offset = 4"  (X in body frame, left is positive)
+        
+        units::Length offset_forward = units::Length::from_inches(0.0);
+        units::Length offset_lateral = units::Length::from_inches(0.0);
+        units::Angle bearing = units::Angle::from_degrees(0);
+        double blend_factor = 0.2;
         bool enabled = true;
     };
 
-    // NEW: Blending configuration
-struct BlendingConfig
-{
-    // Validation thresholds
-    units::Length max_sensor_reading = units::Length::from_mm(2100.0);    
-    units::Length max_expected_error = units::Length::from_inches(3.0);   // Simple threshold
-    units::Velocity max_blend_velocity = units::Velocity::from_ips(10.0);
-
-    // NEW: Outlier rejection mode
-    enum class OutlierRejectionMode
+    struct BlendingConfig
     {
-        SIMPLE_THRESHOLD,  // Use max_expected_error
-        MAHALANOBIS        // Use statistical distance
-    };
-    
-    OutlierRejectionMode outlier_mode = OutlierRejectionMode::SIMPLE_THRESHOLD;
-    double mahalanobis_sigma_threshold = 3.0;  // 3-sigma = 99.7% confidence
+        // Validation thresholds
+        units::Length max_sensor_reading = units::Length::from_mm(2100.0);
+        units::Length max_expected_error = units::Length::from_inches(3.0);
+        units::Velocity max_blend_velocity = units::Velocity::from_ips(10.0);
 
-    // Blending behavior
-    bool enable_blending = true;
-    bool require_stationary = false;
-};
+        // Outlier rejection mode
+        enum class OutlierRejectionMode
+        {
+            SIMPLE_THRESHOLD,
+            MAHALANOBIS
+        };
+        
+        OutlierRejectionMode outlier_mode = OutlierRejectionMode::SIMPLE_THRESHOLD;
+        double mahalanobis_sigma_threshold = 3.0;
+
+        // Blending behavior
+        bool enable_blending = true;
+        bool require_stationary = false;
+    };
+
+    struct ProcessNoiseConfig
+    {
+        // Odometry drift uncertainty (standard deviation per 10ms update)
+        units::Length position_noise = units::Length::from_mm(10.0);
+        units::Angle heading_noise = units::Angle::from_degrees(0.57);
+        
+        // Initial uncertainty when estimator starts
+        units::Length initial_position_uncertainty = units::Length::from_mm(20.0);
+        units::Angle initial_heading_uncertainty = units::Angle::from_degrees(1.0);
+        
+        // Get variance for process noise covariance matrix
+        double position_variance_m2() const 
+        {
+            double sigma_m = position_noise.to_meters();
+            return sigma_m * sigma_m;
+        }
+        
+        double heading_variance_rad2() const
+        {
+            double sigma_rad = heading_noise.to_radians();
+            return sigma_rad * sigma_rad;
+        }
+        
+        // Get variance for initial covariance matrix
+        double initial_position_variance_m2() const
+        {
+            double sigma_m = initial_position_uncertainty.to_meters();
+            return sigma_m * sigma_m;
+        }
+        
+        double initial_heading_variance_rad2() const
+        {
+            double sigma_rad = initial_heading_uncertainty.to_radians();
+            return sigma_rad * sigma_rad;
+        }
+    };
 
     struct EstimatorConfig
     {
         FilterType type = FilterType::GEOMETRIC;
-        FilterMode mode = FilterMode::PREDICTION_ONLY;
 
-        // Common parameters (used by all estimators)
+        // Odometry configuration
         units::Length vertical_offset;
         units::Length horizontal_offset;
 
+        // Field geometry
         field::FieldConfig field_config = field::FieldConfig::standard_vex();
 
-        // EKF-specific parameters (only used when type == EKF)
-        struct EKFParams
-        {
-            // Process noise (standard deviation in SI units)
-            // Represents uncertainty in odometry prediction per update cycle
-            double process_noise_x = 0.01;     // meters (10mm)
-            double process_noise_y = 0.01;     // meters (10mm)
-            double process_noise_theta = 0.01; // radians (~0.57 degrees)
-
-            // Measurement noise (standard deviation in SI units)
-            // Represents distance sensor accuracy
-            // Default: 0.05m = 50mm (conservative mid-range estimate)
-            double measurement_noise = 0.05; // meters (50mm)
-
-        } ekf;
+        // Process noise (used by BLENDED_GEOMETRIC)
+        ProcessNoiseConfig process_noise;
 
         // Blending-specific parameters (only used when type == BLENDED_GEOMETRIC)
         BlendingConfig blending;

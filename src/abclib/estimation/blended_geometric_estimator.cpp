@@ -7,27 +7,33 @@
 #include "abclib/field/field_map.hpp"
 #include "abclib/field/coordinate_transform.hpp"
 #include "abclib/math/mahalanobis.hpp"
-
+#include "abclib/estimation/estimator_config.hpp"
 namespace abclib::estimation
 {
     BlendedGeometricEstimator::BlendedGeometricEstimator(
         IMeasurementModel<units::Length> *vertical_model,
         IMeasurementModel<units::Length> *horizontal_model,
         IMeasurementModel<units::Angle> *imu_model,
-        units::Length vertical_offset,
-        units::Length horizontal_offset,
-        const field::FieldConfig &field_config,
         const std::vector<DistanceSensorConfig> &distance_sensors,
-        const BlendingConfig &blend_config)
+        const EstimatorConfig &config)
         : vertical_model_(vertical_model),
           horizontal_model_(horizontal_model),
           imu_model_(imu_model),
-          vertical_offset_(vertical_offset),
-          horizontal_offset_(horizontal_offset),
+          vertical_offset_(config.vertical_offset),
+          horizontal_offset_(config.horizontal_offset),
           distance_sensors_(distance_sensors),
-          field_map_(field_config),
-          blend_config_(blend_config)
+          field_map_(config.field_config),
+          blend_config_(config.blending),
+          process_noise_config_(config.process_noise)
     {
+        // Initialize process noise from config
+        process_noise_ = Eigen::Matrix3d::Zero();
+        double pos_var = process_noise_config_.position_variance_m2();
+        double heading_var = process_noise_config_.heading_variance_rad2();
+
+        process_noise_(0, 0) = pos_var;
+        process_noise_(1, 1) = pos_var;
+        process_noise_(2, 2) = heading_var;
     }
 
     BlendedGeometricEstimator::~BlendedGeometricEstimator()
@@ -41,15 +47,26 @@ namespace abclib::estimation
 
     void BlendedGeometricEstimator::init()
     {
-        std::lock_guard<pros::Mutex> lock(task_mutex_);
+        std::lock_guard<pros::Mutex> lock_task(task_mutex_);
+
+        // Initialize covariance if not already set
+        {
+            std::lock_guard<pros::Mutex> lock_pose(pose_mutex_);
+            if (!current_pose_.has_uncertainty())
+            {
+                Eigen::Matrix3d P0 = Eigen::Matrix3d::Identity() * 0.02 * 0.02;
+                current_pose_.set_covariance(P0);
+            }
+        }
+
         if (!tracking_task_.has_value())
         {
             tracking_task_ = pros::Task([this]
                                         {
-                while (pros::Task::notify_take(true, 0) == 0) {
-                    this->update();
-                    pros::delay(10);
-                } });
+            while (pros::Task::notify_take(true, 0) == 0) {
+                this->update();
+                pros::delay(10);
+            } });
         }
     }
 
@@ -67,6 +84,14 @@ namespace abclib::estimation
     {
         std::lock_guard<pros::Mutex> lock(pose_mutex_);
         current_pose_ = Pose();
+
+        // Initialize with configured initial uncertainty
+        Eigen::Matrix3d P0 = Eigen::Matrix3d::Identity();
+        P0(0, 0) = process_noise_config_.initial_position_variance_m2();
+        P0(1, 1) = process_noise_config_.initial_position_variance_m2();
+        P0(2, 2) = process_noise_config_.initial_heading_variance_rad2();
+
+        current_pose_.set_covariance(P0);
 
         if (vertical_model_)
             vertical_model_->reset();
@@ -94,6 +119,14 @@ namespace abclib::estimation
         std::lock_guard<pros::Mutex> lock(pose_mutex_);
         current_pose_ = Pose();
 
+        // Initialize with configured initial uncertainty
+        Eigen::Matrix3d P0 = Eigen::Matrix3d::Identity();
+        P0(0, 0) = process_noise_config_.initial_position_variance_m2();
+        P0(1, 1) = process_noise_config_.initial_position_variance_m2();
+        P0(2, 2) = process_noise_config_.initial_heading_variance_rad2();
+
+        current_pose_.set_covariance(P0);
+
         // Reset cumulative correction tracking
         auto &telem = abclib::telemetry::g_telemetry.get_write_buffer();
         telem.correction_x_total = units::Length::from_inches(0);
@@ -110,7 +143,17 @@ namespace abclib::estimation
     void BlendedGeometricEstimator::set_pose(const Pose &pose)
     {
         std::lock_guard<pros::Mutex> lock(pose_mutex_);
+
+        // Save existing covariance before overwriting
+        std::optional<Eigen::Matrix3d> saved_cov = current_pose_.covariance;
+
         current_pose_ = pose;
+
+        // Restore covariance if new pose didn't bring its own
+        if (!pose.has_uncertainty() && saved_cov.has_value())
+        {
+            current_pose_.set_covariance(*saved_cov);
+        }
 
         current_pose_.v = units::Velocity::from_ips(0.0);
         current_pose_.omega = units::AngularVelocity::from_rad_per_sec(0.0);
@@ -131,21 +174,27 @@ namespace abclib::estimation
         const Pose &robot_pose,
         field::FieldMap::Wall wall) const
     {
-        // Phase 1: No pose uncertainty tracking yet
-        return 0.0;
+        if (!robot_pose.has_uncertainty())
+        {
+            return 0.0; // No covariance tracked
+        }
 
-        // Phase 2: TODO - Options for future implementation:
-        //
-        // Option A: Time-based heuristic
-        //   double time_since_correction = ...;
-        //   return k_drift * time_since_correction;
-        //
-        // Option B: Covariance-based (if robot_pose.has_uncertainty())
-        //   Project covariance to measurement direction based on wall:
-        //   if (wall == Wall::NORTH || wall == Wall::SOUTH)
-        //       return robot_pose.y_uncertainty_meters();
-        //   else
-        //       return robot_pose.x_uncertainty_meters();
+        // Project covariance to measurement direction
+        // Distance to wall depends on position perpendicular to wall
+        if (wall == field::FieldMap::Wall::NORTH ||
+            wall == field::FieldMap::Wall::SOUTH)
+        {
+            // Measurement depends on Y position
+            return robot_pose.y_uncertainty_meters();
+        }
+        else if (wall == field::FieldMap::Wall::EAST ||
+                 wall == field::FieldMap::Wall::WEST)
+        {
+            // Measurement depends on X position
+            return robot_pose.x_uncertainty_meters();
+        }
+
+        return 0.0; // Unknown wall
     }
 
     void BlendedGeometricEstimator::update()
@@ -173,9 +222,29 @@ namespace abclib::estimation
             horizontal_offset_);
 
         std::lock_guard<pros::Mutex> lock(pose_mutex_);
-
         // Update pose: new_pose = old_pose * local_transform
+        // NOTE: operator* already propagates covariance via Jacobian!
         current_pose_.se2 = current_pose_.se2 * local_transform;
+
+        // NEW: Add process noise to model odometry drift
+        // Add process noise to model odometry drift
+        if (current_pose_.has_uncertainty())
+        {
+            Eigen::Matrix3d P = current_pose_.get_covariance();
+            P += process_noise_;
+
+            // Clamp covariance to prevent unbounded growth or over-confidence
+            constexpr double min_pos_var = 0.005 * 0.005;            // 5mm std dev (very confident)
+            constexpr double max_pos_var = 0.30 * 0.30;              // 30cm std dev (lost)
+            P(0, 0) = std::clamp(P(0, 0), min_pos_var, max_pos_var); // x variance
+            P(1, 1) = std::clamp(P(1, 1), min_pos_var, max_pos_var); // y variance
+
+            constexpr double min_heading_var = (M_PI / 180.0) * (M_PI / 180.0); // 1° std dev
+            constexpr double max_heading_var = (M_PI / 6.0) * (M_PI / 6.0);     // 30° std dev
+            P(2, 2) = std::clamp(P(2, 2), min_heading_var, max_heading_var);
+
+            current_pose_.set_covariance(P);
+        }
 
         // Compute velocities using the logarithm map
         const double dt = 0.01; // 10ms update rate
@@ -226,6 +295,23 @@ namespace abclib::estimation
 
             telem.pose_v_raw = units::Velocity::from_ips(v_raw);
             telem.pose_omega_raw = units::AngularVelocity::from_rad_per_sec(omega_raw);
+            telem.has_covariance = current_pose_.has_uncertainty();
+            if (telem.has_covariance)
+            {
+                telem.position_uncertainty = current_pose_.position_uncertainty();
+                telem.heading_uncertainty = current_pose_.heading_uncertainty();
+                telem.x_uncertainty = units::Length::from_meters(
+                    current_pose_.x_uncertainty_meters());
+                telem.y_uncertainty = units::Length::from_meters(
+                    current_pose_.y_uncertainty_meters());
+            }
+            else
+            {
+                telem.position_uncertainty = units::Length::from_meters(-1.0);
+                telem.heading_uncertainty = units::Angle::from_radians(-1.0);
+                telem.x_uncertainty = units::Length::from_meters(-1.0);
+                telem.y_uncertainty = units::Length::from_meters(-1.0);
+            }
         }
     }
 
@@ -541,6 +627,32 @@ namespace abclib::estimation
             double theta = current_pose_.theta_rad(); // Heading unchanged
 
             current_pose_.se2 = math::SE2(new_x, new_y, theta);
+            current_pose_.se2 = math::SE2(new_x, new_y, theta);
+
+            // NEW: Reduce uncertainty after successful correction
+            if (current_pose_.has_uncertainty())
+            {
+                Eigen::Matrix3d P = current_pose_.get_covariance();
+
+                // Scale uncertainty in measurement direction
+                // blend_factor = 0.2 → reduce by 20%, keep 80%
+                double reduction_factor = 1.0 - sensor_config.blend_factor;
+
+                if (wall == field::FieldMap::Wall::NORTH ||
+                    wall == field::FieldMap::Wall::SOUTH)
+                {
+                    // Corrected Y position
+                    P(1, 1) *= reduction_factor;
+                }
+                else if (wall == field::FieldMap::Wall::EAST ||
+                         wall == field::FieldMap::Wall::WEST)
+                {
+                    // Corrected X position
+                    P(0, 0) *= reduction_factor;
+                }
+
+                current_pose_.set_covariance(P);
+            }
         }
     }
 

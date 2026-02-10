@@ -113,7 +113,7 @@ void initialize()
                       { screen_manager.update_calibration_progress(progress, status); });
     pros::delay(200);
     chassis.set_alliance(field::Alliance::RED);
-    chassis.set_pose(0_in, 14_in, 0_deg);
+    chassis.set_pose(0_in, 6_in, 0_deg);
     //chassis.set_pose(70.6_in, 23.11_in, -90_deg);
     //chassis.set_pose(53_in, 137.75_in, 90_deg);
     screen_manager.hide_calibration_screen();

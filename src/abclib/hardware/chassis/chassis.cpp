@@ -13,7 +13,6 @@
 #include "abclib/trajectory/trajectory.hpp"
 #include "abclib/control/pid/profiled_pid.hpp"
 #include "abclib/math/point.hpp"
-#include "abclib/estimation/ekf_odometry_estimator.hpp"
 #include "abclib/estimation/estimator_factory.hpp"
 #include "abclib/configs/robot_selection.hpp"
 #include "abclib/estimation/blended_geometric_estimator.hpp"

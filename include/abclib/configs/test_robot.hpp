@@ -47,7 +47,7 @@ namespace abclib::robot_config
     // Sensor ports
     constexpr int8_t IMU_PORT = 8;
     constexpr int8_t Y_ROTATION_PORT = -13;
-    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 12;
+    constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 16;
     constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 1;
 
     // Physical dimensions
@@ -78,8 +78,7 @@ namespace abclib::robot_config
              .offset_lateral = units::Length::from_inches(0.0),
              .bearing = units::Angle::from_degrees(180),
              .blend_factor = 0.2,
-             .enabled = false}
-            };
+             .enabled = false}};
     }
 
     inline hardware::motor_group_config get_left_motor_config()
@@ -163,26 +162,28 @@ namespace abclib::robot_config
     {
         estimation::EstimatorConfig config;
         config.type = estimation::FilterType::BLENDED_GEOMETRIC;
-        config.mode = estimation::FilterMode::FULL;
+
+        // Odometry configuration
         config.vertical_offset = Y_TRACKER_OFFSET;
         config.horizontal_offset = units::Length::from_inches(0.0);
         config.field_config = field::FieldConfig::custom(
             units::Length::from_inches(24),
             units::Length::from_inches(48));
 
-        config.ekf.process_noise_x = 0.01;
-        config.ekf.process_noise_y = 0.01;
-        config.ekf.process_noise_theta = 0.01;
-        config.ekf.measurement_noise = 0.05;
+        // Process noise configuration
+        config.process_noise.position_noise = units::Length::from_mm(20.0);
+        config.process_noise.heading_noise = units::Angle::from_degrees(0.57);
+        config.process_noise.initial_position_uncertainty = units::Length::from_mm(10.0);
+        config.process_noise.initial_heading_uncertainty = units::Angle::from_degrees(1.0);
 
+        // Blending configuration
         config.blending.enable_blending = true;
         config.blending.require_stationary = false;
         config.blending.max_blend_velocity = units::Velocity::from_ips(8.0);
         config.blending.max_expected_error = units::Length::from_inches(3.0);
         config.blending.max_sensor_reading = units::Length::from_mm(2100.0);
-
         config.blending.outlier_mode = estimation::BlendingConfig::OutlierRejectionMode::MAHALANOBIS;
-        config.blending.mahalanobis_sigma_threshold = 3.0; // 99.7% confidence
+        config.blending.mahalanobis_sigma_threshold = 3.0;
 
         return config;
     }

@@ -42,6 +42,8 @@ namespace abclib::estimation
 
         // Blending configuration
         BlendingConfig blend_config_;
+        ProcessNoiseConfig process_noise_config_;
+        Eigen::Matrix3d process_noise_;
 
         // Current state
         Pose current_pose_{};
@@ -81,21 +83,15 @@ namespace abclib::estimation
          * @param vertical_model Forward tracking wheel encoder
          * @param horizontal_model Lateral tracking wheel encoder (can be nullptr for diff drive)
          * @param imu_model IMU for heading
-         * @param vertical_offset Distance from tracking center to vertical wheel
-         * @param horizontal_offset Distance from tracking center to horizontal wheel
-         * @param field_config Field dimensions for wall calculations
          * @param distance_sensors Array of distance sensor configurations
-         * @param blend_config Blending behavior parameters
+         * @param config Estimator configuration (offsets, field, blending, process noise)
          */
         BlendedGeometricEstimator(
             IMeasurementModel<units::Length> *vertical_model,
             IMeasurementModel<units::Length> *horizontal_model,
             IMeasurementModel<units::Angle> *imu_model,
-            units::Length vertical_offset,
-            units::Length horizontal_offset,
-            const field::FieldConfig &field_config,
             const std::vector<DistanceSensorConfig> &distance_sensors,
-            const BlendingConfig &blend_config = BlendingConfig{});
+            const EstimatorConfig &config);
 
         ~BlendedGeometricEstimator();
 

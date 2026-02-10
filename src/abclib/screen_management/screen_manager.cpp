@@ -361,18 +361,28 @@ namespace abclib::ui
                      data.num_total_sensors);
             lv_label_set_text(blended_debug_labels[3], buf);
 
-            // Label 4: Blend status + Safe + Frame + Total corrections
-            std::string frame_corr = format_correction(
-                data.correction_x_frame.to_inches(),
-                data.correction_y_frame.to_inches());
+            // Label 4: Blend status + Safe + X/Y uncertainty + Total corrections
             std::string total_corr = format_correction(
                 data.correction_x_total.to_inches(),
                 data.correction_y_total.to_inches());
 
-            snprintf(buf, sizeof(buf), "Blend:%s  Safe:%s  Frame:%s  Total:%s",
+            char unc_buf[64];
+            if (data.has_covariance)
+            {
+                snprintf(unc_buf, sizeof(unc_buf), "X:%.2f Y:%.2f Th:%.1f°",
+                         data.x_uncertainty.to_inches(),
+                         data.y_uncertainty.to_inches(),
+                        data.heading_uncertainty.to_degrees());
+            }
+            else
+            {
+                snprintf(unc_buf, sizeof(unc_buf), "Unc:N/A");
+            }
+
+            snprintf(buf, sizeof(buf), "Blend:%s Safe:%s Unc:%s Tot:%s",
                      data.blending_enabled ? "ON" : "OFF",
                      data.blending_safe ? "YES" : "NO",
-                     frame_corr.c_str(),
+                     unc_buf,
                      total_corr.c_str());
             lv_label_set_text(blended_debug_labels[4], buf);
         }
