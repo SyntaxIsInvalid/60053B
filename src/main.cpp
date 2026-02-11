@@ -102,7 +102,7 @@ void initialize()
     register_auton(AutonRoutine::TEST_BOT_AUTON, test_bot_auton, AutonCategory::TEST, field::Alliance::RED);
     register_auton(AutonRoutine::NONE, none, AutonCategory::TEST, field::Alliance::RED);
     register_auton(AutonRoutine::RED_RIGHT, red_right, AutonCategory::RED, field::Alliance::RED);
-        register_auton(AutonRoutine::SKILLS, skills, AutonCategory::SKILLS, field::Alliance::RED);
+    register_auton(AutonRoutine::SKILLS, skills, AutonCategory::SKILLS, field::Alliance::RED);
     selected_auton = AutonRoutine::SKILLS;
     lv_init();
     pros::lcd::initialize();
@@ -113,9 +113,9 @@ void initialize()
                       { screen_manager.update_calibration_progress(progress, status); });
     pros::delay(200);
     chassis.set_alliance(field::Alliance::RED);
-    chassis.set_pose(0_in, 6_in, 0_deg);
-    //chassis.set_pose(70.6_in, 23.11_in, -90_deg);
-    //chassis.set_pose(53_in, 137.75_in, 90_deg);
+    chassis.set_pose(0_in, 0_in, 0_deg);
+    // chassis.set_pose(70.6_in, 23.11_in, -90_deg);
+    // chassis.set_pose(53_in, 137.75_in, 90_deg);
     screen_manager.hide_calibration_screen();
 #if HAS_PNEUMATICS
     match_load_ramp.retract();
@@ -189,10 +189,22 @@ void autonomous()
         hood,
         wing,
         mid_goal_retract};
-    run_selected_auton(robot);
+    // run_selected_auton(robot);
+    hardware::BoomerangConfig config;
+    config.lead_distance = 0.6;                       // no curve yet
+    config.lateral_correction = 0.0;                  // no lateral correction yet
+    config.drive_max = units::Voltage::from_volts(6); // low voltage for safety
+    config.turn_max = units::Voltage::from_volts(4);
+    config.timeout = units::Time::from_seconds(5);
+    config.direction = hardware::BoomerangConfig::Direction::FORWARD;
+    chassis.boomerang_move_to_pose(
+        units::Length::from_inches(24),
+        units::Length::from_inches(24),
+        units::Angle::from_degrees(-90),
+    config);
     controller.print(0, 0, "done");
     // chassis.turn_to_heading(180_deg, 5_s);
-    // 
+    //
     //  sysid::measure_ks_kv(leftMotors, rightMotors, true, "ks_kv_comp_forward", 5.5, 0.25, 300);
     //  sysid::measure_ks_kv_turn(leftMotors,rightMotors, true, "ks_kv_ccw_comp.csv", 11, 0.25, 500);
     //  sysid::measure_velocity_pid(chassis, true, "/usd/vel_200rpm.csv", 200.0, 4500);
@@ -205,37 +217,6 @@ void opcontrol()
         int turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
         int throttle = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         chassis.drive(throttle, turn, 1, .65);
-        /*
-        estimation::Pose robot_pose(0_in, 0_in, 0_deg, 0_ips, 0_rad_per_sec);
-
-        field::FieldMap field_map(robot_config::get_estimator_config().field_config);
-
-        // Test sensor: forward=5, lateral=6 (should be "right" side)
-        math::SE2 sensor_pose = field_map.compute_sensor_global_pose(
-            robot_pose,
-            5_in, // forward
-            6_in, // lateral (supposedly RIGHT+)
-            0_deg // pointing forward
-        );
-
-        // When robot faces EAST:
-        // - 5" forward should give X=5 (east)
-        // - 6" right should give Y=-6 (south) ... OR Y=+6 (north)?
-        controller.print(0, 0, "X:%.1f Y:%.1f",
-                         sensor_pose.x(), sensor_pose.y());
-        pros::delay(3000);
-
-        // Now test facing NORTH (90°)
-        robot_pose.set_theta(90_deg);
-        sensor_pose = field_map.compute_sensor_global_pose(
-            robot_pose, 5_in, 6_in, 0_deg);
-
-        // When robot faces NORTH:
-        // - 5" forward should give Y=5 (north)
-        // - 6" right should give X=6 (east) ... OR X=-6 (west)?
-        controller.print(0, 0, "X:%.1f Y:%.1f",
-                         sensor_pose.x(), sensor_pose.y());
-        */
 #if HAS_INTAKE && HAS_PNEUMATICS
         // intake
         if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))

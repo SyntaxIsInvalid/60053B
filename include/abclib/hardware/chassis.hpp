@@ -51,6 +51,32 @@ namespace abclib::hardware
         int settle_count_required = 3;
     };
 
+    struct ChainConfig
+    {
+        units::Voltage min_voltage = units::Voltage::from_volts(0);
+        units::Length exit_distance = units::Length::from_inches(0);
+        units::Angle exit_angle = units::Angle::from_degrees(0);
+    };
+
+    struct BoomerangConfig
+    {
+        double lead_distance = 0.6;      // 0-1, how far behind target the carrot starts
+        double lateral_correction = 2.5; // aggressiveness of lateral error correction
+
+        units::Voltage drive_max = units::Voltage::from_volts(12);
+        units::Voltage drive_min = units::Voltage::from_volts(0);
+        units::Voltage turn_max = units::Voltage::from_volts(6);
+        units::Time timeout = units::Time::from_seconds(5);
+
+        enum class Direction
+        {
+            FORWARD,
+            REVERSE,
+            FLEXIBLE
+        };
+        Direction direction = Direction::FORWARD;
+    };
+
     struct ControllerConfig
     {
         control::PIDConstants lateral_pid;
@@ -181,6 +207,12 @@ namespace abclib::hardware
                            double override_kS,
                            double override_kV,
                            double override_kA);
+
+        void boomerang_move_to_pose(
+            units::Length target_x,
+            units::Length target_y,
+            units::Angle target_heading,
+            const BoomerangConfig &config = BoomerangConfig{});
 
         void set_pose(units::Length x,       // Changed from Distance
                       units::Length y,       // Changed from Distance

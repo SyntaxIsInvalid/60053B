@@ -72,13 +72,13 @@ namespace abclib::robot_config
              .offset_lateral = units::Length::from_inches(0.0),
              .bearing = units::Angle::from_degrees(0),
              .blend_factor = 0.2,  // Fallback if Kalman disabled
-             .enabled = true},
+             .enabled = false},
             {.sensor = nullptr,
              .offset_forward = units::Length::from_inches(-5),
              .offset_lateral = units::Length::from_inches(0.0),
              .bearing = units::Angle::from_degrees(180),
              .blend_factor = 0.2,  // Fallback if Kalman disabled
-             .enabled = true}};
+             .enabled = false}};
     }
 
     inline hardware::motor_group_config get_left_motor_config()
