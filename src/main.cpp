@@ -201,7 +201,13 @@ void autonomous()
         units::Length::from_inches(24),
         units::Length::from_inches(24),
         units::Angle::from_degrees(-90),
-    config);
+        config,
+        hardware::ChainConfig{
+            .min_voltage = units::Voltage::from_volts(5),
+            .exit_distance = units::Length::from_inches(6),
+            .exit_angle = units::Angle::from_degrees(5)});
+
+    chassis.drive_straight_relative(units::Length::from_inches(18));
     controller.print(0, 0, "done");
     // chassis.turn_to_heading(180_deg, 5_s);
     //

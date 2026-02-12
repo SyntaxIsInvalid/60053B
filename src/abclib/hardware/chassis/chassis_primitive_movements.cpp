@@ -19,7 +19,8 @@ namespace abclib::hardware
     void Chassis::turn_to_heading(units::Angle target_heading_corner,
                                   units::Time timeout,
                                   units::Voltage angular_max,
-                                  bool reset_position)
+                                  bool reset_position,
+                                  ChainConfig chain)
     {
         std::uint32_t start_time = pros::millis();
         int settle_count = 0;
@@ -66,8 +67,12 @@ namespace abclib::hardware
             {
                 update_settlement_telemetry(true, settle_count,
                                             telemetry::SettlementReason::WITHIN_THRESHOLD, start_time);
-                left_motors->brake();
-                right_motors->brake();
+                // Only brake if not motion chaining
+                if (chain.min_voltage.to_volts() == 0)
+                {
+                    left_motors->brake();
+                    right_motors->brake();
+                }
                 break;
             }
 
@@ -76,6 +81,19 @@ namespace abclib::hardware
 
             // Simple clamp
             angular_output = std::clamp(angular_output, -angular_max.to_volts(), angular_max.to_volts());
+
+            // Motion chaining: floor output to min_voltage and check spatial exit
+            if (chain.min_voltage.to_volts() > 0)
+            {
+                angular_output = std::copysign(
+                    std::max(std::abs(angular_output), chain.min_voltage.to_volts()),
+                    angular_output);
+
+                if (std::abs(angular_error_rad) <= chain.exit_angle.to_radians())
+                {
+                    break; // no brake — next motion takes over
+                }
+            }
 
             // Calculate motor voltages (opposite for turning)
             units::Voltage left_voltage = units::Voltage::from_volts(-angular_output);
@@ -112,8 +130,12 @@ namespace abclib::hardware
             }
         }
 
-        left_motors->brake();
-        right_motors->brake();
+        // Only brake if not motion chaining
+        if (chain.min_voltage.to_volts() == 0)
+        {
+            left_motors->brake();
+            right_motors->brake();
+        }
     }
 
     void Chassis::turn_relative(units::Angle angle_delta,
@@ -137,7 +159,8 @@ namespace abclib::hardware
                                           units::Voltage lateral_max,
                                           units::Voltage angular_min,
                                           units::Voltage angular_max,
-                                          bool reset_position)
+                                          bool reset_position,
+                                          ChainConfig chain)
     {
         std::uint32_t start_time = pros::millis();
         const double dt = 0.01;
@@ -181,8 +204,12 @@ namespace abclib::hardware
             {
                 update_settlement_telemetry(true, settle_count,
                                             telemetry::SettlementReason::WITHIN_THRESHOLD, start_time);
-                left_motors->brake();
-                right_motors->brake();
+                // Only brake if not motion chaining
+                if (chain.min_voltage.to_volts() == 0)
+                {
+                    left_motors->brake();
+                    right_motors->brake();
+                }
                 break;
             }
 
@@ -193,6 +220,19 @@ namespace abclib::hardware
             // Simple clamp
             lateral_output = std::clamp(lateral_output, -lateral_max.to_volts(), lateral_max.to_volts());
             angular_output = std::clamp(angular_output, -angular_max.to_volts(), angular_max.to_volts());
+
+            // Motion chaining: floor output to min_voltage and check spatial exit
+            if (chain.min_voltage.to_volts() > 0)
+            {
+                lateral_output = std::copysign(
+                    std::max(std::abs(lateral_output), chain.min_voltage.to_volts()),
+                    lateral_output);
+
+                if (Qabs(lateral_error) <= chain.exit_distance)
+                {
+                    break; // no brake — next motion takes over
+                }
+            }
 
             // Calculate motor voltages
             units::Voltage left_voltage = units::Voltage::from_volts(lateral_output - angular_output);
@@ -230,15 +270,20 @@ namespace abclib::hardware
             }
         }
 
-        left_motors->brake();
-        right_motors->brake();
+        // Only brake if not motion chaining
+        if (chain.min_voltage.to_volts() == 0)
+        {
+            left_motors->brake();
+            right_motors->brake();
+        }
     }
 
     void Chassis::boomerang_move_to_pose(
         units::Length target_x,
         units::Length target_y,
         units::Angle target_heading,
-        const BoomerangConfig &config)
+        const BoomerangConfig &config,
+        ChainConfig chain)
     {
         std::uint32_t start_time = pros::millis();
         const double dt = 0.01;
@@ -395,9 +440,27 @@ namespace abclib::hardware
                 update_settlement_telemetry(true, drive_settle_count,
                                             telemetry::SettlementReason::WITHIN_THRESHOLD,
                                             start_time);
-                left_motors->brake();
-                right_motors->brake();
+                // Only brake if not motion chaining
+                if (chain.min_voltage.to_volts() == 0)
+                {
+                    left_motors->brake();
+                    right_motors->brake();
+                }
                 break;
+            }
+
+            // --- Motion chaining: floor output to min_voltage and check spatial exit ---
+            if (chain.min_voltage.to_volts() > 0)
+            {
+                drive_output = std::copysign(
+                    std::max(std::abs(drive_output), chain.min_voltage.to_volts()),
+                    drive_output);
+
+                if (Qabs(dist_error) <= chain.exit_distance &&
+                    Qabs(head_error) <= chain.exit_angle)
+                {
+                    break; // no brake — next motion takes over
+                }
             }
 
             // --- Motor voltages ---
@@ -438,8 +501,12 @@ namespace abclib::hardware
             }
         }
 
-        left_motors->brake();
-        right_motors->brake();
+        // Only brake if not motion chaining
+        if (chain.min_voltage.to_volts() == 0)
+        {
+            left_motors->brake();
+            right_motors->brake();
+        }
     }
 
 }

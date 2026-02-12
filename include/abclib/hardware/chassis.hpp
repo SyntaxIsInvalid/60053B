@@ -176,19 +176,6 @@ namespace abclib::hardware
         estimation::Pose get_pose() const;
         const ChassisConfig &get_config() const { return config_; }
 
-        void drive_straight_relative(units::Length target_distance,
-                                     units::Time timeout = units::Time::from_seconds(5),
-                                     units::Voltage lateral_min = units::Voltage::from_volts(0),
-                                     units::Voltage lateral_max = units::Voltage::from_volts(12),
-                                     units::Voltage angular_min = units::Voltage::from_volts(0),
-                                     units::Voltage angular_max = units::Voltage::from_volts(0),
-                                     bool reset_position = false);
-
-        void turn_to_heading(units::Angle target_heading,
-                             units::Time timeout = units::Time::from_seconds(3),
-                             units::Voltage angular_max = units::Voltage::from_volts(6),
-                             bool reset_position = false);
-
         void turn_relative(units::Angle angle_delta,
                            units::Time timeout = units::Time::from_seconds(3),
                            units::Voltage angular_max = units::Voltage::from_volts(6));
@@ -208,11 +195,26 @@ namespace abclib::hardware
                            double override_kV,
                            double override_kA);
 
-        void boomerang_move_to_pose(
-            units::Length target_x,
-            units::Length target_y,
-            units::Angle target_heading,
-            const BoomerangConfig &config = BoomerangConfig{});
+        void drive_straight_relative(units::Length target_distance,
+                                     units::Time timeout = units::Time::from_seconds(5),
+                                     units::Voltage lateral_min = units::Voltage::from_volts(0),
+                                     units::Voltage lateral_max = units::Voltage::from_volts(12),
+                                     units::Voltage angular_min = units::Voltage::from_volts(0),
+                                     units::Voltage angular_max = units::Voltage::from_volts(0),
+                                     bool reset_position = false,
+                                     ChainConfig chain = {});
+
+        void turn_to_heading(units::Angle target_heading,
+                             units::Time timeout = units::Time::from_seconds(3),
+                             units::Voltage angular_max = units::Voltage::from_volts(6),
+                             bool reset_position = false,
+                             ChainConfig chain = {});
+
+        void boomerang_move_to_pose(units::Length target_x,
+                                    units::Length target_y,
+                                    units::Angle target_heading,
+                                    const BoomerangConfig &config,
+                                    ChainConfig chain = {});
 
         void set_pose(units::Length x,       // Changed from Distance
                       units::Length y,       // Changed from Distance
