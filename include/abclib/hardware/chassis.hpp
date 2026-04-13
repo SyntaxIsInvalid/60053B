@@ -384,5 +384,14 @@ namespace abclib::hardware
         bool set_sensor_blending_enabled(bool enabled);
         bool is_sensor_blending_enabled() const;
         bool set_blend_config(const estimation::BlendingConfig &config);
+        control::PIDConstants get_lateral_pid_constants() const
+        {
+            return lateral_pid.get_constants();
+        }
+
+        control::PIDConstants get_angular_pid_constants() const
+        {
+            return angular_pid.get_constants();
+        }
     };
 }

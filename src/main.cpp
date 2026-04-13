@@ -189,69 +189,84 @@ void autonomous()
         hood,
         wing,
         mid_goal_retract};
-    // run_selected_auton(robot);
-    sysid::measure_ks_kv(leftMotors, rightMotors, true, "ks_kv_test_forward", 5.5, 0.25, 300);
+    run_selected_auton(robot);
+    // sysid::measure_ks_kv(leftMotors, rightMotors, true, "ks_kv_test_forward.csv", 6, 0.25, 300);
+    // sysid::measure_ks_kv(leftMotors, rightMotors, false, "ks_kv_test_backward.csv", 6, 0.25, 300);
+    // sysid::measure_ks_kv_turn(leftMotors,rightMotors, true, "ks_kv_cw_test.csv", 11, 0.25, 500);
+    // sysid::measure_ks_kv_turn(leftMotors,rightMotors, false, "ks_kv_ccw_test.csv", 11, 0.25, 500);
     controller.print(0, 0, "done");
-    // chassis.turn_to_heading(180_deg, 5_s);
-    //
-    //  sysid::measure_ks_kv(leftMotors, rightMotors, true, "ks_kv_comp_forward", 5.5, 0.25, 300);
-    //  sysid::measure_ks_kv_turn(leftMotors,rightMotors, true, "ks_kv_ccw_comp.csv", 11, 0.25, 500);
     //  sysid::measure_velocity_pid(chassis, true, "/usd/vel_200rpm.csv", 200.0, 4500);
 }
 
 void opcontrol()
 {
+    sysid::PIDTuner pid_tuner(chassis, controller);
+    screen_manager.set_pid_tuner(&pid_tuner);
+
+    pid_tuner.set_test_move([]()
+                            { chassis.drive_straight_relative(15_in, 3_s); });
+
     while (1)
     {
-        int turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
-        int throttle = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-        chassis.drive(throttle, turn, 1, .65);
+        pid_tuner.update();
+
+        switch (pid_tuner.get_state())
+        {
+        case sysid::TunerState::INACTIVE:
+        {
+            int turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
+            int throttle = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+            chassis.drive(throttle, turn, 1, .65);
+
 #if HAS_INTAKE && HAS_PNEUMATICS
-        // intake
-        if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
-        {
-            top_intake.set_voltage(4_V);
-            bottom_intake.set_intake();
-            hood.extend();
-        }
-        // outake
-        else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
-        {
-            top_intake.set_outtake();
-            bottom_intake.set_outtake();
-        }
-        // score mid
-        else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
-        {
-            mid_goal_retract.extend();
-            top_intake.set_outtake();
-            bottom_intake.set_intake();
-            // score long
-        }
-        else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
-        {
-            hood.retract();
-            top_intake.set_intake();
-            bottom_intake.set_intake();
-        }
-        else
-        {
-            mid_goal_retract.retract();
-            top_intake.set_voltage(3_V);
-            bottom_intake.set_idle();
-        }
+            if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
+            {
+                top_intake.set_voltage(4_V);
+                bottom_intake.set_intake();
+                hood.extend();
+            }
+            else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
+            {
+                top_intake.set_outtake();
+                bottom_intake.set_outtake();
+            }
+            else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
+            {
+                mid_goal_retract.extend();
+                top_intake.set_outtake();
+                bottom_intake.set_intake();
+            }
+            else if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
+            {
+                hood.retract();
+                top_intake.set_intake();
+                bottom_intake.set_intake();
+            }
+            else
+            {
+                mid_goal_retract.retract();
+                top_intake.set_voltage(3_V);
+                bottom_intake.set_idle();
+            }
 #endif
 
 #if HAS_PNEUMATICS
-        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT))
-        {
-            match_load_ramp.toggle();
-        }
-        if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y))
-        {
-            wing.toggle();
-        }
+            if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT))
+                match_load_ramp.toggle();
+            if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y))
+                wing.toggle();
 #endif
+            break;
+        }
+
+        case sysid::TunerState::TUNING:
+        case sysid::TunerState::TESTING:
+            // tuner owns everything
+            break;
+        }
+
         pros::delay(20);
     }
+
+    screen_manager.set_pid_tuner(nullptr);
 }

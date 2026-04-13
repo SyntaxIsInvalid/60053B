@@ -62,8 +62,9 @@
 #include "abclib/trajectory/path_follower.hpp"
 #include "abclib/trajectory/trajectory_logger.hpp"
 
-// characterization
+// sysid
 #include "abclib/sysid/motor_characterization.hpp"
+#include "abclib/sysid/pid_tuner.hpp"
 
 // builder
 #include "abclib/builder/path_builder.hpp"

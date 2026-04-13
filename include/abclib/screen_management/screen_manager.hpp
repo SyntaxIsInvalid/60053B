@@ -3,7 +3,10 @@
 #include "abclib/telemetry/telemetry.hpp"
 #include <vector>
 #include "abclib/autonomous_routines/auton_selector.hpp"
-
+namespace abclib::sysid
+{
+    class PIDTuner;
+}
 namespace abclib::ui
 {
     enum class DefaultScreen
@@ -46,7 +49,8 @@ namespace abclib::ui
         std::vector<lv_obj_t *> trajectory_labels;
         std::vector<lv_obj_t *> performance_labels;
         std::vector<lv_obj_t *> config_labels;
-
+        abclib::sysid::PIDTuner *pid_tuner_ = nullptr;
+        std::vector<lv_obj_t *> config_labels_;
         // Full-screen image object (container)
         lv_obj_t *image_obj;
 
@@ -143,6 +147,7 @@ namespace abclib::ui
         void show_calibration_screen();
         void update_calibration_progress(int percentage, const char *status);
         void hide_calibration_screen();
+        void set_pid_tuner(abclib::sysid::PIDTuner *tuner) { pid_tuner_ = tuner; }
     };
 
 } // namespace abclib

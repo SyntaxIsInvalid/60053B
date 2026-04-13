@@ -1,6 +1,7 @@
 #include "screen_manager.hpp"
 #include "telemetry_formatting.hpp"
 #include <cstdio>
+#include "abclib/sysid/pid_tuner.hpp"
 
 namespace abclib::ui
 {
@@ -676,9 +677,20 @@ namespace abclib::ui
 
     void ScreenManager::create_config_tab()
     {
-        lv_obj_t *label = lv_label_create(tab_config);
-        lv_label_set_text(label, "Tuning Configuration\n(Not implemented yet)");
-        lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+        lv_obj_t *title = lv_label_create(tab_config);
+        lv_label_set_text(title, "PID Tuner");
+        lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
+        lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+
+        for (int i = 0; i < 6; i++)
+        {
+            lv_obj_t *label = lv_label_create(tab_config);
+            lv_label_set_text(label, "---");
+            lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 50 + i * 30);
+            lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+            lv_obj_set_width(label, 450);
+            config_labels_.push_back(label);
+        }
     }
 
     void ScreenManager::create_fullscreen_image()
@@ -754,7 +766,7 @@ namespace abclib::ui
     {
         update_overview_tab(data);
         update_blended_debug_tab(data);
-        // Other tabs will be implemented later
+        update_config_tab(data);
     }
 
     void ScreenManager::update_overview_tab(const telemetry::TelemetryData &data)
@@ -880,6 +892,37 @@ namespace abclib::ui
     void ScreenManager::update_pid_tab(const telemetry::TelemetryData &data) {}
     void ScreenManager::update_trajectory_tab(const telemetry::TelemetryData &data) {}
     void ScreenManager::update_performance_tab(const telemetry::TelemetryData &data) {}
-    void ScreenManager::update_config_tab(const telemetry::TelemetryData &data) {}
+    void ScreenManager::update_config_tab(const telemetry::TelemetryData &data)
+    {
+        if (!pid_tuner_ || config_labels_.size() < 6)
+            return;
+
+        const auto &gains = pid_tuner_->get_gains();
+        int cursor = pid_tuner_->get_cursor();
+        int move_count = pid_tuner_->get_move_count();
+        sysid::TunerState state = pid_tuner_->get_state();
+
+        for (int i = 0; i < static_cast<int>(gains.size()) && i < 6; i++)
+        {
+            char buf[64];
+            if (i == cursor)
+            {
+                snprintf(buf, sizeof(buf), "> %s: %.4f  [+/-: %.3f] moves:%d",
+                         gains[i].name,
+                         *gains[i].value,
+                         gains[i].increment,
+                         move_count);
+                lv_obj_set_style_text_color(config_labels_[i], lv_color_hex(0xFFFF00), 0);
+            }
+            else
+            {
+                snprintf(buf, sizeof(buf), "  %s: %.4f",
+                         gains[i].name,
+                         *gains[i].value);
+                lv_obj_set_style_text_color(config_labels_[i], lv_color_white(), 0);
+            }
+            lv_label_set_text(config_labels_[i], buf);
+        }
+    }
 
 } // namespace abclib
