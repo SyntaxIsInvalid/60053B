@@ -36,9 +36,9 @@ namespace abclib::robot_config
 
     inline constexpr CalibrationData sysid_data = {
         .drivetrain = {
-            .kS = 0.535278,
-            .kV = 0.158462,
-            .kA = 0.012848}};
+            .kS = 1.210296,
+            .kV = 0.154356,
+            .kA = 0}};
 
     // Motor ports
     inline const std::vector<int8_t> LEFT_MOTOR_PORTS = {-11, -13, 12};
@@ -139,7 +139,7 @@ namespace abclib::robot_config
             .lateral_pid = {
                 .kP = 0.6,
                 .kI = 0,
-                .kD = 0, // ← No derivative term
+                .kD = 0,
                 .integral = {
                     .max = control::calculate_max_integral_for_voltage(
                         units::Voltage::from_volts(12.0),
@@ -147,7 +147,7 @@ namespace abclib::robot_config
 
             // Angular PID - has derivative, enable filtering
             .angular_pid = {.kP = 23, .kI = 0,
-                            .kD = 2, // ← Has derivative, IMU is noisy
+                            .kD = 2, 
                             .integral = {.max = control::calculate_max_integral_for_voltage(units::Voltage::from_volts(12.0), 50)}},
 
             // Filter configurations
@@ -160,9 +160,9 @@ namespace abclib::robot_config
             .profiled_turn_pid = {25, 0.0, 0.0},
             .profiled_lateral_pid = {2.0, 0.0, 0.0},
 
-            .turn_in_place_kS = 1.278592,
-            .turn_in_place_kV = 0.170242,
-            .turn_in_place_kA = 0.012877,
+            .turn_in_place_kS = 1.666580,
+            .turn_in_place_kV = 0.147507,
+            .turn_in_place_kA = 0,
             .lateral_kS = sysid_data.drivetrain.kS,
             .lateral_kV = sysid_data.drivetrain.kV,
             .lateral_kA = sysid_data.drivetrain.kA,
