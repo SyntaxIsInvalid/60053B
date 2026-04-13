@@ -11,7 +11,8 @@ namespace abclib::estimation
     enum class FilterType
     {
         GEOMETRIC,
-        BLENDED_GEOMETRIC
+        BLENDED_GEOMETRIC,
+        PARTICLE_FILTER
     };
 
     struct DistanceSensorConfig
@@ -152,6 +153,26 @@ namespace abclib::estimation
         BlendMode blend_mode = BlendMode::KALMAN;
     };
 
+    struct ParticleFilterConfig
+    {
+        // Particle settings
+        size_t num_particles = 2000;
+        float initial_spread = 2.0f; // inches, radius around init position
+
+        // Predict step
+        float odometry_noise_scale = 0.25f; // fraction of hypot(dx,dy)
+
+        // Sensor filtering - simple threshold for now
+        float sensor_tolerance = 3.0f; // inches, max allowed innovation
+
+        // Extensibility hooks for later
+        bool use_mahalanobis = false;
+        float mahalanobis_threshold = 3.0f;
+
+        // Debug
+        bool keep_presample_arrays = true; // for SD card logging
+    };
+
     struct EstimatorConfig
     {
         FilterType type = FilterType::GEOMETRIC;
@@ -165,5 +186,6 @@ namespace abclib::estimation
 
         // Blending-specific parameters (only used when type == BLENDED_GEOMETRIC)
         BlendingConfig blending;
+        ParticleFilterConfig particle_filter;
     };
 }

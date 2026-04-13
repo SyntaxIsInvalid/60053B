@@ -41,14 +41,27 @@ namespace abclib::robot_config
             .kA = 0.012848}};
 
     // Motor ports
-    inline const std::vector<int8_t> LEFT_MOTOR_PORTS = {-10, 4};
-    inline const std::vector<int8_t> RIGHT_MOTOR_PORTS = {6, -11};
+    inline const std::vector<int8_t> LEFT_MOTOR_PORTS = {-11, -13, 12};
+    inline const std::vector<int8_t> RIGHT_MOTOR_PORTS = {19, 20, -16};
+    inline const std::vector<int8_t> TOP_INTAKE_PORTS = {-1};
+    inline const std::vector<int8_t> BOTTOM_INTAKE_PORTS = {-10};
 
     // Sensor ports
-    constexpr int8_t IMU_PORT = 8;
-    constexpr int8_t Y_ROTATION_PORT = -13;
+    constexpr int8_t IMU_PORT = 17;
+    constexpr int8_t Y_ROTATION_PORT = -18;
     constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 16;
     constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 14;
+
+    constexpr char MATCH_LOAD_RAMP_PORT = 'G';
+    constexpr char HOOD_PORT = 'H';
+    constexpr char WING_PORT = 'F';
+    constexpr char MID_GOAL_RETRACT_PORT = 'E';
+
+    // Intake voltages
+    inline constexpr units::Voltage TOP_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
+    inline constexpr units::Voltage TOP_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
+    inline constexpr units::Voltage BOTTOM_INTAKE_VOLTAGE = units::Voltage::from_volts(12.0);
+    inline constexpr units::Voltage BOTTOM_OUTTAKE_VOLTAGE = units::Voltage::from_volts(-12.0);
 
     // Physical dimensions
     inline constexpr units::Length WHEEL_DIAMETER = units::Length::from_inches(3.25);
@@ -71,13 +84,13 @@ namespace abclib::robot_config
              .offset_forward = units::Length::from_inches(3),
              .offset_lateral = units::Length::from_inches(0.0),
              .bearing = units::Angle::from_degrees(0),
-             .blend_factor = 0.2,  // Fallback if Kalman disabled
+             .blend_factor = 0.2, // Fallback if Kalman disabled
              .enabled = false},
             {.sensor = nullptr,
              .offset_forward = units::Length::from_inches(-5),
              .offset_lateral = units::Length::from_inches(0.0),
              .bearing = units::Angle::from_degrees(180),
-             .blend_factor = 0.2,  // Fallback if Kalman disabled
+             .blend_factor = 0.2, // Fallback if Kalman disabled
              .enabled = false}};
     }
 
@@ -171,21 +184,27 @@ namespace abclib::robot_config
             units::Length::from_inches(48));
 
         // Process noise configuration
-        config.blending.process_noise.position_noise = units::Length::from_mm(20.0);         // Base drift: 10mm per update (100Hz)
-        config.blending.process_noise.heading_noise = units::Angle::from_degrees(0.57);      // ~0.01 rad per update
-        config.blending.process_noise.velocity_noise_scale_factor = 0.5;                     // +50% noise per m/s of speed
-        config.blending.process_noise.initial_position_uncertainty = units::Length::from_mm(20.0);  // 20mm startup uncertainty
+        config.blending.process_noise.position_noise = units::Length::from_mm(20.0);                 // Base drift: 10mm per update (100Hz)
+        config.blending.process_noise.heading_noise = units::Angle::from_degrees(0.57);              // ~0.01 rad per update
+        config.blending.process_noise.velocity_noise_scale_factor = 0.5;                             // +50% noise per m/s of speed
+        config.blending.process_noise.initial_position_uncertainty = units::Length::from_mm(20.0);   // 20mm startup uncertainty
         config.blending.process_noise.initial_heading_uncertainty = units::Angle::from_degrees(2.0); // 2° startup uncertainty
 
         // Blending configuration
         config.blending.enable_blending = true;
-        config.blending.blend_mode = estimation::BlendingConfig::BlendMode::KALMAN;  // Enable 1D Kalman gain
+        config.blending.blend_mode = estimation::BlendingConfig::BlendMode::KALMAN; // Enable 1D Kalman gain
         config.blending.require_stationary = false;
         config.blending.max_blend_velocity = units::Velocity::from_ips(8.0);
         config.blending.max_expected_error = units::Length::from_inches(3.0);
         config.blending.max_sensor_reading = units::Length::from_mm(2100.0);
         config.blending.outlier_mode = estimation::BlendingConfig::OutlierRejectionMode::MAHALANOBIS;
         config.blending.mahalanobis_sigma_threshold = 3.0;
+
+        // Tune these for your robot
+        config.particle_filter.num_particles = 2000;
+        config.particle_filter.initial_spread = 2.0f;
+        config.particle_filter.odometry_noise_scale = 0.25f;
+        config.particle_filter.sensor_tolerance = 3.0f;
 
         return config;
     }

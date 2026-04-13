@@ -1,6 +1,7 @@
 #include "abclib/estimation/estimator_factory.hpp"
 #include "abclib/estimation/geometric_odometry_estimator.hpp"
 #include "abclib/estimation/blended_geometric_estimator.hpp"
+#include "abclib/estimation/particle_filter_estimator.hpp"
 #include "abclib/measurement/distance_measurement_model.hpp"
 #include "abclib/configs/robot_selection.hpp"
 #include <algorithm>
@@ -22,16 +23,11 @@ namespace abclib::estimation
         IMeasurementModel<units::Length> *horizontal_model,
         IMeasurementModel<units::Angle> *imu_model)
     {
-        // Common sensor array setup (used by both Geometric and Blended)
         auto build_sensor_array = [&]() -> std::vector<DistanceSensorConfig>
         {
-            // Get hardware sensors from robot config
             auto hardware_sensors = robot_config::get_distance_sensors();
-
-            // Get sensor configurations (geometry only, no hardware yet)
             auto sensor_configs = robot_config::get_distance_sensor_configs();
 
-            // Wire hardware sensors into configs (up to N sensors)
             size_t num_sensors = std::min(hardware_sensors.size(), sensor_configs.size());
             for (size_t i = 0; i < num_sensors; i++)
             {
@@ -49,7 +45,6 @@ namespace abclib::estimation
         case FilterType::GEOMETRIC:
         {
             auto sensor_configs = build_sensor_array();
-
             return std::make_unique<GeometricOdometryEstimator>(
                 vertical_model,
                 horizontal_model,
@@ -63,20 +58,28 @@ namespace abclib::estimation
         case FilterType::BLENDED_GEOMETRIC:
         {
             auto sensor_configs = build_sensor_array();
-
             return std::make_unique<BlendedGeometricEstimator>(
                 vertical_model,
                 horizontal_model,
                 imu_model,
                 sensor_configs,
-                config);  // Pass full config (includes blending, process noise, etc.)
+                config);
+        }
+
+        case FilterType::PARTICLE_FILTER:  // add this case
+        {
+            auto sensor_configs = build_sensor_array();
+            return std::make_unique<ParticleFilterEstimator>(
+                vertical_model,
+                horizontal_model,
+                imu_model,
+                sensor_configs,
+                config);
         }
 
         default:
         {
-            // Fallback to basic geometric estimator
             auto sensor_configs = build_sensor_array();
-            
             return std::make_unique<GeometricOdometryEstimator>(
                 vertical_model,
                 horizontal_model,

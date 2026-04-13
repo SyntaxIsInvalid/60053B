@@ -32,6 +32,14 @@ namespace abclib::field
             NONE
         };
 
+        struct WallBounds
+        {
+            float north;
+            float south;
+            float east;
+            float west;
+        };
+
         explicit FieldMap(
             const FieldConfig &config = FieldConfig::standard_vex(),
             Alliance alliance = Alliance::BLUE)
@@ -98,5 +106,14 @@ namespace abclib::field
          * @return Wall that ray intersects first, or NONE if no valid intersection
          */
         Wall find_wall_intersection(const math::SE2 &sensor_pose) const;
+
+        WallBounds get_wall_bounds_f32() const
+        {
+            return {
+                static_cast<float>(north_wall()),
+                static_cast<float>(south_wall()),
+                static_cast<float>(east_wall()),
+                static_cast<float>(west_wall())};
+        }
     };
 }

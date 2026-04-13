@@ -190,24 +190,7 @@ void autonomous()
         wing,
         mid_goal_retract};
     // run_selected_auton(robot);
-    hardware::BoomerangConfig config;
-    config.lead_distance = 0.6;                       // no curve yet
-    config.lateral_correction = 0.0;                  // no lateral correction yet
-    config.drive_max = units::Voltage::from_volts(6); // low voltage for safety
-    config.turn_max = units::Voltage::from_volts(4);
-    config.timeout = units::Time::from_seconds(5);
-    config.direction = hardware::BoomerangConfig::Direction::FORWARD;
-    chassis.boomerang_move_to_pose(
-        units::Length::from_inches(24),
-        units::Length::from_inches(24),
-        units::Angle::from_degrees(-90),
-        config,
-        hardware::ChainConfig{
-            .min_voltage = units::Voltage::from_volts(5),
-            .exit_distance = units::Length::from_inches(6),
-            .exit_angle = units::Angle::from_degrees(5)});
-
-    chassis.drive_straight_relative(units::Length::from_inches(18));
+    sysid::measure_ks_kv(leftMotors, rightMotors, true, "ks_kv_test_forward", 5.5, 0.25, 300);
     controller.print(0, 0, "done");
     // chassis.turn_to_heading(180_deg, 5_s);
     //
