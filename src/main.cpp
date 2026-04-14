@@ -94,6 +94,7 @@ ui::ScreenManager screen_manager;
 
 void initialize()
 {
+
     using namespace abclib::auton;
     using namespace abclib::ui;
     register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red, AutonCategory::RED, field::Alliance::RED);
@@ -106,12 +107,14 @@ void initialize()
     selected_auton = AutonRoutine::SKILLS;
     lv_init();
     pros::lcd::initialize();
-    screen_manager.initialize(DefaultScreen::BLENDED);
+    
 
+    screen_manager.initialize(DefaultScreen::BLENDED);
     screen_manager.show_calibration_screen();
     chassis.calibrate([](int progress, const char *status)
                       { screen_manager.update_calibration_progress(progress, status); });
     pros::delay(200);
+
     chassis.set_alliance(field::Alliance::RED);
     chassis.set_pose(0_in, 0_in, 0_deg);
     // chassis.set_pose(70.6_in, 23.11_in, -90_deg);
@@ -210,10 +213,20 @@ void opcontrol()
     {
         pid_tuner.update();
 
+        // Suppress ALL game inputs the moment the base chord is held,
+        // so intake/pneumatics can't fire during chord buildup.
+        bool chord_partial = controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1) &&
+                             controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2) &&
+                             controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1) &&
+                             controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2);
+
         switch (pid_tuner.get_state())
         {
         case sysid::TunerState::INACTIVE:
         {
+            if (chord_partial)
+                break; // silently suppress — user is building the activation chord
+
             int turn = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
             int throttle = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
             chassis.drive(throttle, turn, 1, .65);
@@ -261,7 +274,16 @@ void opcontrol()
 
         case sysid::TunerState::TUNING:
         case sysid::TunerState::TESTING:
-            // tuner owns everything
+// tuner owns everything
+#if HAS_INTAKE
+            top_intake.set_voltage(0_V);
+            bottom_intake.set_idle();
+#endif
+#if HAS_PNEUMATICS
+            mid_goal_retract.retract();
+            hood.retract();
+#endif
+            break;
             break;
         }
 

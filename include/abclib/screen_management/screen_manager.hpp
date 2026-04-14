@@ -48,9 +48,15 @@ namespace abclib::ui
         std::vector<lv_obj_t *> pid_labels;
         std::vector<lv_obj_t *> trajectory_labels;
         std::vector<lv_obj_t *> performance_labels;
-        std::vector<lv_obj_t *> config_labels;
         abclib::sysid::PIDTuner *pid_tuner_ = nullptr;
-        std::vector<lv_obj_t *> config_labels_;
+        struct ConfigTabLabels
+        {
+            lv_obj_t *header;
+            lv_obj_t *lat_prefix;
+            lv_obj_t *ang_prefix;
+            lv_obj_t *lat_values[3]; // kP, kI, kD
+            lv_obj_t *ang_values[3]; // kP, kI, kD
+        } config_tab_;
         // Full-screen image object (container)
         lv_obj_t *image_obj;
 

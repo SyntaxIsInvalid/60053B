@@ -677,19 +677,39 @@ namespace abclib::ui
 
     void ScreenManager::create_config_tab()
     {
-        lv_obj_t *title = lv_label_create(tab_config);
-        lv_label_set_text(title, "PID Tuner");
-        lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
-        lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+        // Header
+        config_tab_.header = lv_label_create(tab_config);
+        lv_label_set_text(config_tab_.header, "PID Tuner");
+        lv_obj_set_style_text_font(config_tab_.header, &lv_font_montserrat_20, 0);
+        lv_obj_align(config_tab_.header, LV_ALIGN_TOP_MID, 0, 10);
 
-        for (int i = 0; i < 6; i++)
+        // LAT prefix
+        config_tab_.lat_prefix = lv_label_create(tab_config);
+        lv_label_set_text(config_tab_.lat_prefix, "LAT  [");
+        lv_obj_align(config_tab_.lat_prefix, LV_ALIGN_TOP_LEFT, 10, 50);
+
+        // LAT values — positioned inline after prefix
+        // rough pixel offsets: prefix ~60px, each value ~80px
+        for (int i = 0; i < 3; i++)
         {
-            lv_obj_t *label = lv_label_create(tab_config);
-            lv_label_set_text(label, "---");
-            lv_obj_align(label, LV_ALIGN_TOP_LEFT, 10, 50 + i * 30);
-            lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
-            lv_obj_set_width(label, 450);
-            config_labels_.push_back(label);
+            config_tab_.lat_values[i] = lv_label_create(tab_config);
+            lv_label_set_text(config_tab_.lat_values[i], "0.0000");
+            lv_obj_set_style_text_color(config_tab_.lat_values[i], lv_color_white(), 0);
+            lv_obj_align(config_tab_.lat_prefix, LV_ALIGN_TOP_LEFT, 70 + i * 85, 50);
+        }
+
+        // ANG prefix
+        config_tab_.ang_prefix = lv_label_create(tab_config);
+        lv_label_set_text(config_tab_.ang_prefix, "ANG  [");
+        lv_obj_align(config_tab_.ang_prefix, LV_ALIGN_TOP_LEFT, 10, 90);
+
+        // ANG values
+        for (int i = 0; i < 3; i++)
+        {
+            config_tab_.ang_values[i] = lv_label_create(tab_config);
+            lv_label_set_text(config_tab_.ang_values[i], "0.0000");
+            lv_obj_set_style_text_color(config_tab_.ang_values[i], lv_color_white(), 0);
+            lv_obj_align(config_tab_.ang_prefix, LV_ALIGN_TOP_LEFT, 70 + i * 85, 90);
         }
     }
 
@@ -894,7 +914,7 @@ namespace abclib::ui
     void ScreenManager::update_performance_tab(const telemetry::TelemetryData &data) {}
     void ScreenManager::update_config_tab(const telemetry::TelemetryData &data)
     {
-        if (!pid_tuner_ || config_labels_.size() < 6)
+        if (!pid_tuner_)
             return;
 
         const auto &gains = pid_tuner_->get_gains();
@@ -902,26 +922,46 @@ namespace abclib::ui
         int move_count = pid_tuner_->get_move_count();
         sysid::TunerState state = pid_tuner_->get_state();
 
-        for (int i = 0; i < static_cast<int>(gains.size()) && i < 6; i++)
+        // Header
+        if (state == sysid::TunerState::INACTIVE)
         {
-            char buf[64];
-            if (i == cursor)
-            {
-                snprintf(buf, sizeof(buf), "> %s: %.4f  [+/-: %.3f] moves:%d",
-                         gains[i].name,
-                         *gains[i].value,
-                         gains[i].increment,
-                         move_count);
-                lv_obj_set_style_text_color(config_labels_[i], lv_color_hex(0xFFFF00), 0);
-            }
-            else
-            {
-                snprintf(buf, sizeof(buf), "  %s: %.4f",
-                         gains[i].name,
-                         *gains[i].value);
-                lv_obj_set_style_text_color(config_labels_[i], lv_color_white(), 0);
-            }
-            lv_label_set_text(config_labels_[i], buf);
+            lv_label_set_text(config_tab_.header, "PID Tuner");
+        }
+        else
+        {
+            char header[32];
+            snprintf(header, sizeof(header), "PID Tuner  moves: %d", move_count);
+            lv_label_set_text(config_tab_.header, header);
+        }
+
+        bool highlight = (state == sysid::TunerState::TUNING);
+
+        // LAT values (gains 0-2)
+        for (int i = 0; i < 3; i++)
+        {
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.4f", *gains[i].value);
+            lv_label_set_text(config_tab_.lat_values[i], buf);
+
+            bool selected = highlight && (cursor == i);
+            lv_obj_set_style_text_color(
+                config_tab_.lat_values[i],
+                selected ? lv_color_hex(0xFFFF00) : lv_color_white(),
+                0);
+        }
+
+        // ANG values (gains 3-5)
+        for (int i = 0; i < 3; i++)
+        {
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.4f", *gains[i + 3].value);
+            lv_label_set_text(config_tab_.ang_values[i], buf);
+
+            bool selected = highlight && (cursor == i + 3);
+            lv_obj_set_style_text_color(
+                config_tab_.ang_values[i],
+                selected ? lv_color_hex(0xFFFF00) : lv_color_white(),
+                0);
         }
     }
 
