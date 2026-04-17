@@ -44,6 +44,11 @@ namespace abclib::ui
         lv_tabview_set_active(tabview, current_screen_index, LV_ANIM_OFF);
         update_current_screen_label();
         update_navigation_buttons();
+        lv_obj_add_event_cb(tabview, [](lv_event_t *e)
+                            {
+    ScreenManager* manager = (ScreenManager*)lv_event_get_user_data(e);
+    const auto& data = abclib::telemetry::g_telemetry.get_read_buffer();
+    manager->update_telemetry(data); }, LV_EVENT_REFRESH, this);
     }
 
     void ScreenManager::create_navigation_bar()

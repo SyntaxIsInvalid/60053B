@@ -48,9 +48,9 @@ namespace abclib::robot_config
 
     // Sensor ports
     constexpr int8_t IMU_PORT = 17;
-    constexpr int8_t Y_ROTATION_PORT = -18;
+    constexpr int8_t Y_ROTATION_PORT = 14;
     constexpr int8_t FRONT_DISTANCE_SENSOR_PORT = 16;
-    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 14;
+    constexpr int8_t BACK_DISTANCE_SENSOR_PORT = 18;
 
     constexpr char MATCH_LOAD_RAMP_PORT = 'G';
     constexpr char HOOD_PORT = 'H';

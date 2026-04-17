@@ -154,6 +154,7 @@ namespace abclib::ui
         void update_calibration_progress(int percentage, const char *status);
         void hide_calibration_screen();
         void set_pid_tuner(abclib::sysid::PIDTuner *tuner) { pid_tuner_ = tuner; }
+        void trigger_refresh() { lv_obj_send_event(tabview, LV_EVENT_REFRESH, nullptr); }
     };
 
 } // namespace abclib

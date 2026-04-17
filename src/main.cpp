@@ -94,7 +94,6 @@ ui::ScreenManager screen_manager;
 
 void initialize()
 {
-
     using namespace abclib::auton;
     using namespace abclib::ui;
     register_auton(AutonRoutine::SOLO_AWP_RED, solo_awp_red, AutonCategory::RED, field::Alliance::RED);
@@ -105,11 +104,11 @@ void initialize()
     register_auton(AutonRoutine::RED_RIGHT, red_right, AutonCategory::RED, field::Alliance::RED);
     register_auton(AutonRoutine::SKILLS, skills, AutonCategory::SKILLS, field::Alliance::RED);
     selected_auton = AutonRoutine::SKILLS;
+
     lv_init();
     pros::lcd::initialize();
-    
-
     screen_manager.initialize(DefaultScreen::BLENDED);
+
     screen_manager.show_calibration_screen();
     chassis.calibrate([](int progress, const char *status)
                       { screen_manager.update_calibration_progress(progress, status); });
@@ -117,42 +116,32 @@ void initialize()
 
     chassis.set_alliance(field::Alliance::RED);
     chassis.set_pose(0_in, 0_in, 0_deg);
-    // chassis.set_pose(70.6_in, 23.11_in, -90_deg);
-    // chassis.set_pose(53_in, 137.75_in, 90_deg);
     screen_manager.hide_calibration_screen();
+
 #if HAS_PNEUMATICS
     match_load_ramp.retract();
     hood.retract();
     wing.retract();
 #endif
+
+    // Only writes data and triggers refresh — no direct LVGL calls
     pros::Task screen_task([&]()
                            {
-    while (1) {
-        // Update telemetry data in write buffer
-        auto& write_buf = abclib::telemetry::g_telemetry.get_write_buffer();
-        
-        // Battery info
-        write_buf.battery_voltage = units::Voltage::from_millivolts(
-            pros::battery::get_voltage()
-        );
-        write_buf.battery_capacity_percent = pros::battery::get_capacity();
-        
-        // Get both poses from chassis
-        write_buf.pose_corner = chassis.get_pose_alliance_corner();
-        
-        // Get current alliance
-        write_buf.current_alliance = chassis.get_alliance();
-        write_buf.data_valid = true;
+        while (1) {
+            auto& write_buf = abclib::telemetry::g_telemetry.get_write_buffer();
+            
+            write_buf.battery_voltage = units::Voltage::from_millivolts(
+                pros::battery::get_voltage());
+            write_buf.battery_capacity_percent = pros::battery::get_capacity();
+            write_buf.pose_corner = chassis.get_pose_alliance_corner();
+            write_buf.current_alliance = chassis.get_alliance();
+            write_buf.data_valid = true;
 
-        abclib::telemetry::g_telemetry.swap();
-        
-        // Update screen with read buffer
-        const abclib::telemetry::TelemetryData& data = 
-            abclib::telemetry::g_telemetry.get_read_buffer();
-        screen_manager.update_telemetry(data);
-        
-        pros::delay(100);
-    } });
+            abclib::telemetry::g_telemetry.swap();
+            screen_manager.trigger_refresh();
+            
+            pros::delay(100);
+        } });
 }
 
 /**
